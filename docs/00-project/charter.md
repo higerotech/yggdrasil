@@ -57,6 +57,8 @@ mindmap
 ## Métricas de éxito del proyecto
 - Detección de caída de un ISP en < 2 min con notificación al móvil.
 - Evidencia histórica exportable para reclamos al proveedor (≥ 30 días de retención).
+- Media de disponibilidad mensual de internet del hogar (≥ 1 WAN operativa) y por ISP, calculada automáticamente.
+- Cada ISP sostiene p95 < 500 ms y throughput ≥ 800 Mbps (80 % del nominal); p95 < 200 ms como referencia para llamadas críticas.
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
