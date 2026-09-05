@@ -10,17 +10,16 @@ Documentación bajo metodología AI-DLC.
 
 | Fase | Artefactos | Gate | Estado |
 |---|---|---|---|
-| 00-project | charter, glosario, clasificación de datos, convención de nombres | — | draft (naming: approved) |
-| 01-requirements | PRD F-001 Heimdall | Gate 0 | review — validación humana pendiente |
+| 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
+| 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0003 | Gate 1 | review — validación humana pendiente |
 
-Decisiones ya tomadas (2026-09-05): umbral SLO de pérdida del 1 % en 5 min; latencia p95 < 500 ms
-para servicios estándar y < 200 ms como referencia para llamadas críticas; throughput ≥ 800 Mbps por
-WAN (80 % del nominal); percentiles p90, p95 y p99 registrados por WAN; disponibilidad mensual por
-ISP y del hogar como objetivo del sondeo. Pendiente para cerrar Gate 0: confirmar los hosts de sondeo
-por defecto y la aprobación del owner. Pendiente para Gate 1: aceptar ADR-0001 y ADR-0003 y confirmar
-el presupuesto de RAM con Frigate futuro. Al aprobar cada gate se corta la versión correspondiente en
-`CHANGELOG.md` (Gate 0 → 0.1.0, Gate 1 → 0.2.0).
+Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
+5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
+críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
+disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
+`https://www.gstatic.com/generate_204`. Pendiente para Gate 1: aceptar ADR-0001 y ADR-0003 y
+confirmar el presupuesto de RAM con Frigate futuro; al aprobarlo se corta `0.2.0`.
 
 ## Mapa del repo
 

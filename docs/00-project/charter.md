@@ -1,6 +1,6 @@
 # Project Charter — Yggdrasil
 
-* **Estado:** draft
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi (owner)
 * **Fase AI-DLC:** 00-project
