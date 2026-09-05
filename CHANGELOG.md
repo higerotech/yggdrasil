@@ -19,6 +19,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - `architecture.md` con C4 Container, sequence, state, ER, class y contratos de métricas/MQTT (fase 02, hacia Gate 1).
 - `threat-model.md` STRIDE + DREAD del servicio de monitoreo SLA.
 - ADR-0001 (stack de métricas, proposed), ADR-0002 (placement en appliance local), ADR-0003 (network_mode host para sondas).
+- `LICENSE` con la GNU Affero General Public License v3.0 (`AGPL-3.0`); referencia en README y charter.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
 > Nota: Gate 0 y Gate 1 quedan pendientes de validación humana; al aprobarlos, cortar 0.1.0 y 0.2.0.

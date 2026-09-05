@@ -27,6 +27,7 @@ de RAM con Frigate futuro (Gate 1). Al aprobar cada gate se corta la versión co
 - `docs/gates/` — checklists de los Gates 0 y 1
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main`
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
+- `LICENSE` — GNU Affero General Public License v3.0
 
 ## Nombres de los servicios
 
@@ -94,3 +95,9 @@ Según ADR-0002, todo el stack corre en el appliance con Docker Compose y GitHub
 a lint y validación de configuraciones; no hay pipeline push hacia la red doméstica. El despliegue
 es un `git pull` seguido de `docker compose up -d` mediante un script idempotente, cuando existan
 los artefactos en `deploy/`.
+
+## Licencia
+
+Este proyecto se distribuye bajo la **GNU Affero General Public License v3.0** (`AGPL-3.0`); el
+texto completo está en `LICENSE`. Si despliegas una versión modificada que otros usen a través de
+la red, la AGPL obliga a ofrecerles el código fuente correspondiente.
