@@ -1,0 +1,7 @@
+# Los artefactos van a un appliance Linux: normaliza a LF aunque se edite en Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary

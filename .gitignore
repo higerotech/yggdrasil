@@ -1,0 +1,31 @@
+# Secretos y configuración local: nunca al repo (repo público)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+**/passwd
+**/secrets/
+
+# Datos de contenedores (volúmenes locales de Prometheus, Grafana, Mosquitto, Node-RED)
+deploy/**/data/
+**/volumes/
+
+# Sistema operativo y OneDrive
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+*.tmp
+
+# Editores
+.vscode/
+.idea/
+*.swp
+
+# Herramientas locales
+.claude/settings.local.json
+__pycache__/
+.venv/
+node_modules/
+*.log
