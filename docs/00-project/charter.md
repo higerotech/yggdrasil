@@ -8,6 +8,7 @@
 * **Sponsor:** Jeremi
 * **Owner del proyecto:** Jeremi
 * **Nombre confirmado:** Yggdrasil (slug `yggdrasil`)
+* **Licencia:** GNU AGPL v3.0 (`AGPL-3.0`), decidida el 2026-09-05
 
 ## Visión
 Plataforma demo de IoT y domótica sobre el appliance doméstico (Ubuntu Server 24.04, Mini-ITX en pared) que monitorea los servicios de la casa; el primer servicio es el control de niveles de servicio (SLA) de los dos proveedores de internet.
