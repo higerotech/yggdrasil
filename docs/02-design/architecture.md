@@ -48,9 +48,10 @@ C4Container
 Notas de diseño clave:
 - **Medición independiente por WAN**: blackbox_exporter define dos módulos ICMP/HTTP con `source_ip_address` = IP de `wan1` y `wan2`; exige `network_mode: host` (ADR-0003) para ver las interfaces reales y no chocar con el NAT de Docker.
 - **Quórum de objetivos** (RF01, anti falso-negativo): cada WAN sondea 1.1.1.1, 8.8.8.8 y un endpoint HTTP; la regla de caída exige fallo simultáneo de ≥ 2 objetivos.
-- **Umbrales SLO y percentiles** (RF03, RF07): la pérdida > 1 % sostenida 5 min lleva el enlace a Degradado (umbral confirmado el 2026-09-05). La latencia se registra como p90, p95 y p99 por WAN mediante recording rules con `quantile_over_time` sobre `probe_duration_seconds` en ventana de 5 min, porque blackbox_exporter expone un gauge por sonda y no un histograma; p95 es la referencia de SLO (umbral pendiente) y p90/p99 son series de seguimiento comparativo entre ISP.
-- **Throughput** (RF02): iperf3/speedtest cada 6 h alternando WAN, con `--source` de la interfaz correspondiente; resultado a textfile collector. El techo medible lo impone la cadena VL805/UE300 — se documenta en el dashboard.
-- **Estado → MQTT** (RF05): Node-RED transforma el webhook de Alertmanager en `midgard/wan/<id>/estado` (retained) y en notificación push; la domótica queda desacoplada del stack de métricas.
+- **Umbrales SLO y percentiles** (RF03, RF07, RF09): la pérdida > 1 % o el p95 > 500 ms sostenidos 5 min llevan el enlace a Degradado; el p95 > 200 ms solo apaga el indicador `apto_llamadas` (alerta info) sin cambiar el estado, porque una WAN válida para navegar puede no servir para llamadas. La latencia se registra como p90, p95 y p99 por WAN mediante recording rules con `quantile_over_time` sobre `probe_duration_seconds` en ventana de 5 min, porque blackbox_exporter expone un gauge por sonda y no un histograma; p90/p99 son series de seguimiento comparativo entre ISP. El throughput se evalúa contra 800 Mbps (80 % del nominal) y alerta tras dos mediciones consecutivas por debajo; la alerta queda inhibida hasta calibrar el techo de medición (Gate 3). Umbrales confirmados por el owner el 2026-09-05.
+- **Disponibilidad mensual** (RF08): `wan:up` vale 1 cuando el quórum de sondas responde y `hogar:up = max(wan:up)`. La disponibilidad es `avg_over_time` sobre 30 días por WAN y del hogar, materializada como recording rule para que el dashboard y el reporte mensual no dependan de consultas pesadas sobre 30 días de muestras.
+- **Throughput** (RF02, RF09): iperf3 (preferido por su menor coste de CPU en el i3-3240) o speedtest cada 6 h alternando WAN, con `--source` de la interfaz correspondiente; resultado a textfile collector. El techo medible lo impone la cadena VL805/UE300 y se calibra en Gate 3; se documenta en el dashboard junto al SLO de 800 Mbps.
+- **Estado → MQTT** (RF05): Node-RED transforma el webhook de Alertmanager en `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado` (retained) y en notificación push; la domótica queda desacoplada del stack de métricas.
 
 ## Flujos críticos (comportamiento)
 ```mermaid
@@ -79,7 +80,7 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> Saludable
-    Saludable --> Degradado: perdida > 1% o p95 > umbral (5 min)
+    Saludable --> Degradado: perdida > 1% o p95 > 500 ms (5 min)
     Saludable --> Caido: quorum de sondas falla (2 min)
     Degradado --> Caido: quorum de sondas falla (2 min)
     Degradado --> Saludable: SLI en rango (5 min)
@@ -88,6 +89,8 @@ stateDiagram-v2
     Recuperando --> Caido: recae
 ```
 *Eje comportamiento · fase 02 · evidencia Gate 1.*
+
+El indicador `apto_llamadas` (p95 < 200 ms y pérdida < 1 %) es ortogonal al estado del enlace: se publica aparte y no añade estados a la máquina.
 
 ## Modelo de datos y dominio
 ```mermaid
@@ -129,12 +132,27 @@ Métricas (contrato Prometheus):
 | `wan:latencia_p90:5m` (recording) | `wan` | p90 de latencia en 5 min, seguimiento |
 | `wan:latencia_p95:5m` (recording) | `wan` | p95 de latencia en 5 min, referencia de SLO |
 | `wan:latencia_p99:5m` (recording) | `wan` | p99 de latencia en 5 min, seguimiento |
-| `wan_throughput_mbps` | `wan`, `direccion` | Resultado periódico de throughput |
+| `wan:apto_llamadas` (recording) | `wan` | 1 si p95 < 200 ms y pérdida < 1 % en 5 min |
+| `wan:up` (recording) | `wan` | 1 si el quórum de sondas responde, 0 si no; base de la disponibilidad |
+| `hogar:up` (recording) | — | `max(wan:up)`: 1 si al menos una WAN está operativa |
+| `wan:disponibilidad:30d` (recording) | `wan` | `avg_over_time` de `wan:up` en 30 días, disponibilidad mensual por ISP |
+| `hogar:disponibilidad:30d` (recording) | — | Disponibilidad mensual de internet del hogar |
+| `wan_throughput_mbps` | `wan`, `direccion` | Resultado periódico de throughput; SLO ≥ 800 Mbps (RF09) |
+
+Alertas (contrato Alertmanager → Node-RED):
+| Alerta | Severidad | Condición | Efecto |
+|---|---|---|---|
+| `WanCaida` | critical | quórum de sondas falla durante 2 min | estado `caido`, push |
+| `WanDegradada` | warning | pérdida > 1 % o p95 > 500 ms durante 5 min | estado `degradado`, push |
+| `WanNoAptaLlamadas` | info | p95 > 200 ms durante 5 min | `apto_llamadas = no`, sin push |
+| `WanThroughputBajo` | warning | 2 mediciones consecutivas < 800 Mbps | push; inhibida hasta calibrar el techo de medición |
 
 Eventos (contrato AsyncAPI/MQTT):
 | Tópico | Payload | QoS/Retained |
 |---|---|---|
 | `midgard/wan/<id>/estado` | `saludable\|degradado\|caido\|recuperando` | QoS1, retained |
+| `midgard/wan/<id>/apto_llamadas` | `si\|no` | QoS1, retained |
+| `midgard/hogar/internet/estado` | `ok\|degradado\|caido` (ok: alguna WAN saludable; caido: ambas caídas) | QoS1, retained |
 | `midgard/wan/<id>/alerta` | JSON `{severidad, desde, detalle}` | QoS1 |
 
 ## Patrones de seguridad seleccionados (por amenaza DREAD priorizada)
