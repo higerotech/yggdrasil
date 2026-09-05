@@ -1,6 +1,6 @@
 # PRD — Monitor SLA de Internet (dual ISP)
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 01-requirements
@@ -108,14 +108,14 @@ journey
 | Throughput | ≥ 800 Mbps por WAN (80 % del nominal de 1 Gbps) | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición por calibrar (Gate 3) |
 | Disponibilidad mensual | Sin umbral de alerta; indicador por ISP y del hogar (≥ 1 WAN operativa) | 30 d | Reporte mensual y dashboard | Confirmado el 2026-09-05 |
 
-### Hosts de sondeo (propuesta por defecto)
+### Hosts de sondeo
 | Host | Sonda | Motivo |
 |---|---|---|
 | `1.1.1.1` | ICMP | Anycast de Cloudflare, estable y cercano |
 | `8.8.8.8` | ICMP | Anycast de Google, operador distinto al anterior |
 | `https://www.gstatic.com/generate_204` | HTTPS (espera 204) | Verifica DNS y TLS de extremo a extremo, no solo ICMP |
 
-El owner no ha indicado hosts distintos; estos quedan como valor por defecto hasta que Gate 0 los confirme. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
+Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
 
 ## Trazabilidad de requisitos
 ```mermaid

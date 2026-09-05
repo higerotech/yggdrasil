@@ -1,6 +1,6 @@
 # Glosario / Lenguaje Ubicuo (DDD)
 
-* **Estado:** draft
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 00-project
@@ -17,6 +17,6 @@
 | Apto para llamadas | Indicador por WAN: `si` cuando p95 < 200 ms y pérdida < 1 % en 5 min; no altera el estado del enlace | Observabilidad SLA |
 | Disponibilidad mensual | Fracción del tiempo, en ventana de 30 días, en que una WAN no estuvo Caída; la del hogar cuenta el tiempo con al menos una WAN operativa | Observabilidad SLA |
 | Techo de medición | Throughput máximo que la cadena USB 3.0 (VL805/UE300) y el host pueden medir; límite del instrumento, no del ISP | Observabilidad SLA |
-| Objetivo de sondeo | Host externo estable contra el que se mide (por defecto 1.1.1.1, 8.8.8.8 y `https://www.gstatic.com/generate_204`) | Observabilidad SLA |
+| Objetivo de sondeo | Host externo estable contra el que se mide: 1.1.1.1, 8.8.8.8 y `https://www.gstatic.com/generate_204` (confirmados en Gate 0) | Observabilidad SLA |
 | Alerta | Evento generado al violar un SLO, ruteado a notificación y publicado en `midgard/wan/<id>/alerta` | Observabilidad SLA |
 | Tópico de estado | Tópicos MQTT retained `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado` que reflejan el estado de cada enlace y del hogar | Domótica/Eventos |
