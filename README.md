@@ -14,10 +14,11 @@ Documentación bajo metodología AI-DLC.
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | review — validación humana pendiente |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0003 | Gate 1 | review — validación humana pendiente |
 
-Pendientes de decisión humana antes de cerrar los gates: umbrales SLO (pérdida 1 %, p95) y
-objetivos de sondeo definitivos (Gate 0); aceptar ADR-0001 y ADR-0003 y confirmar el presupuesto
-de RAM con Frigate futuro (Gate 1). Al aprobar cada gate se corta la versión correspondiente en
-`CHANGELOG.md` (Gate 0 → 0.1.0, Gate 1 → 0.2.0).
+Decisiones ya tomadas: umbral SLO de pérdida del 1 % en 5 min y registro de los percentiles p90,
+p95 y p99 de latencia por WAN para el seguimiento de ambos ISP. Pendientes de decisión humana antes
+de cerrar los gates: umbral de latencia p95 y objetivos de sondeo definitivos (Gate 0); aceptar
+ADR-0001 y ADR-0003 y confirmar el presupuesto de RAM con Frigate futuro (Gate 1). Al aprobar cada
+gate se corta la versión correspondiente en `CHANGELOG.md` (Gate 0 → 0.1.0, Gate 1 → 0.2.0).
 
 ## Mapa del repo
 

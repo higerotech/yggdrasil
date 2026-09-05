@@ -14,7 +14,7 @@ La casa tiene dos ISPs de 1 Gbps con balanceo dual-WAN. Hoy no hay forma objetiv
 
 ## Objetivos / No-objetivos
 - Objetivos:
-  - Medir por cada WAN: latencia (p95), pérdida de paquetes, jitter, disponibilidad y throughput periódico.
+  - Medir por cada WAN: latencia (percentiles p90, p95 y p99), pérdida de paquetes, jitter, disponibilidad y throughput periódico.
   - Alertar en < 2 minutos ante caída total y < 5 minutos ante degradación sostenida.
   - Dashboard comparativo ISP1 vs ISP2 con 30 días de historia.
   - Publicar el estado de cada enlace en MQTT para que la domótica reaccione.
@@ -79,13 +79,23 @@ journey
 |---|---|
 | RF01 | Medir latencia, pérdida y jitter por WAN de forma independiente (source IP por interfaz), cada 15 s, contra ≥ 2 objetivos |
 | RF02 | Medir throughput por WAN de forma periódica (≥ 4 veces/día, alternando) |
-| RF03 | Derivar estado del enlace (Saludable/Degradado/Caído/Recuperando) según SLO |
+| RF03 | Derivar estado del enlace (Saludable/Degradado/Caído/Recuperando) según los umbrales SLO de la tabla siguiente |
 | RF04 | Alertar: caída < 2 min, degradación < 5 min, con notificación push |
 | RF05 | Publicar estado en MQTT `midgard/wan/<id>/estado` (retained) |
 | RF06 | Dashboard comparativo con 30 días de retención |
+| RF07 | Registrar percentiles p90, p95 y p99 de latencia por WAN como series de seguimiento (recording rules, ventana 5 min) comparables entre ISP1 e ISP2 |
 | RNF01 | RAM total del stack ≤ 1.5 GB; CPU media < 10% |
 | RNF02 | Arranque automático tras corte de energía (restart policies) |
 | RS01 | Acceso a dashboards solo autenticado; acceso remoto solo por WireGuard |
+
+### Umbrales SLO
+| SLI | SLO | Ventana | Uso | Estado |
+|---|---|---|---|---|
+| Pérdida de paquetes | < 1 % | 5 min | Alerta warning → estado Degradado | Confirmado por el owner el 2026-09-05 |
+| Disponibilidad (quórum de objetivos) | Fallo simultáneo de ≥ 2 objetivos | 2 min | Alerta critical → estado Caído | Confirmado (RF01) |
+| Latencia p95 | < umbral por definir | 5 min | Alerta warning → estado Degradado | Pendiente (Gate 0) |
+| Latencia p90 y p99 | Sin umbral | 5 min | Solo seguimiento comparativo ISP1 vs ISP2 | Confirmado el 2026-09-05 |
+| Jitter | Sin umbral | 5 min | Solo seguimiento | — |
 
 ## Trazabilidad de requisitos
 ```mermaid
@@ -93,6 +103,12 @@ requirementDiagram
     requirement RF01 {
       id: RF01
       text: Medir SLI por WAN de forma independiente con quorum de objetivos
+      risk: high
+      verifymethod: test
+    }
+    requirement RF03 {
+      id: RF03
+      text: Derivar estado del enlace por SLO con perdida mayor a 1 pct en 5 min
       risk: high
       verifymethod: test
     }
@@ -107,6 +123,12 @@ requirementDiagram
       text: Publicar estado del enlace en MQTT retained
       risk: medium
       verifymethod: test
+    }
+    requirement RF07 {
+      id: RF07
+      text: Registrar percentiles p90 p95 y p99 de latencia por WAN
+      risk: low
+      verifymethod: inspection
     }
     requirement RNF01 {
       id: RNF01
@@ -132,10 +154,15 @@ requirementDiagram
     element Grafana {
       type: "componente"
     }
+    element ReglasSlo {
+      type: "componente"
+    }
     Sondas - satisfies -> RF01
     Alertado - satisfies -> RF04
     PuenteMqtt - satisfies -> RF05
     Grafana - satisfies -> RS01
+    ReglasSlo - satisfies -> RF03
+    ReglasSlo - satisfies -> RF07
 ```
 *Eje trazabilidad · fase 01 · evidencia Gate 0.*
 
@@ -187,6 +214,7 @@ quadrantChart
 ## Métricas de éxito
 - MTTD caída < 2 min; 0 falsos positivos de caída por objetivo único en 30 días.
 - Reporte mensual de disponibilidad por ISP generable desde el dashboard.
+- Percentiles p90, p95 y p99 de latencia por WAN visibles en el dashboard comparativo con 30 días de historia.
 
 ## Dependencias y riesgos
 - Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`), broker MQTT y Node-RED existentes.

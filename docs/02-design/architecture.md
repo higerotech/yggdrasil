@@ -48,6 +48,7 @@ C4Container
 Notas de diseño clave:
 - **Medición independiente por WAN**: blackbox_exporter define dos módulos ICMP/HTTP con `source_ip_address` = IP de `wan1` y `wan2`; exige `network_mode: host` (ADR-0003) para ver las interfaces reales y no chocar con el NAT de Docker.
 - **Quórum de objetivos** (RF01, anti falso-negativo): cada WAN sondea 1.1.1.1, 8.8.8.8 y un endpoint HTTP; la regla de caída exige fallo simultáneo de ≥ 2 objetivos.
+- **Umbrales SLO y percentiles** (RF03, RF07): la pérdida > 1 % sostenida 5 min lleva el enlace a Degradado (umbral confirmado el 2026-09-05). La latencia se registra como p90, p95 y p99 por WAN mediante recording rules con `quantile_over_time` sobre `probe_duration_seconds` en ventana de 5 min, porque blackbox_exporter expone un gauge por sonda y no un histograma; p95 es la referencia de SLO (umbral pendiente) y p90/p99 son series de seguimiento comparativo entre ISP.
 - **Throughput** (RF02): iperf3/speedtest cada 6 h alternando WAN, con `--source` de la interfaz correspondiente; resultado a textfile collector. El techo medible lo impone la cadena VL805/UE300 — se documenta en el dashboard.
 - **Estado → MQTT** (RF05): Node-RED transforma el webhook de Alertmanager en `midgard/wan/<id>/estado` (retained) y en notificación push; la domótica queda desacoplada del stack de métricas.
 
@@ -124,7 +125,10 @@ Métricas (contrato Prometheus):
 |---|---|---|
 | `probe_success` | `wan`, `target`, `module` | 1/0 por sonda |
 | `probe_duration_seconds` | `wan`, `target` | Latencia por sonda |
-| `wan:perdida_pct:5m` (recording) | `wan` | Pérdida agregada por WAN |
+| `wan:perdida_pct:5m` (recording) | `wan` | Pérdida agregada por WAN; SLO < 1 % |
+| `wan:latencia_p90:5m` (recording) | `wan` | p90 de latencia en 5 min, seguimiento |
+| `wan:latencia_p95:5m` (recording) | `wan` | p95 de latencia en 5 min, referencia de SLO |
+| `wan:latencia_p99:5m` (recording) | `wan` | p99 de latencia en 5 min, seguimiento |
 | `wan_throughput_mbps` | `wan`, `direccion` | Resultado periódico de throughput |
 
 Eventos (contrato AsyncAPI/MQTT):
