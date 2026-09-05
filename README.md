@@ -10,14 +10,16 @@ Documentación bajo metodología AI-DLC.
 
 | Fase | Artefactos | Gate | Estado |
 |---|---|---|---|
-| 00-project | charter, glosario, clasificación de datos, convención de nombres | — | draft (naming: approved) |
-| 01-requirements | PRD F-001 Heimdall | Gate 0 | review — validación humana pendiente |
+| 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
+| 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0003 | Gate 1 | review — validación humana pendiente |
 
-Pendientes de decisión humana antes de cerrar los gates: umbrales SLO (pérdida 1 %, p95) y
-objetivos de sondeo definitivos (Gate 0); aceptar ADR-0001 y ADR-0003 y confirmar el presupuesto
-de RAM con Frigate futuro (Gate 1). Al aprobar cada gate se corta la versión correspondiente en
-`CHANGELOG.md` (Gate 0 → 0.1.0, Gate 1 → 0.2.0).
+Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
+5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
+críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
+disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
+`https://www.gstatic.com/generate_204`. Pendiente para Gate 1: aceptar ADR-0001 y ADR-0003 y
+confirmar el presupuesto de RAM con Frigate futuro; al aprobarlo se corta `0.2.0`.
 
 ## Mapa del repo
 
@@ -27,6 +29,7 @@ de RAM con Frigate futuro (Gate 1). Al aprobar cada gate se corta la versión co
 - `docs/gates/` — checklists de los Gates 0 y 1
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main`
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
+- `LICENSE` — GNU Affero General Public License v3.0
 
 ## Nombres de los servicios
 
@@ -94,3 +97,9 @@ Según ADR-0002, todo el stack corre en el appliance con Docker Compose y GitHub
 a lint y validación de configuraciones; no hay pipeline push hacia la red doméstica. El despliegue
 es un `git pull` seguido de `docker compose up -d` mediante un script idempotente, cuando existan
 los artefactos en `deploy/`.
+
+## Licencia
+
+Este proyecto se distribuye bajo la **GNU Affero General Public License v3.0** (`AGPL-3.0`); el
+texto completo está en `LICENSE`. Si despliegas una versión modificada que otros usen a través de
+la red, la AGPL obliga a ofrecerles el código fuente correspondiente.

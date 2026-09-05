@@ -1,6 +1,6 @@
 # Project Charter — Yggdrasil
 
-* **Estado:** draft
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi (owner)
 * **Fase AI-DLC:** 00-project
@@ -8,6 +8,7 @@
 * **Sponsor:** Jeremi
 * **Owner del proyecto:** Jeremi
 * **Nombre confirmado:** Yggdrasil (slug `yggdrasil`)
+* **Licencia:** GNU AGPL v3.0 (`AGPL-3.0`), decidida el 2026-09-05
 
 ## Visión
 Plataforma demo de IoT y domótica sobre el appliance doméstico (Ubuntu Server 24.04, Mini-ITX en pared) que monitorea los servicios de la casa; el primer servicio es el control de niveles de servicio (SLA) de los dos proveedores de internet.
@@ -56,6 +57,8 @@ mindmap
 ## Métricas de éxito del proyecto
 - Detección de caída de un ISP en < 2 min con notificación al móvil.
 - Evidencia histórica exportable para reclamos al proveedor (≥ 30 días de retención).
+- Media de disponibilidad mensual de internet del hogar (≥ 1 WAN operativa) y por ISP, calculada automáticamente.
+- Cada ISP sostiene p95 < 500 ms y throughput ≥ 800 Mbps (80 % del nominal); p95 < 200 ms como referencia para llamadas críticas.
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
