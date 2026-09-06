@@ -15,5 +15,17 @@ móvil. Para actualizar: cambiar el tag, anotar el digest nuevo aquí, escanear 
 
 Dependencia Python de Sleipnir: `speedtest-cli==2.1.3` (PyPI), instalada en la imagen.
 
-Estado del escaneo de vulnerabilidades: pendiente de revisión humana (Gate 2, ítem "cadena de
-suministro"); Trivy reporta CRITICAL/HIGH en CI sin bloquear hasta que se triajen.
+## Escaneo de vulnerabilidades (Trivy 0.66.0, CRITICAL/HIGH, `--ignore-unfixed`)
+
+Primer informe en CI el 2026-09-05 (run `validar-configs`, PR #7); pendiente de triaje humano (Gate 2).
+La mayoría son CVEs de la biblioteca estándar de Go y de paquetes del SO base que el upstream
+aún no ha reempaquetado; el criterio de aceptación se decide en el HITL de Gate 2.
+
+| Imagen | Hallazgos | CRITICAL |
+|---|---|---|
+| `prom/prometheus:v3.5.0` | 45 | 3 |
+| `prom/alertmanager:v0.28.1` | 41 a 43 según objetivo | 2 |
+| `prom/blackbox-exporter:v0.27.0` | 42 | 3 |
+| `grafana/grafana:12.1.1` | 23 (SO alpine 3.22.1), 70 (binario Go), 30 (dependencias) | 2 / 8 / 3 |
+
+Trivy no bloquea el PR (`--exit-code 0`) hasta que exista una política de triaje aceptada.
