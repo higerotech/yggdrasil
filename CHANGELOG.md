@@ -7,9 +7,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 2 (Implementation) listo para la aprobación del owner: artefactos de `deploy/` validados en CI, CVEs triados con re-pineo de imágenes y `docs/03-implementation/` completo. Al aprobarlo, cortar 0.3.0.
+> Gate 3 (Testing) pendiente: despliegue en el appliance, pruebas de aceptación de RF01–RF09, calibración del techo de throughput, prueba de carga de las sondas y cableado del despliegue continuo. Al aprobarlo, cortar 0.4.0.
+
+## [0.3.0] - 2026-09-05
+
+Gate 2 (Implementation) aprobado. Primeros artefactos ejecutables en `deploy/`, validados con las herramientas oficiales en local y en CI; imágenes re-pineadas tras el triaje de CVEs; documentación de la fase 03 con el historial del repo derivado del git log.
 
 ### Añadido
+- Gate 2 (Implementation) aprobado por el owner: `config-baseline.md` y `cadena-suministro.md` en `approved`; política de triaje de CVEs y residual aceptados.
 - `docs/03-implementation/config-baseline.md` (inventario de artefactos y trazabilidad a requisitos, pipeline de render, desviaciones respecto a Gate 1, validación equivalente a SAST, cadena de suministro, secretos y riesgos que entran a Gate 3, con `classDiagram` del traductor de Nornas), `cadena-suministro.md` (triaje de CVEs, residual por imagen, exposición real y política propuesta) y `repo-history.md` generado desde el git log con `scripts/generar-historial.py` (vistas de `main` y `develop`, tabla tag ↔ versión ↔ decisión y bitácora).
 - `scripts/gitgraph_from_log.py` (copiado del skill AI-DLC) y `scripts/generar-historial.py`; escaneo semanal programado de Trivy en `validar-configs.yml`; historial de pines en `deploy/imagenes.md`.
 - `deploy/docker-compose.yml` (Gate 2): Huginn y Muninn (blackbox_exporter v0.27.0, host-mode, `cap_add NET_RAW`), Sleipnir (imagen propia sobre alpine 3.22 pineada por digest), Mimir (Prometheus v3.5.0, retención 30 d), Gjallarhorn (Alertmanager v0.28.1) y Odín (Grafana 12.1.1, único puerto publicado en la IP LAN); `mem_limit` total 1088 MB (RNF01), `restart: unless-stopped` (RNF02), `no-new-privileges` y rootfs de solo lectura.
@@ -64,6 +69,7 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/higerotech/yggdrasil/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/higerotech/yggdrasil/releases/tag/v0.1.0
