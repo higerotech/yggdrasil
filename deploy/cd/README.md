@@ -22,14 +22,17 @@ e imprime las reglas nftables sugeridas sin aplicarlas. Revisa después `WAN1_IF
 
 ## 2. nftables (proyecto de routing)
 
-Las sondas escuchan en la IP de docker0 (9115, 9469) y Odín en la IP LAN (3000). Como segunda
-barrera, añadir a la política INPUT:
+El firewall del appliance es `/etc/nftables.conf` (tabla `inet router`, `input` con política
+`drop`, recarga atómica con `nft -f` que no toca las tablas de Docker). Las sondas escuchan en la
+IP de docker0 (9115, 9469) y solo Mimir debe alcanzarlas; Odín (3000) es un puerto publicado por
+Docker en la IP LAN y ya lo cubre la regla de `forward` "LAN y VPN hacia contenedores". La regla
+aplicada en `chain input` (2026-09-05), junto a la de DNS para contenedores:
 
 ```
-iifname { "docker0", "br-*" } tcp dport { 9115, 9469 } accept
-tcp dport { 9115, 9469 } drop
-iifname { "lan", "wg0" } tcp dport 3000 accept
+ip saddr $DKR_NET tcp dport { 9115, 9469 } accept
 ```
+
+`ping_group_range` quedó en `/etc/sysctl.d/90-yggdrasil.conf` el mismo día.
 
 ## 3. Webhook en GitHub (desde tu equipo)
 

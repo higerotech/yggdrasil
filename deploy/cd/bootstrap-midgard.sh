@@ -52,12 +52,14 @@ else
   echo "   ya declarado"
 fi
 
-echo "== 6. Reglas nftables sugeridas (NO se aplican; añadir a la política del proyecto de routing)"
-cat <<'N'
-   # sondas de Heimdall en host-mode: solo desde las redes de Docker
-   iifname { "docker0", "br-*" } tcp dport { 9115, 9469 } accept
-   tcp dport { 9115, 9469 } drop
-   # Odín (Grafana) solo desde LAN y WireGuard
-   iifname { "lan", "wg0" } tcp dport 3000 accept
+echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
+if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
+  echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"
+else
+  cat <<'N'
+   FALTA en chain input de la tabla inet router (junto a la regla de DNS para contenedores):
+   ip saddr $DKR_NET tcp dport { 9115, 9469 } accept
+   Recargar con: nft -c -f /etc/nftables.conf && nft -f /etc/nftables.conf
 N
+fi
 echo "== Listo. Falta el webhook en GitHub (paso 3 de deploy/cd/README.md) y el primer push a main."
