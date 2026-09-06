@@ -1,0 +1,13 @@
+# Odín (Grafana): datasource provisionado hacia Mimir por la red interna de Compose.
+apiVersion: 1
+datasources:
+  - name: Mimir
+    uid: mimir
+    type: prometheus
+    access: proxy
+    url: http://mimir:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST

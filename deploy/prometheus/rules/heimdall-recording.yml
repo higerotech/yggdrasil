@@ -1,0 +1,36 @@
+# Recording rules del contrato de métricas (docs/02-design/architecture.md).
+# La latencia se toma de probe_icmp_duration_seconds{phase="rtt"} (RTT real de la sonda) y no
+# de probe_duration_seconds, que incluye resolución y setup. blackbox expone un gauge por
+# sonda, no un histograma: los percentiles se calculan con quantile_over_time en 5 min y se
+# promedian entre los objetivos de cada WAN.
+groups:
+  - name: heimdall_sli_5m
+    interval: 15s
+    rules:
+      - record: wan:perdida_pct:5m
+        expr: 100 * (1 - avg by (wan) (avg_over_time(probe_success{job=~"blackbox_icmp_.*"}[5m])))
+
+      - record: wan:latencia_p90:5m
+        expr: avg by (wan) (quantile_over_time(0.90, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+      - record: wan:latencia_p95:5m
+        expr: avg by (wan) (quantile_over_time(0.95, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+      - record: wan:latencia_p99:5m
+        expr: avg by (wan) (quantile_over_time(0.99, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+
+      # Quórum RF01: la WAN está arriba si responden ≥ 2 de sus 3 objetivos (2 ICMP + 1 TLS).
+      - record: wan:up
+        expr: (sum by (wan) (probe_success{job=~"blackbox_(icmp|tls)_.*"}) >= bool 2)
+      - record: hogar:up
+        expr: max(wan:up)
+
+      # Apta para llamadas: p95 < 200 ms y pérdida < 1 % (indicador ortogonal al estado).
+      - record: wan:apto_llamadas
+        expr: (wan:latencia_p95:5m < bool 0.2) * on (wan) (wan:perdida_pct:5m < bool 1)
+
+  - name: heimdall_disponibilidad_30d
+    interval: 5m
+    rules:
+      - record: wan:disponibilidad:30d
+        expr: avg_over_time(wan:up[30d])
+      - record: hogar:disponibilidad:30d
+        expr: avg_over_time(hogar:up[30d])
