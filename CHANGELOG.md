@@ -7,7 +7,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 3 (Testing) pendiente: despliegue en el appliance, pruebas de aceptación de RF01–RF09, calibración del techo de throughput, prueba de carga de las sondas y cableado del despliegue continuo. Al aprobarlo, cortar 0.4.0.
+> Gate 3 (Testing) pendiente: despliegue en el appliance, pruebas de aceptación de RF01–RF09, calibración del techo de throughput y prueba de carga de las sondas. Al aprobarlo, cortar 0.4.0.
+
+### Añadido
+- ADR-0005: despliegue continuo con el receptor de `higerotech/despliegue-continuo` (supersede la sección CD de ADR-0002). `build-and-push.yml` publica `yggdrasil-sleipnir` y `yggdrasil-sync` en GHCR con tag `sha-<7>`; `deploy/docker-compose.cd.yml` añade las tareas `sync-host` (checkout del commit, render con las IPs de las WAN, recarga de blackbox) y `sync-net` (recarga de Mimir y Gjallarhorn); `deploy/cd/bootstrap-midgard.sh` prepara el appliance con sudo (sysctl, clon como `deploy`, `.env`, inventario del receptor) y `deploy/cd/README.md` documenta webhook, operación y rollback.
+- Prerrequisitos verificados en midgard el 2026-09-05: Ubuntu 24.04.4, Docker 29.8 y Compose v5.5, `wan1`/`wan2` con `ip rule from`, docker0 en 172.17.0.1, receptor sano con túnel; pendientes `ping_group_range`, reglas nftables y la ausencia de Node-RED y Mosquitto (Nornas y Ratatosk).
+
+### Cambiado
+- Imagen de Sleipnir pasa a `ghcr.io/higerotech/yggdrasil-sleipnir` con `IMAGE_TAG`; `deploy/scripts/deploy.sh` queda como vía manual de contingencia.
 
 ## [0.3.0] - 2026-09-05
 
