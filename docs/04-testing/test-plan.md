@@ -215,11 +215,12 @@ temporales; se retiran al terminar (`tc qdisc del dev wanN root`).
 | TA-13 | RNF02 | `sudo reboot` del appliance | Los 8 servicios vuelven solos; Odín responde; sondas miden | `docker compose ps`, `uptime` |
 | TA-14 | RF03 (Recuperando) | Tras TA-03, reconectar `wan2` y cronometrar | `estado = recuperando` al resolverse la alerta y `saludable` a los 5 min sin recaída | MQTT con marcas de tiempo |
 
-### Evidencia TA-01 (en curso)
+### Evidencia TA-01 (superado el 2026-09-06)
 | Fecha (UTC) | Intento | Resultado | Causa / acción |
 |---|---|---|---|
 | 2026-09-06 03:48 | Merge de `release/0.4.0` → `build` (sleipnir y sync en GHCR, 44 s) → `workflow_run` firmado → receptor encola `sha-20cba13` | **Fallo** en `docker compose pull` a los 1,2 s: `ghcr.io/higerotech/yggdrasil-sleipnir` y `-sync` devuelven `unauthorized`; las imágenes públicas de upstream sí descargan | Paquetes GHCR nuevos nacen privados y el receptor hace pull anónimo. Acción: hacerlos públicos (runbook de CD, paso 3b) y relanzar el build. El circuito webhook → receptor → cola quedó verificado |
 | 2026-09-06 04:13 | Paquetes públicos; `gh run rerun` → build OK → receptor despliega `sha-20cba13` | **Parcial**: `pull` + `up -d` en 118 s; los 10 contenedores `Up`; `sync-host` (checkout, render con wan2 nueva, blackbox recargado), `sync-net` (Mimir y Gjallarhorn recargados) y `nornas-init` (flujo importado) salen con 0; sondas `probe_success 1` por ambas WAN; Mimir con 9 targets `up`; RAM del stack ~183 MB. **Healthcheck agotado a los 120 s**: Odín tardó ~3 min en escuchar (migración SQLite del primer arranque en HDD) | `health_timeout` de la app subido a 300 s en `apps.yml` (servidor y repo). Tercer intento con arranques ya rápidos para dejar el despliegue registrado como `ok` |
+| 2026-09-06 04:20 | `gh run rerun` → build OK (caché, 36 s) → receptor despliega `sha-20cba13` | **OK** en 40,6 s: `pull` + `up -d` 40,5 s, healthcheck de Odín `200` en 0,05 s; `current_tag` guardado (`sha-20cba13`, sin `previous_tag`); Sleipnir recreado con la imagen nueva; resto de servicios sin cambios | **TA-01 superado.** El receptor queda con estado para el rollback de los próximos despliegues |
 
 ## Pruebas de seguridad (equivalente DAST): los abusos del PRD como casos
 | ID | Amenaza / abuso | Cómo | Resultado esperado |
