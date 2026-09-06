@@ -1,0 +1,174 @@
+[
+  {
+    "id": "heimdall.tab",
+    "type": "tab",
+    "label": "Heimdall · alertas SLA",
+    "disabled": false,
+    "info": "Flujo Heimdall → Nornas. Importar en el Node-RED existente (Ratatosk debe tener el usuario 'nornas' con ACL de escritura en midgard/#). Pasos: 1) definir NORNAS_WEBHOOK_TOKEN en el entorno de Node-RED con el mismo valor que deploy/.env; 2) apuntar el nodo de broker 'Ratatosk' al Mosquitto real (o sustituirlo por el broker ya configurado) y cargar sus credenciales; 3) conectar la salida 2 (push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo (estado_wan).",
+    "env": []
+  },
+  {
+    "id": "ratatosk.broker",
+    "type": "mqtt-broker",
+    "name": "Ratatosk",
+    "broker": "CAMBIAR-host-mosquitto",
+    "port": "1883",
+    "clientid": "nornas-heimdall",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "midgard/nornas/heimdall/estado",
+    "birthQos": "1",
+    "birthRetain": "true",
+    "birthPayload": "online",
+    "birthMsg": {},
+    "closeTopic": "midgard/nornas/heimdall/estado",
+    "closeQos": "1",
+    "closeRetain": "true",
+    "closePayload": "offline",
+    "closeMsg": {},
+    "willTopic": "midgard/nornas/heimdall/estado",
+    "willQos": "1",
+    "willRetain": "true",
+    "willPayload": "offline",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "h.comentario",
+    "type": "comment",
+    "z": "heimdall.tab",
+    "name": "Gjallarhorn (Alertmanager) → webhook → estados MQTT en Ratatosk",
+    "info": "Flujo Heimdall → Nornas. Importar en el Node-RED existente (Ratatosk debe tener el usuario 'nornas' con ACL de escritura en midgard/#). Pasos: 1) definir NORNAS_WEBHOOK_TOKEN en el entorno de Node-RED con el mismo valor que deploy/.env; 2) apuntar el nodo de broker 'Ratatosk' al Mosquitto real (o sustituirlo por el broker ya configurado) y cargar sus credenciales; 3) conectar la salida 2 (push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo (estado_wan).",
+    "x": 330,
+    "y": 40,
+    "wires": []
+  },
+  {
+    "id": "h.in",
+    "type": "http in",
+    "z": "heimdall.tab",
+    "name": "POST /heimdall/alertas",
+    "url": "/heimdall/alertas",
+    "method": "post",
+    "upload": false,
+    "swaggerDoc": "",
+    "x": 150,
+    "y": 120,
+    "wires": [
+      [
+        "h.auth"
+      ]
+    ]
+  },
+  {
+    "id": "h.auth",
+    "type": "function",
+    "z": "heimdall.tab",
+    "name": "Autorizar (Bearer NORNAS_WEBHOOK_TOKEN)",
+    "func": "// Nodo function \"Autorizar\": verifica el token Bearer que envía Gjallarhorn (Alertmanager).\n// El valor esperado se lee del entorno del proceso de Node-RED (NORNAS_WEBHOOK_TOKEN) o, si no\n// existe, del contexto global. Salida 1 = autorizado, salida 2 = respuesta 401.\nconst esperado = env.get(\"NORNAS_WEBHOOK_TOKEN\") || global.get(\"NORNAS_WEBHOOK_TOKEN\");\nconst recibido = (msg.req && msg.req.headers && msg.req.headers.authorization) || \"\";\nif (!esperado || recibido !== \"Bearer \" + esperado) {\n    msg.statusCode = 401;\n    msg.payload = { error: \"no autorizado\" };\n    return [null, msg];\n}\nreturn [msg, null];\n",
+    "outputs": 2,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 420,
+    "y": 120,
+    "wires": [
+      [
+        "h.map"
+      ],
+      [
+        "h.res401"
+      ]
+    ]
+  },
+  {
+    "id": "h.res401",
+    "type": "http response",
+    "z": "heimdall.tab",
+    "name": "401",
+    "statusCode": "401",
+    "headers": {},
+    "x": 690,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "h.map",
+    "type": "function",
+    "z": "heimdall.tab",
+    "name": "Alertmanager → estados MQTT",
+    "func": "// Nodo function \"Alertmanager → estados MQTT\". Traduce el webhook de Gjallarhorn a los eventos\n// MQTT del contrato de Yggdrasil (docs/02-design/architecture.md):\n//   midgard/wan/<id>/estado          saludable|degradado|caido|recuperando   (retained)\n//   midgard/wan/<id>/apto_llamadas   si|no                                   (retained)\n//   midgard/hogar/internet/estado    ok|degradado|caido                      (retained)\n//   midgard/wan/<id>/alerta          JSON {alerta, severidad, desde, detalle} (no retained)\n// Salidas: 1 = MQTT (Ratatosk), 2 = notificación push, 3 = respuesta HTTP al webhook.\nconst RECUPERACION_MS = 5 * 60 * 1000;   // Recuperando -> Saludable tras 5 min estable\nconst alertas = (msg.payload && msg.payload.alerts) || [];\nconst estados = flow.get(\"estado_wan\") || {};\nconst timers = context.get(\"timers\") || {};\nconst mqtt = [];\nconst push = [];\n\nfunction calcHogar(e) {\n    const v = Object.values(e);\n    if (v.length === 0) return \"ok\";\n    if (v.every(x => x === \"caido\")) return \"caido\";\n    if (v.some(x => x === \"saludable\")) return \"ok\";\n    return \"degradado\";\n}\nfunction m(topic, payload, retain) {\n    return { topic, payload: typeof payload === \"string\" ? payload : JSON.stringify(payload), qos: 1, retain: !!retain };\n}\nfunction fijar(wan, estado) { estados[wan] = estado; mqtt.push(m(`midgard/wan/${wan}/estado`, estado, true)); }\nfunction aviso(titulo, texto) { push.push({ topic: titulo, payload: texto }); }\n\nfor (const a of alertas) {\n    const l = a.labels || {}, an = a.annotations || {};\n    const wan = l.wan, nombre = l.alertname, firing = a.status === \"firing\";\n    if (!nombre) continue;\n    if (!wan) {                                   // p. ej. SondaCaida: solo aviso\n        if (firing) aviso(`Heimdall: ${nombre}`, an.resumen || \"\");\n        continue;\n    }\n    if (firing) mqtt.push(m(`midgard/wan/${wan}/alerta`, { alerta: nombre, severidad: l.severity || \"\", desde: a.startsAt, detalle: an.resumen || \"\" }, false));\n    switch (nombre) {\n        case \"WanCaida\":\n            if (timers[wan]) { clearTimeout(timers[wan]); delete timers[wan]; }\n            if (firing) {\n                fijar(wan, \"caido\");\n                aviso(`Heimdall: ${wan} CAÍDA`, an.descripcion || an.resumen || \"\");\n            } else {\n                fijar(wan, \"recuperando\");\n                timers[wan] = setTimeout(() => {\n                    const e = flow.get(\"estado_wan\") || {};\n                    const t = context.get(\"timers\") || {};\n                    delete t[wan]; context.set(\"timers\", t);\n                    if (e[wan] !== \"recuperando\") return;\n                    e[wan] = \"saludable\"; flow.set(\"estado_wan\", e);\n                    node.send([[m(`midgard/wan/${wan}/estado`, \"saludable\", true), m(\"midgard/hogar/internet/estado\", calcHogar(e), true)], null, null]);\n                }, RECUPERACION_MS);\n                aviso(`Heimdall: ${wan} recuperando`, \"Las sondas responden; si sigue estable 5 min pasa a saludable.\");\n            }\n            break;\n        case \"WanDegradada\":\n            if (estados[wan] === \"caido\" || estados[wan] === \"recuperando\") break;\n            fijar(wan, firing ? \"degradado\" : \"saludable\");\n            if (firing) aviso(`Heimdall: ${wan} degradada`, an.resumen || \"\");\n            break;\n        case \"WanNoAptaLlamadas\":\n            mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, firing ? \"no\" : \"si\", true));\n            break;\n        case \"WanThroughputBajo\":\n        case \"SleipnirSinMedicion\":\n            if (firing) aviso(`Heimdall: ${nombre} en ${wan}`, an.resumen || \"\");\n            break;\n        default:\n            break;\n    }\n}\nflow.set(\"estado_wan\", estados);\ncontext.set(\"timers\", timers);\nmqtt.push(m(\"midgard/hogar/internet/estado\", calcHogar(estados), true));\nmsg.statusCode = 200;\nmsg.payload = { ok: true, alertas: alertas.length };\nreturn [mqtt, push, msg];\n",
+    "outputs": 3,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 720,
+    "y": 120,
+    "wires": [
+      [
+        "h.mqtt"
+      ],
+      [
+        "h.push"
+      ],
+      [
+        "h.res200"
+      ]
+    ]
+  },
+  {
+    "id": "h.mqtt",
+    "type": "mqtt out",
+    "z": "heimdall.tab",
+    "name": "Ratatosk midgard/#",
+    "topic": "",
+    "qos": "",
+    "retain": "",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "ratatosk.broker",
+    "x": 1010,
+    "y": 60,
+    "wires": []
+  },
+  {
+    "id": "h.push",
+    "type": "debug",
+    "z": "heimdall.tab",
+    "name": "Notificación push (conectar aquí Telegram, ntfy o similar)",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "true",
+    "targetType": "full",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1090,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "h.res200",
+    "type": "http response",
+    "z": "heimdall.tab",
+    "name": "200",
+    "statusCode": "200",
+    "headers": {},
+    "x": 1010,
+    "y": 180,
+    "wires": []
+  }
+]

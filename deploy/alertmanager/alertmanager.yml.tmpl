@@ -1,0 +1,37 @@
+# Plantilla de Gjallarhorn (Alertmanager). scripts/render.sh sustituye ${NORNAS_URL},
+# ${NORNAS_WEBHOOK_TOKEN} y ${THROUGHPUT_RECEIVER} y escribe alertmanager.yml (gitignored).
+# El token viaja en la cabecera Authorization: Bearer, no en la URL (mejora sobre T4).
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: nornas
+  group_by: [alertname, wan]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Throughput: receptor "nulo" hasta calibrar el techo de medición (Gate 3), luego "nornas".
+    - matchers:
+        - alertname = WanThroughputBajo
+      receiver: ${THROUGHPUT_RECEIVER}
+
+receivers:
+  - name: nornas
+    webhook_configs:
+      - url: ${NORNAS_URL}
+        send_resolved: true
+        max_alerts: 0
+        http_config:
+          authorization:
+            type: Bearer
+            credentials: ${NORNAS_WEBHOOK_TOKEN}
+  - name: nulo
+
+inhibit_rules:
+  # Si la WAN está caída, no tiene sentido avisar además de degradación o de llamadas.
+  - source_matchers:
+      - alertname = WanCaida
+    target_matchers:
+      - alertname =~ "WanDegradada|WanNoAptaLlamadas|WanThroughputBajo"
+    equal: [wan]

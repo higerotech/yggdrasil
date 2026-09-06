@@ -1,0 +1,66 @@
+# Alertas del contrato (tabla "Alertas" en docs/02-design/architecture.md). Umbrales SLO de
+# Gate 0: pérdida < 1 %, p95 < 500 ms (Degradado), p95 < 200 ms (apto_llamadas), throughput
+# ≥ 800 Mbps. Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
+groups:
+  - name: heimdall_alertas
+    rules:
+      - alert: WanCaida
+        expr: wan:up == 0
+        for: 2m
+        labels:
+          severity: critical
+          servicio: heimdall
+        annotations:
+          estado: caido
+          resumen: "{{ $labels.wan }} caída: el quórum de sondas no responde"
+          descripcion: "Al menos 2 de los 3 objetivos fallan por {{ $labels.wan }} desde hace 2 min."
+
+      - alert: WanDegradada
+        expr: (wan:perdida_pct:5m > 1 or wan:latencia_p95:5m > 0.5) and on (wan) wan:up == 1
+        for: 5m
+        labels:
+          severity: warning
+          servicio: heimdall
+        annotations:
+          estado: degradado
+          resumen: "{{ $labels.wan }} degradada: pérdida > 1 % o p95 > 500 ms durante 5 min"
+          descripcion: "Revisar wan:perdida_pct:5m y wan:latencia_p95:5m de {{ $labels.wan }} en Odín."
+
+      - alert: WanNoAptaLlamadas
+        expr: wan:apto_llamadas == 0 and on (wan) wan:up == 1
+        for: 5m
+        labels:
+          severity: info
+          servicio: heimdall
+        annotations:
+          apto_llamadas: "no"
+          resumen: "{{ $labels.wan }} no apta para llamadas: p95 > 200 ms o pérdida > 1 %"
+
+      # Dos mediciones consecutivas por debajo (cada WAN se mide cada 6 h → for: 12h).
+      # Inhibida en Alertmanager (receptor nulo) hasta calibrar el techo de medición (Gate 3).
+      - alert: WanThroughputBajo
+        expr: wan_throughput_mbps{direccion="down"} < 800 and on (wan) wan_throughput_medicion_ok == 1
+        for: 12h
+        labels:
+          severity: warning
+          servicio: heimdall
+        annotations:
+          resumen: "{{ $labels.wan }} bajo el SLO de 800 Mbps: {{ $value | printf \"%.0f\" }} Mbps de bajada"
+
+      - alert: SleipnirSinMedicion
+        expr: (time() - wan_throughput_ultima_medicion_timestamp_seconds) > 8 * 3600
+        for: 10m
+        labels:
+          severity: warning
+          servicio: heimdall
+        annotations:
+          resumen: "Sleipnir lleva más de 8 h sin medir {{ $labels.wan }}"
+
+      - alert: SondaCaida
+        expr: up{job=~"blackbox_.*|huginn_muninn|sleipnir"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: heimdall
+        annotations:
+          resumen: "Mimir no consigue scrapear {{ $labels.job }} ({{ $labels.instance }})"
