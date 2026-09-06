@@ -16,6 +16,8 @@ política de aceptación están en `docs/03-implementation/cadena-suministro.md`
 
 Dependencia Python de Sleipnir: `speedtest-cli==2.1.3` (PyPI), instalada en la imagen.
 
+Imágenes propias publicadas por `build-and-push.yml` en cada push a `main` (ADR-0005): `ghcr.io/higerotech/yggdrasil-sleipnir` y `ghcr.io/higerotech/yggdrasil-sync`, tag `sha-<7>` del commit (más `latest`, que el receptor nunca usa). Ambas sobre la misma base alpine pineada por digest; Trivy las escanea en CI al construirse en el PR.
+
 ## Historial de pines
 | Fecha | Cambio | Motivo |
 |---|---|---|

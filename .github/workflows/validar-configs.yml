@@ -36,9 +36,11 @@ jobs:
         run: |
           cp .env.example .env
           WAN1_IP=192.0.2.101 WAN2_IP=192.0.2.102 ./scripts/render.sh --sin-recarga
-      - name: docker compose config
+      - name: docker compose config (base y CD)
         working-directory: deploy
-        run: docker compose config -q
+        run: |
+          docker compose config -q
+          IMAGE_TAG=sha-0000000 docker compose -f docker-compose.cd.yml config -q
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
@@ -52,12 +54,14 @@ jobs:
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
-      - name: Construir Sleipnir
+      - name: Construir Sleipnir y sync
         working-directory: deploy
-        run: docker compose build sleipnir
+        run: |
+          docker compose build sleipnir
+          docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh
 
   secretos:
     name: "Secretos: gitleaks"

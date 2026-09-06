@@ -1,0 +1,69 @@
+# Despliegue continuo en midgard (ADR-0005)
+
+Cada push a `main` construye `yggdrasil-sleipnir` y `yggdrasil-sync` en GHCR con tag `sha-<7>`; el
+receptor de `despliegue-continuo` recibe el `workflow_run` firmado y despliega ese SHA en
+`/srv/apps/yggdrasil` con `deploy/docker-compose.cd.yml`. Las tareas `sync-host` y `sync-net`
+hacen el checkout del commit, renderizan las plantillas y recargan los servicios.
+
+## 1. Bootstrap del servidor (una vez, con sudo)
+
+```bash
+ssh jalcala@midgard
+curl -fsSL https://raw.githubusercontent.com/higerotech/yggdrasil/main/deploy/cd/bootstrap-midgard.sh -o /tmp/bootstrap-midgard.sh
+sudo bash /tmp/bootstrap-midgard.sh
+```
+
+Hace, de forma idempotente: `net.ipv4.ping_group_range` para ICMP sin root; clon del repo en
+`/srv/apps/yggdrasil` como usuario `deploy`; `deploy/.env` con la IP LAN, la IP de docker0, una
+contraseña de Grafana y un token de webhook aleatorios (0600, nunca se sobrescribe); render y
+validación inicial; entrada de Yggdrasil en `/etc/cd-receiver/apps.yml` con recarga del receptor;
+e imprime las reglas nftables sugeridas sin aplicarlas. Revisa después `WAN1_IF`, `WAN2_IF` y
+`NORNAS_URL` en el `.env`.
+
+## 2. nftables (proyecto de routing)
+
+Las sondas escuchan en la IP de docker0 (9115, 9469) y Odín en la IP LAN (3000). Como segunda
+barrera, añadir a la política INPUT:
+
+```
+iifname { "docker0", "br-*" } tcp dport { 9115, 9469 } accept
+tcp dport { 9115, 9469 } drop
+iifname { "lan", "wg0" } tcp dport 3000 accept
+```
+
+## 3. Webhook en GitHub (desde tu equipo)
+
+El secreto vive en `/etc/cd-receiver/receiver.env` (root). Léelo con sudo y crea el hook sin que
+pase por el repo ni por un log:
+
+```bash
+SECRET=$(ssh -t jalcala@midgard "sudo grep -oP 'WEBHOOK_SECRET=\K.*' /etc/cd-receiver/receiver.env" | tr -d '\r\n')
+gh api repos/higerotech/yggdrasil/hooks -X POST \
+  -f name=web -F active=true -f 'events[]=workflow_run' \
+  -f config[url]=https://deploy.higerotech.com/webhook \
+  -f config[content_type]=json -f config[secret]="$SECRET"
+unset SECRET
+```
+
+## 4. Primer despliegue y operación
+
+El primer push a `main` que incluya este directorio dispara el workflow `build`; al terminar, el
+receptor despliega. Comprobar:
+
+```bash
+curl -s http://127.0.0.1:9000/status | jq '.apps.yggdrasil'
+journalctl -u cd-receiver -n 50 --no-pager
+docker logs yggdrasil-sync-host --tail 20 && docker logs yggdrasil-sync-net --tail 5
+docker compose -f /srv/apps/yggdrasil/deploy/docker-compose.cd.yml -p yggdrasil ps
+```
+
+Rollback manual: el receptor guarda el tag anterior; también vale volver a lanzar el workflow del
+commit bueno. Contingencia sin receptor: `deploy/scripts/deploy.sh` (con `IMAGE_TAG` de un SHA ya
+publicado, o `docker compose build` para construir en local).
+
+## Pendientes conocidos
+- **Nornas y Ratatosk no existen aún en midgard**: no hay Node-RED ni Mosquitto corriendo. Hasta
+  que existan (o `NORNAS_URL` apunte a donde vivan), Alertmanager no podrá entregar el webhook; las
+  alertas siguen visibles en Odín y en Alertmanager. Decisión pendiente del owner.
+- El resultado de `sync-host`/`sync-net` no forma parte del healthcheck del receptor; revisar sus
+  logs en el primer despliegue.

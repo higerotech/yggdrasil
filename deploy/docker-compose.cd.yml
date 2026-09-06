@@ -1,0 +1,51 @@
+# Compose para despliegue continuo con el receptor de higerotech/despliegue-continuo (ADR-0005).
+# Incluye el compose base y añade dos tareas de un solo uso que corren en cada despliegue:
+#   sync-host (host-mode): checkout del commit IMAGE_TAG, render de plantillas, recarga de blackbox
+#   sync-net  (red interna): recarga de Mimir y Gjallarhorn
+# El receptor ejecuta `docker compose -f deploy/docker-compose.cd.yml -p yggdrasil pull` y `up -d`
+# con IMAGE_TAG=sha-<7>; Sleipnir cambia de imagen con cada commit y los demás se recargan.
+# Los cambios en este archivo o en docker-compose.yml se aplican en el despliegue siguiente.
+include:
+  - docker-compose.yml
+
+services:
+  sync-host:
+    image: ghcr.io/higerotech/yggdrasil-sync:${IMAGE_TAG:?IMAGE_TAG es obligatorio}
+    container_name: yggdrasil-sync-host
+    network_mode: host                       # necesita ver wan1/wan2 para el render
+    user: "${DEPLOY_UID:-996}:${DEPLOY_GID:-987}"   # dueño del clon en el servidor
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      IMAGE_TAG: ${IMAGE_TAG}
+      DOCKER_HOST_GW: ${DOCKER_HOST_GW:-172.17.0.1}
+      HOME: /tmp
+    volumes:
+      - ..:/repo                             # raíz del clon (project_dir del receptor)
+    command: ["host"]
+
+  sync-net:
+    image: ghcr.io/higerotech/yggdrasil-sync:${IMAGE_TAG:?IMAGE_TAG es obligatorio}
+    container_name: yggdrasil-sync-net
+    networks: [heimdall]
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      IMAGE_TAG: ${IMAGE_TAG}
+      HOME: /tmp
+    command: ["net"]
+    depends_on:
+      sync-host:
+        condition: service_completed_successfully
+      mimir:
+        condition: service_started
+      gjallarhorn:
+        condition: service_started
