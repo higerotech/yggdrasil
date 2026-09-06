@@ -40,6 +40,21 @@ gitGraph
     commit id: "02bb50d"
     checkout main
     merge release/0.2.0 tag: "v0.2.0"
+    branch release/0.3.0
+    checkout release/0.3.0
+    commit id: "1b84b29"
+    commit id: "2501ca1"
+    commit id: "8beb675"
+    commit id: "4fd9fac"
+    commit id: "89059c7"
+    commit id: "5f14eb6"
+    commit id: "a1b81cc"
+    commit id: "7436d34"
+    commit id: "eff7242"
+    commit id: "d375028"
+    commit id: "0fa3f90"
+    checkout main
+    merge release/0.3.0 tag: "v0.3.0"
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -100,6 +115,17 @@ gitGraph
     commit id: "eff7242"
     checkout develop
     merge feature/gate-2-docs-y-cves
+    branch feature/cd-despliegue-continuo
+    checkout feature/cd-despliegue-continuo
+    commit id: "8360c94"
+    checkout develop
+    merge feature/cd-despliegue-continuo
+    branch develop
+    checkout develop
+    commit id: "0fa3f90"
+    commit id: "58fe37a"
+    checkout develop
+    merge develop
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -108,10 +134,17 @@ gitGraph
 |---|---|---|---|
 | v0.1.0 | 0.1.0 (Gate 0) | Umbrales SLO y hosts de sondeo confirmados; licencia AGPL-3.0 | release/0.1.0 desde la punta del PR #2 |
 | v0.2.0 | 0.2.0 (Gate 1) | ADR-0001, ADR-0003 aceptados; ADR-0004 frontera con Fenrir | release/0.2.0 desde develop |
+| v0.3.0 | — | — | — |
 
 ## Bitácora de cambios (fiel al repo)
 | Commit | Tipo | Tags | Autor | Fecha | Mensaje |
 |---|---|---|---|---|---|
+| `48dc03b` | merge | — | Jeremi Alcala | 2026-09-05 | Merge develop (v0.3.0) en feature/cd-despliegue-continuo |
+| `1544e6d` | merge | — | Jeremi Alcala | 2026-09-05 | Merge main (v0.3.0) en develop |
+| `d97b3fd` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #10 from higerotech/feature/cd-despliegue-continuo |
+| `58fe37a` | merge | v0.3.0 | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #9 from higerotech/release/0.3.0 |
+| `8360c94` | commit | — | Jeremi Alcala | 2026-09-05 | feat(cd): despliegue continuo con el receptor de despliegue-continuo (ADR-0005) |
+| `0fa3f90` | commit | — | Jeremi Alcala | 2026-09-05 | release: cierra Gate 2 y corta 0.3.0 |
 | `d375028` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #8 from higerotech/feature/gate-2-docs-y-cves |
 | `eff7242` | commit | — | Jeremi Alcala | 2026-09-05 | docs: checklist de Gate 2 al dia, mapa del repo y CHANGELOG |
 | `7436d34` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): re-pinea las imagenes a las releases parcheadas de 2026 tras el triaje de Trivy |
