@@ -23,7 +23,7 @@ services:
   # Huginn y Muninn — blackbox_exporter: sondas ICMP y TCP/TLS con source IP por WAN
   huginn-muninn:
     <<: *comun
-    image: prom/blackbox-exporter:v0.27.0
+    image: prom/blackbox-exporter:v0.28.0
     container_name: yggdrasil-blackbox-exporter
     network_mode: host               # necesita ver wan1/wan2 (ADR-0003)
     cap_drop: [ALL]
@@ -41,7 +41,7 @@ services:
   sleipnir:
     <<: *comun
     build: ./sleipnir
-    image: yggdrasil/sleipnir:0.1.0
+    image: yggdrasil/sleipnir:0.1.1
     container_name: yggdrasil-throughput-probe
     network_mode: host               # bind del source IP por WAN (ADR-0003)
     cap_drop: [ALL]
@@ -63,7 +63,7 @@ services:
   # Mimir — Prometheus: TSDB 30 d, recording rules y alertas del contrato
   mimir:
     <<: *comun
-    image: prom/prometheus:v3.5.0
+    image: prom/prometheus:v3.14.0
     container_name: yggdrasil-prometheus
     read_only: true
     mem_limit: 512m
@@ -86,7 +86,7 @@ services:
   # Gjallarhorn — Alertmanager: agrupa, inhibe y rutea al webhook de Nornas
   gjallarhorn:
     <<: *comun
-    image: prom/alertmanager:v0.28.1
+    image: prom/alertmanager:v0.34.0
     container_name: yggdrasil-alertmanager
     read_only: true
     mem_limit: 128m
@@ -104,7 +104,7 @@ services:
   # Odín — Grafana: dashboards comparativos; único puerto publicado, solo en la LAN
   odin:
     <<: *comun
-    image: grafana/grafana:12.1.1
+    image: grafana/grafana:12.4.10
     container_name: yggdrasil-grafana
     mem_limit: 256m
     ports:
