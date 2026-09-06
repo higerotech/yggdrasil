@@ -1,6 +1,6 @@
 # Diseño del Sistema — Monitor SLA de Internet (Yggdrasil)
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
