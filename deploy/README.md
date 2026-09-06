@@ -6,7 +6,7 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
 
 | Ruta | Servicio | Qué es |
 |---|---|---|
-| `docker-compose.yml` | todos | Imágenes pineadas, `mem_limit` (RNF01), `restart` (RNF02), host-mode solo en sondas (ADR-0003) |
+| `docker-compose.yml` | todos | Imágenes pineadas (ver `imagenes.md`), `mem_limit` (RNF01), `restart` (RNF02), host-mode solo en sondas (ADR-0003) |
 | `blackbox/blackbox.yml.tmpl` | Huginn y Muninn | Módulos `icmp_wan1/2` y `tls_wan1/2` con `source_ip_address` por WAN |
 | `prometheus/` | Mimir | Scrape cada 15 s, recording rules y alertas del contrato |
 | `alertmanager/alertmanager.yml.tmpl` | Gjallarhorn | Rutas, inhibición y webhook a Nornas con token Bearer |
@@ -50,9 +50,9 @@ blackbox y Alertmanager en caliente). Conviene engancharlo a `dhclient-exit-hook
 ```bash
 cp .env.example .env && WAN1_IP=192.0.2.101 WAN2_IP=192.0.2.102 ./scripts/render.sh --sin-recarga
 docker compose config -q
-docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v3.5.0 check config /etc/prometheus/prometheus.yml
-docker run --rm -v "$PWD/alertmanager:/cfg:ro" --entrypoint amtool prom/alertmanager:v0.28.1 check-config /cfg/alertmanager.yml
-docker run --rm -v "$PWD/blackbox:/cfg:ro" prom/blackbox-exporter:v0.27.0 --config.check --config.file=/cfg/blackbox.yml
+docker run --rm -v "$PWD/prometheus:/etc/prometheus:ro" --entrypoint promtool prom/prometheus:v3.14.0 check config /etc/prometheus/prometheus.yml
+docker run --rm -v "$PWD/alertmanager:/cfg:ro" --entrypoint amtool prom/alertmanager:v0.34.0 check-config /cfg/alertmanager.yml
+docker run --rm -v "$PWD/blackbox:/cfg:ro" prom/blackbox-exporter:v0.28.0 --config.check --config.file=/cfg/blackbox.yml
 ```
 
 La misma batería corre en GitHub Actions (`validar-configs.yml`) en cada PR que toque `deploy/`.

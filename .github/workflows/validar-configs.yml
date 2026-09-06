@@ -12,19 +12,22 @@ on:
     branches: [develop, main]
     paths:
       - "deploy/**"
+  schedule:
+    - cron: "17 6 * * 1"   # lunes 06:17 UTC: informe semanal de Trivy sobre las imágenes pineadas
 
 permissions:
   contents: read
 
 env:
-  PROM: prom/prometheus:v3.5.0
-  AM: prom/alertmanager:v0.28.1
-  BB: prom/blackbox-exporter:v0.27.0
-  GRAFANA: grafana/grafana:12.1.1
+  PROM: prom/prometheus:v3.14.0
+  AM: prom/alertmanager:v0.34.0
+  BB: prom/blackbox-exporter:v0.28.0
+  GRAFANA: grafana/grafana:12.4.10
 
 jobs:
   configs:
     name: "Configs: compose, promtool, amtool, blackbox, JSON"
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +61,7 @@ jobs:
 
   secretos:
     name: "Secretos: gitleaks"
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,0 +1,130 @@
+# Historial de implementación — Yggdrasil
+
+* **Estado:** review
+* **Fecha:** 2026-09-05
+* **Decisores:** Jeremi
+* **Fase AI-DLC:** 03-implementation
+* **Versión:** 0.3.0
+* **Gate:** 2
+* **Rama principal:** main
+* **Estrategia de branching:** GitFlow
+
+Documento generado por `scripts/generar-historial.py` a partir de `git log`; no editar a mano.
+Regenerar tras cada merge o tag. Los tags SemVer enlazan con las versiones del `CHANGELOG.md`.
+
+## Vista de releases (`main`, primer padre)
+`main` solo recibe merges de `release/*` (y `hotfix/*`) por PR con merge commit; cada merge lleva su tag.
+
+```mermaid
+gitGraph
+    commit id: "d6481c7"
+    branch release/0.1.0
+    checkout release/0.1.0
+    commit id: "075c41f"
+    commit id: "43bfd9d"
+    commit id: "76260b2"
+    commit id: "578adc6"
+    commit id: "bf29579"
+    checkout main
+    merge release/0.1.0 tag: "v0.1.0"
+    branch release/0.2.0
+    checkout release/0.2.0
+    commit id: "dfbb279"
+    commit id: "d57d604"
+    commit id: "648454b"
+    commit id: "007f76b"
+    commit id: "a3235bc"
+    commit id: "73d38d1"
+    commit id: "91862b1"
+    commit id: "8b7e57d"
+    commit id: "02bb50d"
+    checkout main
+    merge release/0.2.0 tag: "v0.2.0"
+```
+*Eje trazabilidad · fase 03 · evidencia Gate 2.*
+
+## Vista de integración (`develop`)
+Features por PR; los bloques `backmerge-*` son los merges de `main` a `develop` tras cada release.
+
+```mermaid
+%%{init: { 'gitGraph': { 'mainBranchName': 'develop' } } }%%
+gitGraph
+    commit id: "d6481c7"
+    branch feature/licencia-agpl-y-percentiles-latencia
+    checkout feature/licencia-agpl-y-percentiles-latencia
+    commit id: "075c41f"
+    commit id: "43bfd9d"
+    checkout develop
+    merge feature/licencia-agpl-y-percentiles-latencia
+    branch feature/umbrales-slo-gate-0
+    checkout feature/umbrales-slo-gate-0
+    commit id: "578adc6"
+    checkout develop
+    merge feature/umbrales-slo-gate-0
+    branch backmerge-v0.1.0
+    checkout backmerge-v0.1.0
+    commit id: "bf29579"
+    commit id: "5a160b8"
+    checkout develop
+    merge backmerge-v0.1.0
+    branch feature/hallazgos-revision-inicial
+    checkout feature/hallazgos-revision-inicial
+    commit id: "648454b"
+    commit id: "007f76b"
+    commit id: "a3235bc"
+    checkout develop
+    merge feature/hallazgos-revision-inicial
+    branch feature/acepta-adr-0001-0003-frontera-fenrir
+    checkout feature/acepta-adr-0001-0003-frontera-fenrir
+    commit id: "91862b1"
+    checkout develop
+    merge feature/acepta-adr-0001-0003-frontera-fenrir
+    branch backmerge-v0.2.0
+    checkout backmerge-v0.2.0
+    commit id: "02bb50d"
+    commit id: "9c62856"
+    checkout develop
+    merge backmerge-v0.2.0
+    branch feature/gate-2-compose-configs
+    checkout feature/gate-2-compose-configs
+    commit id: "2501ca1"
+    commit id: "8beb675"
+    commit id: "4fd9fac"
+    commit id: "89059c7"
+    checkout develop
+    merge feature/gate-2-compose-configs
+```
+*Eje trazabilidad · fase 03 · evidencia Gate 2.*
+
+## Trazabilidad tag ↔ versión ↔ decisión
+| Tag | Versión CHANGELOG | ADR / decisión | Nota |
+|---|---|---|---|
+| v0.1.0 | 0.1.0 (Gate 0) | Umbrales SLO y hosts de sondeo confirmados; licencia AGPL-3.0 | release/0.1.0 desde la punta del PR #2 |
+| v0.2.0 | 0.2.0 (Gate 1) | ADR-0001, ADR-0003 aceptados; ADR-0004 frontera con Fenrir | release/0.2.0 desde develop |
+
+## Bitácora de cambios (fiel al repo)
+| Commit | Tipo | Tags | Autor | Fecha | Mensaje |
+|---|---|---|---|---|---|
+| `5f14eb6` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #7 from higerotech/feature/gate-2-compose-configs |
+| `89059c7` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): bit de ejecucion en scripts y resumen del primer informe Trivy |
+| `4fd9fac` | commit | — | Jeremi Alcala | 2026-09-05 | ci: valida deploy/ y abre la checklist de Gate 2 |
+| `8beb675` | commit | — | Jeremi Alcala | 2026-09-05 | feat(deploy): sonda Sleipnir y flujo de Nornas |
+| `2501ca1` | commit | — | Jeremi Alcala | 2026-09-05 | feat(deploy): compose y configuraciones de Heimdall (Gate 2) |
+| `1b84b29` | merge | — | Jeremi Alcala | 2026-09-05 | Merge main (v0.2.0) en develop |
+| `9c62856` | merge | v0.2.0 | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #6 from higerotech/release/0.2.0 |
+| `02bb50d` | commit | — | Jeremi Alcala | 2026-09-05 | release: cierra Gate 1 y corta 0.2.0 |
+| `8b7e57d` | merge | — | Jeremi Alcala | 2026-09-05 | Merge pull request #5 from higerotech/feature/acepta-adr-0001-0003-frontera-fenrir |
+| `91862b1` | commit | — | Jeremi Alcala | 2026-09-05 | docs(adr): acepta ADR-0001 y ADR-0003 y fija la frontera con Fenrir en ADR-0004 |
+| `73d38d1` | merge | — | Jeremi Alcala | 2026-09-05 | Merge pull request #4 from higerotech/feature/hallazgos-revision-inicial |
+| `a3235bc` | commit | — | Jeremi Alcala | 2026-09-05 | docs(prd): divide el requirementDiagram en dos vistas para que renderice legible |
+| `007f76b` | commit | — | Jeremi Alcala | 2026-09-05 | docs(diagramas): completa la trazabilidad y alinea ids y nombres con naming.md |
+| `648454b` | commit | — | Jeremi Alcala | 2026-09-05 | docs: alinea rutas de gates y ADR con el estandar AI-DLC polyrepo |
+| `d57d604` | merge | — | Jeremi Alcala | 2026-09-05 | Merge main (v0.1.0) en develop |
+| `5a160b8` | merge | v0.1.0 | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #3 from higerotech/release/0.1.0 |
+| `dfbb279` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #2 from higerotech/feature/umbrales-slo-gate-0 |
+| `bf29579` | commit | — | Jeremi Alcala | 2026-09-05 | release: cierra Gate 0 y corta 0.1.0 |
+| `578adc6` | commit | — | Jeremi Alcala | 2026-09-05 | docs(prd): cierra umbrales SLO de Gate 0: p95 500/200 ms, throughput 800 Mbps y disponibilidad mensual |
+| `76260b2` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #1 from higerotech/feature/licencia-agpl-y-percentiles-latencia |
+| `43bfd9d` | commit | — | Jeremi Alcala | 2026-09-05 | docs(prd): confirma umbral de perdida 1% y registra p90, p95 y p99 de latencia por WAN |
+| `075c41f` | commit | — | Jeremi Alcala | 2026-09-05 | chore: adopta la licencia GNU AGPL v3.0 para Yggdrasil |
+| `d6481c7` | commit | — | Jeremi Alcala | 2026-09-05 | chore: commit inicial de Yggdrasil con documentacion AI-DLC (fases 00-02) y configuracion GitFlow |

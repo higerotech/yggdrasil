@@ -13,11 +13,11 @@
 - [x] `deploy/docker-compose.yml`: imágenes pineadas, `mem_limit` dentro de RNF01 (1088 MB), `restart` (RNF02), host-mode solo en sondas y sin puertos internos publicados (ADR-0003), Grafana ligada a la IP LAN (RS01)
 - [x] Configuraciones del contrato: blackbox (módulos ICMP y TLS por WAN), Prometheus (scrape 15 s, recording rules `wan:*`/`hogar:*`, alertas `WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`), Alertmanager (rutas, inhibición, webhook Bearer), Grafana (datasource + dashboard comparativo), Sleipnir (Dockerfile + script), flujo de Nornas
 - [x] Plantillas renderizadas por `scripts/render.sh`; secretos e IPs solo en `.env` y en los renderizados, todos gitignored
-- [ ] Validación de config (equivale a SAST): `docker compose config`, `promtool check config/rules`, `amtool check-config`, `blackbox --config.check`, JSON del dashboard y del flujo, ShellCheck — local y en CI (`validar-configs.yml`)
-- [ ] Cadena de suministro (A03): digests anotados en `deploy/imagenes.md`; informe Trivy revisado; CVEs CRITICAL/HIGH triados
-- [ ] Secretos (A02): gitleaks limpio en CI; `.env` y renderizados ignorados
-- [ ] `docs/03-implementation/` con notas de implementación (desviaciones respecto a Gate 1: TLS en vez de HTTP 204, token Bearer, Sleipnir por httpd, RTT de `probe_icmp_duration_seconds`, puertos en docker0) y `repo-history.md` derivado con `gitgraph_from_log.py`
-- [ ] Contratos de `architecture.md` y hosts del PRD actualizados con esas desviaciones
-- [ ] **HITL**: Jeremi acepta los CVEs residuales y las desviaciones documentadas
+- [x] Validación de config (equivale a SAST), verde en local y en CI (PR #7, 2026-09-05): `docker compose config`, `promtool check config/rules`, `amtool check-config`, `blackbox --config.check`, JSON del dashboard y del flujo, ShellCheck — local y en CI (`validar-configs.yml`)
+- [x] Cadena de suministro (A03): digests en `deploy/imagenes.md`; informe Trivy revisado y triado en `docs/03-implementation/cadena-suministro.md` (imágenes re-pineadas a las releases parcheadas de 2026; residual documentado)
+- [x] Secretos (A02): gitleaks limpio en CI (PR #7); `.env` y renderizados ignorados
+- [x] `docs/03-implementation/` con notas de implementación (desviaciones respecto a Gate 1: TLS en vez de HTTP 204, token Bearer, Sleipnir por httpd, RTT de `probe_icmp_duration_seconds`, puertos en docker0) y `repo-history.md` derivado con `gitgraph_from_log.py`
+- [x] Contratos de `architecture.md`, threat model (T4), hosts del PRD, glosario y ADR-0003 actualizados con esas desviaciones
+- [ ] **HITL**: Jeremi acepta el residual de CVEs de `cadena-suministro.md` y las desviaciones documentadas; al aprobar, cortar `0.3.0`
 
 Al aprobar: cortar `0.3.0` vía `release/0.3.0`.
