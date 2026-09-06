@@ -1,6 +1,6 @@
 # Implementación — baseline de configuración y cadena de suministro
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-05
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 03-implementation

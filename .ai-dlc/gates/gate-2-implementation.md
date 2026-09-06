@@ -1,6 +1,6 @@
 # Gate 2 — Implementation (checklist)
 
-* **Estado:** draft
+* **Estado:** approved
 * **Fecha:** 2026-09-05
 * **Fase AI-DLC:** 03-implementation
 * **Versión:** 0.1.0
@@ -18,6 +18,6 @@
 - [x] Secretos (A02): gitleaks limpio en CI (PR #7); `.env` y renderizados ignorados
 - [x] `docs/03-implementation/` con notas de implementación (desviaciones respecto a Gate 1: TLS en vez de HTTP 204, token Bearer, Sleipnir por httpd, RTT de `probe_icmp_duration_seconds`, puertos en docker0) y `repo-history.md` derivado con `gitgraph_from_log.py`
 - [x] Contratos de `architecture.md`, threat model (T4), hosts del PRD, glosario y ADR-0003 actualizados con esas desviaciones
-- [ ] **HITL**: Jeremi acepta el residual de CVEs de `cadena-suministro.md` y las desviaciones documentadas; al aprobar, cortar `0.3.0`
+- [x] **HITL** (2026-09-05): Jeremi acepta la política de triaje y el residual de `cadena-suministro.md` y las desviaciones documentadas
 
-Al aprobar: cortar `0.3.0` vía `release/0.3.0`.
+**Gate 2 cerrado el 2026-09-05.** Versión `0.3.0` en CHANGELOG; tag `v0.3.0` en `main`. Siguiente: Gate 3 (Testing) → `0.4.0`: despliegue en el appliance, pruebas de aceptación de RF01–RF09, calibración del techo de throughput y prueba de carga de las sondas.

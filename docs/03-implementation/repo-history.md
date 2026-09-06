@@ -93,6 +93,13 @@ gitGraph
     commit id: "89059c7"
     checkout develop
     merge feature/gate-2-compose-configs
+    branch feature/gate-2-docs-y-cves
+    checkout feature/gate-2-docs-y-cves
+    commit id: "a1b81cc"
+    commit id: "7436d34"
+    commit id: "eff7242"
+    checkout develop
+    merge feature/gate-2-docs-y-cves
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -105,6 +112,10 @@ gitGraph
 ## Bitácora de cambios (fiel al repo)
 | Commit | Tipo | Tags | Autor | Fecha | Mensaje |
 |---|---|---|---|---|---|
+| `d375028` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #8 from higerotech/feature/gate-2-docs-y-cves |
+| `eff7242` | commit | — | Jeremi Alcala | 2026-09-05 | docs: checklist de Gate 2 al dia, mapa del repo y CHANGELOG |
+| `7436d34` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): re-pinea las imagenes a las releases parcheadas de 2026 tras el triaje de Trivy |
+| `a1b81cc` | commit | — | Jeremi Alcala | 2026-09-05 | docs(03-implementation): baseline de configuracion, triaje de CVEs e historial derivado del git log |
 | `5f14eb6` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #7 from higerotech/feature/gate-2-compose-configs |
 | `89059c7` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): bit de ejecucion en scripts y resumen del primer informe Trivy |
 | `4fd9fac` | commit | — | Jeremi Alcala | 2026-09-05 | ci: valida deploy/ y abre la checklist de Gate 2 |

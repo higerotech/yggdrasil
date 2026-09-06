@@ -13,6 +13,7 @@ Documentación bajo metodología AI-DLC.
 | 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
+| 03-implementation | `deploy/` (Compose, configuraciones, Sleipnir, Nornas), baseline de configuración, triaje de CVEs, historial del repo | Gate 2 | approved — v0.3.0 (2026-09-05) |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
@@ -20,8 +21,10 @@ críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, 
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 `https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
-frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Siguiente hito: Gate 2 (Implementation),
-que cortará `0.3.0` con el Docker Compose, las configuraciones y el historial del repo derivado del git log.
+frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Gate 2 quedó aprobado como `v0.3.0` con los
+artefactos ejecutables de `deploy/`, las imágenes re-pineadas tras el triaje de CVEs y la documentación de
+la fase 03. Siguiente hito: Gate 3 (Testing), que cortará `0.4.0` con el despliegue en el appliance, las
+pruebas de aceptación de RF01–RF09 y la calibración del techo de throughput.
 
 ## Mapa del repo
 
