@@ -113,7 +113,7 @@ journey
 |---|---|---|
 | `1.1.1.1` | ICMP | Anycast de Cloudflare, estable y cercano |
 | `8.8.8.8` | ICMP | Anycast de Google, operador distinto al anterior |
-| `https://www.gstatic.com/generate_204` | HTTPS (espera 204) | Verifica DNS y TLS de extremo a extremo, no solo ICMP |
+| `www.gstatic.com:443` | TCP+TLS (handshake) | Verifica DNS y TLS de extremo a extremo, no solo ICMP. Se pensó como HTTPS 204, pero el prober http de blackbox no fija la IP de origen (ajuste de Gate 2) |
 
 Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
 

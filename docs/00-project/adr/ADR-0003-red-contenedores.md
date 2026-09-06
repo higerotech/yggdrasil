@@ -30,3 +30,4 @@ Topología mixta:
 - Negativas / deuda asumida: puertos host-mode (9115) deben cubrirse en la política INPUT de nftables del proyecto de routing.
 - Impacto en threat model: reduce superficie de T2/T4; añade dependencia de la política INPUT del firewall.
 - Aceptada por el owner el 2026-09-05.
+- Nota de implementación (Gate 2, 2026-09-05): las sondas en host-mode (9115 blackbox, 9469 Sleipnir) escuchan solo en la IP de docker0 y Mimir las alcanza por `host.docker.internal`; la LAN no las ve aunque falle la política INPUT de nftables, que queda como segunda barrera.
