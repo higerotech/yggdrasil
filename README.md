@@ -28,7 +28,9 @@ que cortará `0.3.0` con el Docker Compose, las configuraciones y el historial d
 - `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos, `naming.md` y `adr/` (registro de decisiones de arquitectura)
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
 - `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
+- `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
 - `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas y scripts de despliegue
+- `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
 - `.ai-dlc/gates/` — checklists de los Gates 0, 1 y 2
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
