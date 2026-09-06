@@ -142,6 +142,17 @@ gitGraph
     commit id: "d0f765e"
     checkout develop
     merge fix/bootstrap-branch
+    branch feature/ratatosk-nornas-plataforma
+    checkout feature/ratatosk-nornas-plataforma
+    commit id: "c9e9412"
+    commit id: "023e0da"
+    checkout develop
+    merge feature/ratatosk-nornas-plataforma
+    branch fix/render-wan-caida
+    checkout fix/render-wan-caida
+    commit id: "02a0458"
+    checkout develop
+    merge fix/render-wan-caida
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -155,6 +166,11 @@ gitGraph
 ## Bitácora de cambios (fiel al repo)
 | Commit | Tipo | Tags | Autor | Fecha | Mensaje |
 |---|---|---|---|---|---|
+| `c6efac2` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #15 from higerotech/fix/render-wan-caida |
+| `02a0458` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): render.sh conserva la ultima IP conocida si una WAN no tiene IPv4 |
+| `c66b21d` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #14 from higerotech/feature/ratatosk-nornas-plataforma |
+| `023e0da` | commit | — | Jeremi Alcala | 2026-09-05 | docs: ADR-0006 y contratos con Ratatosk y Nornas como servicios propios; historial regenerado |
+| `c9e9412` | commit | — | Jeremi Alcala | 2026-09-05 | feat(deploy): Ratatosk y Nornas como servicios de plataforma (ADR-0006) |
 | `d8e728a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #13 from higerotech/fix/bootstrap-branch |
 | `d0f765e` | commit | — | Jeremi Alcala | 2026-09-05 | fix(cd): el bootstrap acepta BRANCH para el clon inicial |
 | `a20481a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #12 from higerotech/docs/nftables-regla-real |
