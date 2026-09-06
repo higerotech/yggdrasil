@@ -7,14 +7,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 1 (Design) pendiente de validación humana: aceptar ADR-0001 y ADR-0003 y confirmar el presupuesto de RAM con Frigate. Al aprobarlo, cortar 0.2.0.
+> Gate 1 (Design) listo para la aprobación del owner: ADR-0001 y ADR-0003 aceptados y frontera con Fenrir resuelta en ADR-0004. Al aprobarlo, cortar 0.2.0.
 
 ### Cambiado
+- ADR-0001 (stack de métricas) y ADR-0003 (host-mode selectivo) pasan a `accepted` (2026-09-05). Charter (0.1.1) y `naming.md`: Frigate/Fenrir se desarrolla en el proyecto independiente `nvr-frigate`; el presupuesto de RAM de Yggdrasil queda en ≤ 1.5 GB sin depender de Frigate.
 - Gates movidos de `docs/gates/` a `.ai-dlc/gates/` y ADR de `docs/02-design/adr/` a `docs/00-project/adr/`, alineando el árbol con el estándar AI-DLC polyrepo de la organización.
 - C4 Container: el boundary de la plataforma pasa a id `yggdrasil` y Heimdall queda como `Container_Boundary` propio, de modo que el id `heimdall` designa lo mismo que en el C4 Context; el slot de tecnología muestra Prometheus, Alertmanager, Grafana y Node-RED en vez de "Docker".
 - Diagramas: "Odín" con acento en los DFD del PRD y del threat model; los elementos del requirementDiagram usan los nombres nórdicos (Huginn y Muninn, Sleipnir, Mimir, Gjallarhorn, Odín, Nornas) con la tecnología en `type`, según `naming.md`.
 
 ### Añadido
+- ADR-0004: frontera con Fenrir (Frigate NVR), proyecto independiente con métricas y monitoreo propios; la integración con Yggdrasil será una feature futura con su propio PRD y ADR.
 - Trazabilidad de RF02, RF06, RF09 y RNF02 en el requirementDiagram del PRD; todos los requisitos quedan enlazados a un componente que los satisface. El diagrama se divide en dos vistas (medición y alertado; observabilidad, no funcionales y seguridad) para respetar el límite de ~12 nodos y renderizar legible.
 
 ## [0.1.0] - 2026-09-05
