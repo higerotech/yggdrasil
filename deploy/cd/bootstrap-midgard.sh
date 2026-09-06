@@ -40,9 +40,23 @@ if [ ! -f "$ENV_FILE" ]; then
   printf '\n# uid/gid del usuario deploy, dueño del clon (para las tareas sync del CD)\nDEPLOY_UID=%s\nDEPLOY_GID=%s\n' "$(id -u deploy)" "$(id -g deploy)" >> "$ENV_FILE"
   echo "   creado con contraseña de Grafana y token aleatorios (ver: sudo cat $ENV_FILE)"
 else
-  echo "   ya existe; sin cambios"
+  echo "   ya existe; se conservan los valores actuales"
 fi
-echo "   revisar WAN1_IF/WAN2_IF ($(ip -4 -o addr show | awk '{print $2}' | grep -E '^wan' | tr '\n' ' ')) y NORNAS_URL"
+# Completa claves nuevas de .env.example que falten en .env (versiones posteriores del stack);
+# los CAMBIAR se sustituyen por valores aleatorios. Nunca modifica claves existentes.
+while IFS= read -r linea; do
+  clave=${linea%%=*}; valor=${linea#*=}
+  grep -q "^${clave}=" "$ENV_FILE" && continue
+  if [ "$valor" = CAMBIAR ]; then
+    case "$clave" in *_SECRET|*_TOKEN) valor=$(openssl rand -hex 32) ;; *) valor=$(openssl rand -base64 24 | tr -d '/+=') ;; esac
+  fi
+  printf '%s=%s\n' "$clave" "$valor" >> "$ENV_FILE"; echo "   añadida $clave"
+done < <(grep -E '^[A-Z_]+=' "$APP_DIR/deploy/.env.example")
+# El webhook de Alertmanager va ahora por la red interna (ADR-0006)
+if grep -q '^NORNAS_URL=http://host.docker.internal' "$ENV_FILE"; then
+  sed -i 's|^NORNAS_URL=.*|NORNAS_URL=http://nornas:1880/heimdall/alertas|' "$ENV_FILE"; echo "   NORNAS_URL actualizada a la red interna"
+fi
+echo "   revisar WAN1_IF/WAN2_IF ($(ip -4 -o addr show | awk '{print $2}' | grep -E '^wan' | tr '\n' ' '))"
 
 echo "== 4. Render inicial y validación"
 ( cd "$APP_DIR/deploy" && sudo -u deploy ./scripts/render.sh --sin-recarga )

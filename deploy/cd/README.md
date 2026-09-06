@@ -65,8 +65,7 @@ commit bueno. Contingencia sin receptor: `deploy/scripts/deploy.sh` (con `IMAGE_
 publicado, o `docker compose build` para construir en local).
 
 ## Pendientes conocidos
-- **Nornas y Ratatosk no existen aún en midgard**: no hay Node-RED ni Mosquitto corriendo. Hasta
-  que existan (o `NORNAS_URL` apunte a donde vivan), Alertmanager no podrá entregar el webhook; las
-  alertas siguen visibles en Odín y en Alertmanager. Decisión pendiente del owner.
+- Ratatosk y Nornas son servicios del propio Compose desde ADR-0006; el bootstrap completa en `.env`
+  las credenciales MQTT y del editor si faltan. Conectar la salida push del flujo sigue siendo manual.
 - El resultado de `sync-host`/`sync-net` no forma parte del healthcheck del receptor; revisar sus
   logs en el primer despliegue.

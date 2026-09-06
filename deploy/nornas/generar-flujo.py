@@ -11,12 +11,12 @@ AQUI = Path(__file__).parent
 TAB = "heimdall.tab"
 
 INFO = (
-    "Flujo Heimdall → Nornas. Importar en el Node-RED existente (Ratatosk debe tener el usuario "
-    "'nornas' con ACL de escritura en midgard/#). Pasos: 1) definir NORNAS_WEBHOOK_TOKEN en el "
-    "entorno de Node-RED con el mismo valor que deploy/.env; 2) apuntar el nodo de broker 'Ratatosk' "
-    "al Mosquitto real (o sustituirlo por el broker ya configurado) y cargar sus credenciales; "
-    "3) conectar la salida 2 (push) al mecanismo de notificación de la casa. El estado por WAN vive "
-    "en el contexto de flujo (estado_wan)."
+    "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose "
+    "de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). "
+    "NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. Pendiente manual: conectar la salida 2 "
+    "(push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo "
+    "(estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y "
+    "relanzar nornas-init."
 )
 
 
@@ -28,7 +28,7 @@ def fn(id_, name, src, outputs, x, y, wires):
 
 flow = [
     {"id": TAB, "type": "tab", "label": "Heimdall · alertas SLA", "disabled": False, "info": INFO, "env": []},
-    {"id": "ratatosk.broker", "type": "mqtt-broker", "name": "Ratatosk", "broker": "CAMBIAR-host-mosquitto", "port": "1883",
+    {"id": "ratatosk.broker", "type": "mqtt-broker", "name": "Ratatosk", "broker": "ratatosk", "port": "1883",
      "clientid": "nornas-heimdall", "autoConnect": True, "usetls": False, "protocolVersion": "4", "keepalive": "60",
      "cleansession": True, "autoUnsubscribe": True,
      "birthTopic": "midgard/nornas/heimdall/estado", "birthQos": "1", "birthRetain": "true", "birthPayload": "online", "birthMsg": {},

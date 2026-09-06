@@ -120,12 +120,28 @@ gitGraph
     commit id: "8360c94"
     checkout develop
     merge feature/cd-despliegue-continuo
-    branch develop
-    checkout develop
+    branch backmerge-v0.3.0
+    checkout backmerge-v0.3.0
     commit id: "0fa3f90"
     commit id: "58fe37a"
     checkout develop
-    merge develop
+    merge backmerge-v0.3.0
+    branch docs/changelog-cd-historial
+    checkout docs/changelog-cd-historial
+    commit id: "48dc03b"
+    commit id: "2d3b928"
+    checkout develop
+    merge docs/changelog-cd-historial
+    branch docs/nftables-regla-real
+    checkout docs/nftables-regla-real
+    commit id: "8a0cce7"
+    checkout develop
+    merge docs/nftables-regla-real
+    branch fix/bootstrap-branch
+    checkout fix/bootstrap-branch
+    commit id: "d0f765e"
+    checkout develop
+    merge fix/bootstrap-branch
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -139,6 +155,12 @@ gitGraph
 ## Bitácora de cambios (fiel al repo)
 | Commit | Tipo | Tags | Autor | Fecha | Mensaje |
 |---|---|---|---|---|---|
+| `d8e728a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #13 from higerotech/fix/bootstrap-branch |
+| `d0f765e` | commit | — | Jeremi Alcala | 2026-09-05 | fix(cd): el bootstrap acepta BRANCH para el clon inicial |
+| `a20481a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #12 from higerotech/docs/nftables-regla-real |
+| `8a0cce7` | commit | — | Jeremi Alcala | 2026-09-05 | docs(cd): la regla nftables real de las sondas y comprobacion en el bootstrap |
+| `8d2073a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #11 from higerotech/docs/changelog-cd-historial |
+| `2d3b928` | commit | — | Jeremi Alcala | 2026-09-05 | docs: CHANGELOG del despliegue continuo e historial regenerado con v0.3.0 |
 | `48dc03b` | merge | — | Jeremi Alcala | 2026-09-05 | Merge develop (v0.3.0) en feature/cd-despliegue-continuo |
 | `1544e6d` | merge | — | Jeremi Alcala | 2026-09-05 | Merge main (v0.3.0) en develop |
 | `d97b3fd` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #10 from higerotech/feature/cd-despliegue-continuo |

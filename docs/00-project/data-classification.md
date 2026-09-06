@@ -12,7 +12,7 @@
 |---|---|---|---|---|---|
 | Métricas de red (latencia, pérdida, Mbps por WAN) | Interno | — | No (disco local) | TLS solo en acceso remoto (WireGuard) | 30 días |
 | IPs públicas asignadas por cada ISP | Confidencial | — | No | WireGuard | 30 días |
-| Credenciales (Grafana, MQTT) | Restringido | — | Sí (secrets/env con permisos 600) | TLS/WireGuard | Hasta rotación |
+| Credenciales (Grafana, MQTT por cliente, editor de Node-RED, token del webhook) | Restringido | — | Sí (`.env` 600; passwd de Mosquitto generado en el volumen; credenciales de flujos cifradas) | LAN/WireGuard | Hasta rotación |
 | Patrones de uso/presencia derivables de tráfico | Confidencial | — | No | LAN/WireGuard | Implícita en métricas |
 
 Niveles: Público < Interno < Confidencial < Restringido.
