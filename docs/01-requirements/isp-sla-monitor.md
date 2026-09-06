@@ -118,6 +118,9 @@ journey
 Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
 
 ## Trazabilidad de requisitos
+Dos vistas, según la convención de ~12 nodos por diagrama: medición y alertado, y observabilidad, no funcionales y seguridad. `Mimir` aparece en ambas porque sus reglas satisfacen requisitos de los dos grupos.
+
+### Medición y alertado (RF01–RF05)
 ```mermaid
 requirementDiagram
     requirement RF01 {
@@ -150,6 +153,32 @@ requirementDiagram
       risk: medium
       verifymethod: test
     }
+    element HuginnMuninn {
+      type: "blackbox_exporter"
+    }
+    element Sleipnir {
+      type: "sonda de throughput"
+    }
+    element Mimir {
+      type: "Prometheus, recording y alerting rules"
+    }
+    element Gjallarhorn {
+      type: "Alertmanager"
+    }
+    element Nornas {
+      type: "Node-RED, puente MQTT"
+    }
+    HuginnMuninn - satisfies -> RF01
+    Sleipnir - satisfies -> RF02
+    Mimir - satisfies -> RF03
+    Gjallarhorn - satisfies -> RF04
+    Nornas - satisfies -> RF05
+```
+*Eje trazabilidad · fase 01 · evidencia Gate 0.*
+
+### Observabilidad, no funcionales y seguridad (RF06–RF09, RNF, RS)
+```mermaid
+requirementDiagram
     requirement RF06 {
       id: RF06
       text: Dashboard comparativo ISP1 vs ISP2 con 30 dias de retencion
@@ -192,32 +221,15 @@ requirementDiagram
       risk: medium
       verifymethod: inspection
     }
-    element HuginnMuninn {
-      type: "blackbox_exporter"
-    }
-    element Sleipnir {
-      type: "sonda de throughput"
+    element Odin {
+      type: "Grafana"
     }
     element Mimir {
       type: "Prometheus, recording y alerting rules"
     }
-    element Gjallarhorn {
-      type: "Alertmanager"
-    }
-    element Odin {
-      type: "Grafana"
-    }
-    element Nornas {
-      type: "Node-RED, puente MQTT"
-    }
     element Compose {
       type: "Docker Compose, mem_limit y restart policies"
     }
-    HuginnMuninn - satisfies -> RF01
-    Sleipnir - satisfies -> RF02
-    Mimir - satisfies -> RF03
-    Gjallarhorn - satisfies -> RF04
-    Nornas - satisfies -> RF05
     Odin - satisfies -> RF06
     Mimir - satisfies -> RF07
     Mimir - satisfies -> RF08
