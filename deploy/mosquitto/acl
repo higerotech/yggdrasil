@@ -1,0 +1,16 @@
+# Ratatosk — ACL por usuario (T3: solo Nornas publica el estado de Yggdrasil).
+# Sin líneas antes del primer "user": no hay clientes anónimos (allow_anonymous false).
+
+# Nornas (Node-RED): publica el estado de la plataforma y lee los eventos de Fenrir
+user nornas
+topic readwrite midgard/#
+topic read frigate/#
+
+# Fenrir (Frigate NVR, proyecto nvr-frigate): sus propios eventos
+user frigate
+topic readwrite frigate/#
+
+# Dispositivos y paneles IoT de la casa: solo lectura
+user iot
+topic read midgard/#
+topic read frigate/#

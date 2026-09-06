@@ -40,6 +40,21 @@ gitGraph
     commit id: "02bb50d"
     checkout main
     merge release/0.2.0 tag: "v0.2.0"
+    branch release/0.3.0
+    checkout release/0.3.0
+    commit id: "1b84b29"
+    commit id: "2501ca1"
+    commit id: "8beb675"
+    commit id: "4fd9fac"
+    commit id: "89059c7"
+    commit id: "5f14eb6"
+    commit id: "a1b81cc"
+    commit id: "7436d34"
+    commit id: "eff7242"
+    commit id: "d375028"
+    commit id: "0fa3f90"
+    checkout main
+    merge release/0.3.0 tag: "v0.3.0"
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -100,6 +115,44 @@ gitGraph
     commit id: "eff7242"
     checkout develop
     merge feature/gate-2-docs-y-cves
+    branch feature/cd-despliegue-continuo
+    checkout feature/cd-despliegue-continuo
+    commit id: "8360c94"
+    checkout develop
+    merge feature/cd-despliegue-continuo
+    branch backmerge-v0.3.0
+    checkout backmerge-v0.3.0
+    commit id: "0fa3f90"
+    commit id: "58fe37a"
+    checkout develop
+    merge backmerge-v0.3.0
+    branch docs/changelog-cd-historial
+    checkout docs/changelog-cd-historial
+    commit id: "48dc03b"
+    commit id: "2d3b928"
+    checkout develop
+    merge docs/changelog-cd-historial
+    branch docs/nftables-regla-real
+    checkout docs/nftables-regla-real
+    commit id: "8a0cce7"
+    checkout develop
+    merge docs/nftables-regla-real
+    branch fix/bootstrap-branch
+    checkout fix/bootstrap-branch
+    commit id: "d0f765e"
+    checkout develop
+    merge fix/bootstrap-branch
+    branch feature/ratatosk-nornas-plataforma
+    checkout feature/ratatosk-nornas-plataforma
+    commit id: "c9e9412"
+    commit id: "023e0da"
+    checkout develop
+    merge feature/ratatosk-nornas-plataforma
+    branch fix/render-wan-caida
+    checkout fix/render-wan-caida
+    commit id: "02a0458"
+    checkout develop
+    merge fix/render-wan-caida
 ```
 *Eje trazabilidad · fase 03 · evidencia Gate 2.*
 
@@ -108,10 +161,28 @@ gitGraph
 |---|---|---|---|
 | v0.1.0 | 0.1.0 (Gate 0) | Umbrales SLO y hosts de sondeo confirmados; licencia AGPL-3.0 | release/0.1.0 desde la punta del PR #2 |
 | v0.2.0 | 0.2.0 (Gate 1) | ADR-0001, ADR-0003 aceptados; ADR-0004 frontera con Fenrir | release/0.2.0 desde develop |
+| v0.3.0 | — | — | — |
 
 ## Bitácora de cambios (fiel al repo)
 | Commit | Tipo | Tags | Autor | Fecha | Mensaje |
 |---|---|---|---|---|---|
+| `c6efac2` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #15 from higerotech/fix/render-wan-caida |
+| `02a0458` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): render.sh conserva la ultima IP conocida si una WAN no tiene IPv4 |
+| `c66b21d` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #14 from higerotech/feature/ratatosk-nornas-plataforma |
+| `023e0da` | commit | — | Jeremi Alcala | 2026-09-05 | docs: ADR-0006 y contratos con Ratatosk y Nornas como servicios propios; historial regenerado |
+| `c9e9412` | commit | — | Jeremi Alcala | 2026-09-05 | feat(deploy): Ratatosk y Nornas como servicios de plataforma (ADR-0006) |
+| `d8e728a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #13 from higerotech/fix/bootstrap-branch |
+| `d0f765e` | commit | — | Jeremi Alcala | 2026-09-05 | fix(cd): el bootstrap acepta BRANCH para el clon inicial |
+| `a20481a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #12 from higerotech/docs/nftables-regla-real |
+| `8a0cce7` | commit | — | Jeremi Alcala | 2026-09-05 | docs(cd): la regla nftables real de las sondas y comprobacion en el bootstrap |
+| `8d2073a` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #11 from higerotech/docs/changelog-cd-historial |
+| `2d3b928` | commit | — | Jeremi Alcala | 2026-09-05 | docs: CHANGELOG del despliegue continuo e historial regenerado con v0.3.0 |
+| `48dc03b` | merge | — | Jeremi Alcala | 2026-09-05 | Merge develop (v0.3.0) en feature/cd-despliegue-continuo |
+| `1544e6d` | merge | — | Jeremi Alcala | 2026-09-05 | Merge main (v0.3.0) en develop |
+| `d97b3fd` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #10 from higerotech/feature/cd-despliegue-continuo |
+| `58fe37a` | merge | v0.3.0 | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #9 from higerotech/release/0.3.0 |
+| `8360c94` | commit | — | Jeremi Alcala | 2026-09-05 | feat(cd): despliegue continuo con el receptor de despliegue-continuo (ADR-0005) |
+| `0fa3f90` | commit | — | Jeremi Alcala | 2026-09-05 | release: cierra Gate 2 y corta 0.3.0 |
 | `d375028` | merge | — | Jeremi J. Alcalá M. | 2026-09-05 | Merge pull request #8 from higerotech/feature/gate-2-docs-y-cves |
 | `eff7242` | commit | — | Jeremi Alcala | 2026-09-05 | docs: checklist de Gate 2 al dia, mapa del repo y CHANGELOG |
 | `7436d34` | commit | — | Jeremi Alcala | 2026-09-05 | fix(deploy): re-pinea las imagenes a las releases parcheadas de 2026 tras el triaje de Trivy |

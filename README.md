@@ -14,6 +14,7 @@ Documentación bajo metodología AI-DLC.
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
 | 03-implementation | `deploy/` (Compose, configuraciones, Sleipnir, Nornas), baseline de configuración, triaje de CVEs, historial del repo | Gate 2 | approved — v0.3.0 (2026-09-05) |
+| 04-testing | plan de verificación (aceptación, seguridad, rendimiento) sobre el despliegue en midgard | Gate 3 | draft — abierto con v0.4.0 (2026-09-05) |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
@@ -23,8 +24,10 @@ disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
 frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Gate 2 quedó aprobado como `v0.3.0` con los
 artefactos ejecutables de `deploy/`, las imágenes re-pineadas tras el triaje de CVEs y la documentación de
-la fase 03. Siguiente hito: Gate 3 (Testing), que cortará `0.4.0` con el despliegue en el appliance, las
-pruebas de aceptación de RF01–RF09 y la calibración del techo de throughput.
+la fase 03. La `v0.4.0` abre Gate 3: lleva a `main` el despliegue continuo (ADR-0005) y los servicios de
+plataforma Ratatosk y Nornas (ADR-0006), y su primer despliegue en midgard es la primera prueba de
+aceptación. El cierre de Gate 3, con RF01–RF09 verificados sobre el sistema real y el techo de throughput
+calibrado, cortará `0.5.0`.
 
 ## Mapa del repo
 
@@ -32,9 +35,10 @@ pruebas de aceptación de RF01–RF09 y la calibración del techo de throughput.
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
 - `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
 - `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
-- `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas y scripts de despliegue
+- `docs/04-testing/` — `test-plan.md`: estrategia, alcance sobre la arquitectura, trazabilidad `verifies`, casos de aceptación, seguridad y rendimiento (Gate 3)
+- `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas, scripts de despliegue y `cd/` con el despliegue continuo hacia midgard (ADR-0005)
 - `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
-- `.ai-dlc/gates/` — checklists de los Gates 0, 1 y 2
+- `.ai-dlc/gates/` — checklists de los Gates 0 a 3
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
 - `LICENSE` — GNU Affero General Public License v3.0
@@ -67,7 +71,7 @@ son objetivos públicos de sondeo (1.1.1.1, 8.8.8.8). Cuando lleguen los artefac
 | Dato real | Dónde vive | Cómo aparece en el repo |
 |---|---|---|
 | IPs de `wan1` / `wan2` y del appliance | `.env` (600, gitignored) | `${WAN1_IP}`, `${WAN2_IP}` |
-| Credenciales de Grafana y MQTT | `.env` y ficheros de password (gitignored) | `CAMBIAR` |
+| Credenciales de Grafana, MQTT (por cliente) y del editor de Node-RED | `.env` (gitignored); el passwd de Mosquitto se genera en el volumen | `CAMBIAR` |
 | IPs públicas asignadas por cada ISP | Solo en la TSDB local | No aparecen |
 
 Los valores de ejemplo usan `192.0.2.0/24`, el rango que RFC 5737 reserva para documentación.
@@ -102,9 +106,10 @@ git flow init -d
 ## Despliegue
 
 Según ADR-0002, todo el stack corre en el appliance con Docker Compose y GitHub Actions se limita
-a lint y validación de configuraciones; no hay pipeline push hacia la red doméstica. El despliegue
-es un `git pull` seguido de `docker compose up -d` mediante un script idempotente, cuando existan
-los artefactos en `deploy/`.
+a lint y validación de configuraciones; no hay pipeline push hacia la red doméstica. Desde ADR-0005 el
+despliegue es continuo: cada push a `main` publica las imágenes propias en GHCR y el receptor de
+`despliegue-continuo` en el appliance despliega ese SHA con healthcheck y rollback (`deploy/cd/README.md`).
+`deploy/scripts/deploy.sh` queda como vía manual de contingencia.
 
 ## Licencia
 

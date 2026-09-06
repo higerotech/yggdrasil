@@ -3,8 +3,10 @@
 # ADR-0003 (host-mode solo para las sondas). Nombres: servicio = nombre nórdico (naming.md);
 # container_name = tecnología real, para que `docker ps` sea legible por terceros.
 #
-# Presupuesto RNF01 (RAM ≤ 1.5 GB): mem_limit 64 + 128 + 512 + 128 + 256 = 1088 MB.
-# Puertos: solo Odín (Grafana) publica 3000, y solo en la IP LAN (${HOST_LAN_IP}). Las sondas
+# Presupuesto RNF01 (RAM ≤ 1.5 GB): mem_limit 64 + 128 + 512 + 128 + 256 (Heimdall) + 64 + 256
+# (Ratatosk y Nornas, servicios de plataforma, ADR-0006) = 1408 MB.
+# Puertos publicados, todos solo en la IP LAN (${HOST_LAN_IP}): Odín 3000, Ratatosk 1883 y el editor
+# de Nornas 1880. Las sondas
 # en host-mode escuchan en la IP de docker0 (${DOCKER_HOST_GW}) para que Mimir las scrapee sin
 # exponerlas a la LAN ni a las WAN; la política INPUT de nftables es la segunda barrera (T2).
 name: yggdrasil
@@ -41,7 +43,7 @@ services:
   sleipnir:
     <<: *comun
     build: ./sleipnir
-    image: yggdrasil/sleipnir:0.1.1
+    image: ghcr.io/higerotech/yggdrasil-sleipnir:${IMAGE_TAG:-local}   # CD: sha-<7>; local: build
     container_name: yggdrasil-throughput-probe
     network_mode: host               # bind del source IP por WAN (ADR-0003)
     cap_drop: [ALL]
@@ -90,8 +92,6 @@ services:
     container_name: yggdrasil-alertmanager
     read_only: true
     mem_limit: 128m
-    extra_hosts:
-      - host.docker.internal:host-gateway   # Node-RED (Nornas) existente en el host
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro   # renderizado
       - gjallarhorn-datos:/alertmanager
@@ -129,6 +129,102 @@ services:
     networks: [heimdall]
     depends_on: [mimir]
 
+  # --- Servicios de plataforma (ADR-0006): compartidos por Heimdall, Fenrir y la domótica ---
+
+  # Ratatosk — Mosquitto 2: bus de eventos. Auth obligatoria y ACL por usuario (T3); el archivo de
+  # contraseñas se genera al arrancar a partir de .env, dentro del volumen de datos.
+  ratatosk:
+    <<: *comun
+    image: eclipse-mosquitto:2.0.22
+    container_name: yggdrasil-mosquitto
+    read_only: true
+    mem_limit: 64m
+    ports:
+      - "${HOST_LAN_IP}:1883:1883"   # Fenrir y dispositivos IoT de la LAN, con usuario y contraseña
+    environment:
+      MQTT_NORNAS_PASSWORD: ${MQTT_NORNAS_PASSWORD}
+      MQTT_FRIGATE_PASSWORD: ${MQTT_FRIGATE_PASSWORD}
+      MQTT_IOT_PASSWORD: ${MQTT_IOT_PASSWORD}
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./mosquitto/acl:/mosquitto/config/acl:ro
+      - ratatosk-datos:/mosquitto/data
+    tmpfs:
+      - /tmp
+    networks: [heimdall]
+    command:
+      - /bin/sh
+      - -c
+      - >-
+        set -e; P=/mosquitto/data/passwd;
+        mosquitto_passwd -c -b "$$P" nornas "$$MQTT_NORNAS_PASSWORD";
+        mosquitto_passwd -b "$$P" frigate "$$MQTT_FRIGATE_PASSWORD";
+        mosquitto_passwd -b "$$P" iot "$$MQTT_IOT_PASSWORD";
+        cp /mosquitto/config/acl /mosquitto/data/acl;
+        chown mosquitto:mosquitto "$$P" /mosquitto/data/acl; chmod 0600 "$$P" /mosquitto/data/acl;
+        exec /docker-entrypoint.sh mosquitto -c /mosquitto/config/mosquitto.conf
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_pub -h 127.0.0.1 -p 1883 -u nornas -P \"$$MQTT_NORNAS_PASSWORD\" -t midgard/ratatosk/salud -m 1 -q 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # Nornas — Node-RED 4: automatización sobre eventos. Editor con autenticación (settings.js),
+  # publicado solo en la IP LAN. Recibe el webhook de Gjallarhorn por la red interna.
+  nornas:
+    <<: *comun
+    image: nodered/node-red:4.1.14-22
+    container_name: yggdrasil-node-red
+    user: "1000:1000"
+    mem_limit: 256m
+    ports:
+      - "${HOST_LAN_IP}:1880:1880"   # editor, solo LAN y WireGuard
+    environment:
+      TZ: ${TZ:-UTC}
+      NORNAS_ADMIN_USER: ${NORNAS_ADMIN_USER:-admin}
+      NORNAS_ADMIN_PASSWORD: ${NORNAS_ADMIN_PASSWORD}
+      NORNAS_CREDENTIAL_SECRET: ${NORNAS_CREDENTIAL_SECRET}
+      NORNAS_WEBHOOK_TOKEN: ${NORNAS_WEBHOOK_TOKEN}   # lo lee el nodo de autorización del flujo
+    volumes:
+      - nornas-datos:/data
+      - ./nornas/settings.js:/data/settings.js:ro
+    networks: [heimdall]
+    depends_on:
+      ratatosk:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:1880/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # nornas-init — tarea de un solo uso: importa el flujo de Heimdall por la Admin API e inyecta las
+  # credenciales MQTT de nornas (idempotente: no toca nada si la pestaña Heimdall ya existe).
+  nornas-init:
+    image: nodered/node-red:4.1.14-22
+    container_name: yggdrasil-node-red-init
+    user: "1000:1000"
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    entrypoint: ["node", "/init/importar-flujo.mjs"]
+    environment:
+      NORNAS_ADMIN_USER: ${NORNAS_ADMIN_USER:-admin}
+      NORNAS_ADMIN_PASSWORD: ${NORNAS_ADMIN_PASSWORD}
+      MQTT_NORNAS_PASSWORD: ${MQTT_NORNAS_PASSWORD}
+    volumes:
+      - ./nornas/init:/init:ro
+      - ./nornas/flows:/flujos:ro
+    networks: [heimdall]
+    depends_on:
+      nornas:
+        condition: service_healthy
+
 networks:
   heimdall:
     name: yggdrasil_heimdall
@@ -138,3 +234,5 @@ volumes:
   gjallarhorn-datos:
   odin-datos:
   sleipnir-datos:
+  ratatosk-datos:
+  nornas-datos:

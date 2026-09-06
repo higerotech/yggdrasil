@@ -7,7 +7,22 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 3 (Testing) pendiente: despliegue en el appliance, pruebas de aceptación de RF01–RF09, calibración del techo de throughput, prueba de carga de las sondas y cableado del despliegue continuo. Al aprobarlo, cortar 0.4.0.
+> Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard: TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+
+## [0.4.0] - 2026-09-05
+
+Release de arranque de Gate 3. Lleva a `main` el despliegue continuo (ADR-0005) y los servicios de plataforma Ratatosk y Nornas (ADR-0006); su primer despliegue automático en midgard es la primera prueba de aceptación (TA-01). Con esta release la convención de versiones se desplaza un menor: el cierre de Gate 3 cortará 0.5.0.
+
+### Añadido
+- Gate 3 abierto: `docs/04-testing/test-plan.md` (estrategia en cuatro capas, alcance sobre la arquitectura, trazabilidad requisito ↔ prueba con `verifies`, casos TA-01..TA-14, seguridad TS-01..TS-10, transiciones de estado, calibración del techo de throughput y criterio de salida) y checklist `.ai-dlc/gates/gate-3-testing.md`.
+- ADR-0006: Ratatosk (Mosquitto 2.0.22) y Nornas (Node-RED 4.1.14) pasan a ser servicios de plataforma desplegados por el Compose de Yggdrasil, ya que no existía broker ni Node-RED en midgard. Ratatosk con `allow_anonymous false`, una credencial por cliente (`nornas`, `frigate`, `iot`) generada al arrancar desde `.env`, ACL por tópico (control T3 propio) y límites; Nornas con editor autenticado (`settings.js`), secreto de credenciales estable y webhook de Alertmanager por la red interna; `nornas-init` importa el flujo de Heimdall por la Admin API e inyecta las credenciales MQTT. RNF01 sube a 1408 MB. El bootstrap completa las claves nuevas de `.env` sin tocar las existentes.
+- ADR-0005: despliegue continuo con el receptor de `higerotech/despliegue-continuo` (supersede la sección CD de ADR-0002). `build-and-push.yml` publica `yggdrasil-sleipnir` y `yggdrasil-sync` en GHCR con tag `sha-<7>`; `deploy/docker-compose.cd.yml` añade las tareas `sync-host` (checkout del commit, render con las IPs de las WAN, recarga de blackbox) y `sync-net` (recarga de Mimir y Gjallarhorn); `deploy/cd/bootstrap-midgard.sh` prepara el appliance con sudo (sysctl, clon como `deploy`, `.env`, inventario del receptor) y `deploy/cd/README.md` documenta webhook, operación y rollback.
+- Prerrequisitos verificados en midgard el 2026-09-05: Ubuntu 24.04.4, Docker 29.8 y Compose v5.5, `wan1`/`wan2` con `ip rule from`, docker0 en 172.17.0.1, receptor sano con túnel; pendientes `ping_group_range`, reglas nftables y la ausencia de Node-RED y Mosquitto (Nornas y Ratatosk).
+
+### Cambiado
+- `render.sh` tolera una WAN sin IPv4: conserva la última IP renderizada con aviso y solo aborta si no hay render previo. Motivado por la caída de `wan2` en midgard durante el bootstrap del 2026-09-05.
+- Charter (0.1.2), PRD, `architecture.md` (C4 Container y notas), `threat-model.md` (filas MQTT y Node-RED, T3) y clasificación de datos: Ratatosk y Nornas dejan de ser "existentes" y pasan a servicios propios; `NORNAS_URL` por defecto `http://nornas:1880/heimdall/alertas`; Gjallarhorn ya no necesita `host.docker.internal`.
+- Imagen de Sleipnir pasa a `ghcr.io/higerotech/yggdrasil-sleipnir` con `IMAGE_TAG`; `deploy/scripts/deploy.sh` queda como vía manual de contingencia.
 
 ## [0.3.0] - 2026-09-05
 
@@ -69,7 +84,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/higerotech/yggdrasil/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/higerotech/yggdrasil/releases/tag/v0.1.0

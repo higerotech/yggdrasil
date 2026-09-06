@@ -23,6 +23,8 @@ env:
   AM: prom/alertmanager:v0.34.0
   BB: prom/blackbox-exporter:v0.28.0
   GRAFANA: grafana/grafana:12.4.10
+  MOSQ: eclipse-mosquitto:2.0.22
+  NODERED: nodered/node-red:4.1.14-22
 
 jobs:
   configs:
@@ -36,9 +38,11 @@ jobs:
         run: |
           cp .env.example .env
           WAN1_IP=192.0.2.101 WAN2_IP=192.0.2.102 ./scripts/render.sh --sin-recarga
-      - name: docker compose config
+      - name: docker compose config (base y CD)
         working-directory: deploy
-        run: docker compose config -q
+        run: |
+          docker compose config -q
+          IMAGE_TAG=sha-0000000 docker compose -f docker-compose.cd.yml config -q
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
@@ -47,17 +51,23 @@ jobs:
         run: docker run --rm -v "$PWD/deploy/alertmanager:/cfg:ro" --entrypoint amtool "$AM" check-config /cfg/alertmanager.yml
       - name: blackbox --config.check
         run: docker run --rm -v "$PWD/deploy/blackbox:/cfg:ro" "$BB" --config.check --config.file=/cfg/blackbox.yml
+      - name: settings.js e init de Nornas (sintaxis)
+        run: |
+          docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/settings.js
+          docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/init/importar-flujo.mjs
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
-      - name: Construir Sleipnir
+      - name: Construir Sleipnir y sync
         working-directory: deploy
-        run: docker compose build sleipnir
+        run: |
+          docker compose build sleipnir
+          docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh
 
   secretos:
     name: "Secretos: gitleaks"
@@ -79,7 +89,7 @@ jobs:
         run: docker run --rm -v "$PWD/deploy:/deploy:ro" aquasec/trivy:0.66.0 config --exit-code 0 --severity HIGH,CRITICAL /deploy
       - name: Trivy image (CRITICAL/HIGH, sin bloquear hasta triaje)
         run: |
-          for img in "$PROM" "$AM" "$BB" "$GRAFANA"; do
+          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED"; do
             echo "== $img =="
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed "$img"
           done
