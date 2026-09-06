@@ -7,7 +7,19 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 2 (Implementation) pendiente: Docker Compose, configuraciones de Prometheus, blackbox_exporter, Alertmanager y Grafana, flujos de Node-RED y `docs/03-implementation/` con el historial del repo derivado del git log. Al aprobarlo, cortar 0.3.0.
+> Gate 2 (Implementation) en curso: artefactos de `deploy/` listos; pendientes la validación en CI, el triaje de CVEs, `docs/03-implementation/` con el historial del repo y la aprobación del owner. Al aprobarlo, cortar 0.3.0.
+
+### Añadido
+- `deploy/docker-compose.yml` (Gate 2): Huginn y Muninn (blackbox_exporter v0.27.0, host-mode, `cap_add NET_RAW`), Sleipnir (imagen propia sobre alpine 3.22 pineada por digest), Mimir (Prometheus v3.5.0, retención 30 d), Gjallarhorn (Alertmanager v0.28.1) y Odín (Grafana 12.1.1, único puerto publicado en la IP LAN); `mem_limit` total 1088 MB (RNF01), `restart: unless-stopped` (RNF02), `no-new-privileges` y rootfs de solo lectura.
+- Configuraciones del contrato: módulos blackbox `icmp_wan1/2` y `tls_wan1/2` con `source_ip_address`; scrape de Prometheus cada 15 s; recording rules `wan:perdida_pct:5m`, `wan:latencia_p90|p95|p99:5m`, `wan:up`, `hogar:up`, `wan:apto_llamadas`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d`; alertas `WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`, `SleipnirSinMedicion`, `SondaCaida`; Alertmanager con inhibición por WAN, webhook Bearer a Nornas y receptor nulo para throughput hasta calibrar; datasource y dashboard `heimdall-sla` provisionados en Grafana.
+- Sleipnir: `sleipnir.sh` alterna wan1/wan2 cada 3 h (speedtest-cli o iperf3 con bind a la IP de la WAN) y publica `wan_throughput_mbps{wan,direccion}` por HTTP en :9469.
+- Flujo de Nornas `heimdall-alertas.json`: valida el token Bearer, traduce el webhook a `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas`, `midgard/hogar/internet/estado` y `midgard/wan/<id>/alerta`, y resuelve Recuperando → Saludable tras 5 min.
+- `deploy/scripts/render.sh` (plantillas + IPs de las WAN + recarga en caliente) y `deploy/scripts/deploy.sh` (despliegue idempotente, ADR-0002); `deploy/.env.example` en rango RFC 5737; `deploy/README.md`; `deploy/imagenes.md` con digests.
+- Workflow `validar-configs.yml`: compose config, promtool, amtool, blackbox `--config.check`, JSON, build de Sleipnir, ShellCheck, gitleaks y Trivy (informe) en cada PR que toque `deploy/`.
+- Checklist `.ai-dlc/gates/gate-2-implementation.md`.
+
+### Cambiado
+- Desviaciones de implementación respecto a Gate 1, pendientes de reflejar en `architecture.md` y en el PRD: tercer objetivo por TCP+TLS (el prober http de blackbox no fija IP de origen); token en cabecera `Authorization: Bearer` en vez de URL; Sleipnir sirve su textfile por HTTP en lugar de node_exporter; latencia desde `probe_icmp_duration_seconds{phase="rtt"}`; puertos host-mode ligados a la IP de docker0.
 
 ## [0.2.0] - 2026-09-05
 

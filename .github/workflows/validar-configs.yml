@@ -1,0 +1,81 @@
+# Validación de los artefactos de deploy/ (Gate 2: "configuración validada" equivale al SAST,
+# Trivy/Gitleaks a deps verificadas y secretos). Solo valida: el despliegue al appliance es
+# `git pull && docker compose up -d` (ADR-0002), sin pipeline push hacia la red doméstica.
+name: Validar configs
+
+on:
+  pull_request:
+    paths:
+      - "deploy/**"
+      - ".github/workflows/validar-configs.yml"
+  push:
+    branches: [develop, main]
+    paths:
+      - "deploy/**"
+
+permissions:
+  contents: read
+
+env:
+  PROM: prom/prometheus:v3.5.0
+  AM: prom/alertmanager:v0.28.1
+  BB: prom/blackbox-exporter:v0.27.0
+  GRAFANA: grafana/grafana:12.1.1
+
+jobs:
+  configs:
+    name: "Configs: compose, promtool, amtool, blackbox, JSON"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Renderizar plantillas con valores de prueba (RFC 5737)
+        working-directory: deploy
+        run: |
+          cp .env.example .env
+          WAN1_IP=192.0.2.101 WAN2_IP=192.0.2.102 ./scripts/render.sh --sin-recarga
+      - name: docker compose config
+        working-directory: deploy
+        run: docker compose config -q
+      - name: promtool check config y rules
+        run: |
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml
+      - name: amtool check-config
+        run: docker run --rm -v "$PWD/deploy/alertmanager:/cfg:ro" --entrypoint amtool "$AM" check-config /cfg/alertmanager.yml
+      - name: blackbox --config.check
+        run: docker run --rm -v "$PWD/deploy/blackbox:/cfg:ro" "$BB" --config.check --config.file=/cfg/blackbox.yml
+      - name: JSON del dashboard y flujo de Nornas sincronizado con src/
+        run: |
+          python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
+          python3 deploy/nornas/generar-flujo.py
+          git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
+      - name: Construir Sleipnir
+        working-directory: deploy
+        run: docker compose build sleipnir
+      - name: ShellCheck de los scripts
+        run: |
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh
+
+  secretos:
+    name: "Secretos: gitleaks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks detect
+        run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.28.0 detect --source /repo --no-banner --redact --exit-code 1
+
+  imagenes:
+    name: "Cadena de suministro: Trivy (informe)"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy config (misconfiguraciones en deploy/)
+        run: docker run --rm -v "$PWD/deploy:/deploy:ro" aquasec/trivy:0.66.0 config --exit-code 0 --severity HIGH,CRITICAL /deploy
+      - name: Trivy image (CRITICAL/HIGH, sin bloquear hasta triaje)
+        run: |
+          for img in "$PROM" "$AM" "$BB" "$GRAFANA"; do
+            echo "== $img =="
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed "$img"
+          done
