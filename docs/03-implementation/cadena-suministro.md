@@ -1,6 +1,6 @@
 # Cadena de suministro — triaje de vulnerabilidades (Gate 2)
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-05
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 03-implementation
@@ -65,6 +65,7 @@ recientes de cada proyecto**, re-escanear y documentar el residual.
    la implementación del filtro (por ejemplo `.trivyignore` con fecha de caducidad por CVE aceptado)
    entra en Gate 3.
 
-## Decisión pendiente (HITL)
-Jeremi acepta o corrige: la política anterior, el residual documentado y el criterio de mantener
-`blackbox_exporter v0.28.0` con mitigación de red en lugar de construirlo desde fuente.
+## Decisión (HITL, 2026-09-05)
+El owner acepta la política de triaje, el residual documentado y mantener `blackbox_exporter v0.28.0`
+con mitigación de red; la construcción desde fuente queda como opción si el próximo informe semanal
+no trae release nueva. Gate 2 cerrado con esta decisión.
