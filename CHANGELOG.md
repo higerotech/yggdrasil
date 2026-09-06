@@ -7,7 +7,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 1 (Design) listo para la aprobación del owner: ADR-0001 y ADR-0003 aceptados y frontera con Fenrir resuelta en ADR-0004. Al aprobarlo, cortar 0.2.0.
+> Gate 2 (Implementation) pendiente: Docker Compose, configuraciones de Prometheus, blackbox_exporter, Alertmanager y Grafana, flujos de Node-RED y `docs/03-implementation/` con el historial del repo derivado del git log. Al aprobarlo, cortar 0.3.0.
+
+## [0.2.0] - 2026-09-05
+
+Gate 1 (Design) aprobado. Arquitectura y threat model en `approved`; los cuatro ADR en `accepted`; hallazgos de la revisión inicial cerrados.
 
 ### Cambiado
 - ADR-0001 (stack de métricas) y ADR-0003 (host-mode selectivo) pasan a `accepted` (2026-09-05). Charter (0.1.1) y `naming.md`: Frigate/Fenrir se desarrolla en el proyecto independiente `nvr-frigate`; el presupuesto de RAM de Yggdrasil queda en ≤ 1.5 GB sin depender de Frigate.
@@ -16,6 +20,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - Diagramas: "Odín" con acento en los DFD del PRD y del threat model; los elementos del requirementDiagram usan los nombres nórdicos (Huginn y Muninn, Sleipnir, Mimir, Gjallarhorn, Odín, Nornas) con la tecnología en `type`, según `naming.md`.
 
 ### Añadido
+- Gate 1 (Design) aprobado por el owner: `architecture.md` y `threat-model.md` pasan a `approved`; ADR-0001..0004 en `accepted`.
 - ADR-0004: frontera con Fenrir (Frigate NVR), proyecto independiente con métricas y monitoreo propios; la integración con Yggdrasil será una feature futura con su propio PRD y ADR.
 - Trazabilidad de RF02, RF06, RF09 y RNF02 en el requirementDiagram del PRD; todos los requisitos quedan enlazados a un componente que los satisface. El diagrama se divide en dos vistas (medición y alertado; observabilidad, no funcionales y seguridad) para respetar el límite de ~12 nodos y renderizar legible.
 
@@ -44,5 +49,6 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/higerotech/yggdrasil/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/higerotech/yggdrasil/releases/tag/v0.1.0

@@ -1,6 +1,6 @@
 # Gate 1 — Design (checklist)
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Fase AI-DLC:** 02-design
 * **Versión:** 0.1.0
@@ -12,6 +12,6 @@
 - [x] ADR-0003 red de contenedores host-mode selectivo (accepted por el owner el 2026-09-05)
 - [x] Contratos: métricas Prometheus + tópicos MQTT
 - [x] ADR-0004 frontera con Fenrir (Frigate): proyecto independiente `nvr-frigate` con métricas y monitoreo propios; el presupuesto de RAM de Yggdrasil se mantiene en ≤ 1.5 GB (RNF01) — 2026-09-05
-- [ ] **Aprobación del owner** para cerrar Gate 1: pasar `architecture.md` y `threat-model.md` a `approved` y cortar `0.2.0` vía `release/0.2.0`
+- [x] **Aprobación del owner** (2026-09-05): `architecture.md` y `threat-model.md` en `approved`; `0.2.0` cortada vía `release/0.2.0`
 
-Al aprobar: cortar `0.2.0` en CHANGELOG.
+**Gate 1 cerrado el 2026-09-05.** Versión `0.2.0` en CHANGELOG; tag `v0.2.0` en `main`. Siguiente: Gate 2 (Implementation) → `0.3.0`.

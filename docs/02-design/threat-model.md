@@ -1,6 +1,6 @@
 # Threat Model — Monitor SLA de Internet
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
