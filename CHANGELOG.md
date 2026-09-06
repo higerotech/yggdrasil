@@ -9,6 +9,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 1 (Design) pendiente de validación humana: aceptar ADR-0001 y ADR-0003 y confirmar el presupuesto de RAM con Frigate. Al aprobarlo, cortar 0.2.0.
 
+### Cambiado
+- Gates movidos de `docs/gates/` a `.ai-dlc/gates/` y ADR de `docs/02-design/adr/` a `docs/00-project/adr/`, alineando el árbol con el estándar AI-DLC polyrepo de la organización.
+
 ## [0.1.0] - 2026-09-05
 
 Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `approved` y los borradores de la fase 02 (arquitectura, threat model y ADRs) camino a Gate 1.

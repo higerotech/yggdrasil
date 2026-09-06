@@ -23,10 +23,10 @@ confirmar el presupuesto de RAM con Frigate futuro; al aprobarlo se corta `0.2.0
 
 ## Mapa del repo
 
-- `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos y `naming.md`
+- `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos, `naming.md` y `adr/` (registro de decisiones de arquitectura)
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
-- `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos), `threat-model.md` y `adr/` (Gate 1)
-- `docs/gates/` — checklists de los Gates 0 y 1
+- `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
+- `.ai-dlc/gates/` — checklists de los Gates 0 y 1
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main`
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
 - `LICENSE` — GNU Affero General Public License v3.0
