@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi (owner)
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.1.0
+* **Versión:** 0.1.1
 * **Sponsor:** Jeremi
 * **Owner del proyecto:** Jeremi
 * **Nombre confirmado:** Yggdrasil (slug `yggdrasil`)
@@ -18,7 +18,7 @@ Plataforma demo de IoT y domótica sobre el appliance doméstico (Ubuntu Server 
   - Servicio de monitoreo SLA por WAN (latencia, pérdida, jitter, throughput, disponibilidad) para ISP1 e ISP2, con dashboards y alertas.
   - Bus de eventos MQTT como columna vertebral de la plataforma (reutiliza el broker existente).
   - Integración con Node-RED para notificaciones y automatizaciones derivadas.
-  - Base extensible para futuros servicios: Frigate NVR, sensores IoT, métricas del host.
+  - Base extensible para futuros servicios: integración con Fenrir (Frigate NVR, proyecto independiente `nvr-frigate`, ADR-0004), sensores IoT, métricas del host.
 - **No incluye (no-scope):**
   - Failover/enrutado dual-WAN (ya cubierto por el proyecto de routing nftables; aquí solo se observa).
   - Exposición de dashboards a internet público (solo LAN y WireGuard).
@@ -31,7 +31,7 @@ mindmap
     Servicios
       Monitor SLA ISP
       Domotica MQTT
-      NVR Frigate futuro
+      Integracion Fenrir futura
       Metricas del host
     Actores
       Administrador
@@ -50,7 +50,7 @@ mindmap
 | Usuarios del hogar | Familia | Consumen internet y domótica |
 
 ## Restricciones y supuestos
-- Hardware fijo: i3-3240, 8 GB DDR3, disco 456 GB; presupuesto de RAM para monitoreo ≤ 1.5 GB (Frigate llegará después).
+- Hardware fijo: i3-3240, 8 GB DDR3, disco 456 GB; presupuesto de RAM para monitoreo ≤ 1.5 GB; Frigate se despliega y presupuesta desde el proyecto `nvr-frigate` (ADR-0004).
 - WANs vía adaptadores UE300 sobre tarjeta PCIe VL805 (USB 3.0); el throughput medible está acotado por esa cadena.
 - Todo corre en Docker Compose sobre el appliance; sin dependencia de nube.
 
@@ -62,6 +62,6 @@ mindmap
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
-- Contención de recursos cuando se sume Frigate.
+- Contención de recursos en el appliance compartido con `nvr-frigate` (Frigate); exige coordinar presupuestos entre proyectos (ADR-0004).
 - Conflicto Docker ↔ nftables con las reglas de routing existentes.
 - Fatiga de alertas por umbrales mal calibrados.

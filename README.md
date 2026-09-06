@@ -12,21 +12,23 @@ Documentación bajo metodología AI-DLC.
 |---|---|---|---|
 | 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
-| 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0003 | Gate 1 | review — validación humana pendiente |
+| 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
 críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
-`https://www.gstatic.com/generate_204`. Pendiente para Gate 1: aceptar ADR-0001 y ADR-0003 y
-confirmar el presupuesto de RAM con Frigate futuro; al aprobarlo se corta `0.2.0`.
+`https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
+stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
+frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Siguiente hito: Gate 2 (Implementation),
+que cortará `0.3.0` con el Docker Compose, las configuraciones y el historial del repo derivado del git log.
 
 ## Mapa del repo
 
-- `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos y `naming.md`
+- `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos, `naming.md` y `adr/` (registro de decisiones de arquitectura)
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
-- `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos), `threat-model.md` y `adr/` (Gate 1)
-- `docs/gates/` — checklists de los Gates 0 y 1
+- `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
+- `.ai-dlc/gates/` — checklists de los Gates 0 y 1
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main`
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
 - `LICENSE` — GNU Affero General Public License v3.0

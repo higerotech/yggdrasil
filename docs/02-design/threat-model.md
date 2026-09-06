@@ -1,6 +1,6 @@
 # Threat Model — Monitor SLA de Internet
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
@@ -21,7 +21,7 @@ flowchart LR
       AM --> NR[Nornas]
     end
     subgraph TBL [Trust boundary: LAN]
-      GF[Odin - Grafana]
+      GF[Odín - Grafana]
       MQ[[Ratatosk MQTT]]
       IOT([Dispositivos IoT no confiables])
     end

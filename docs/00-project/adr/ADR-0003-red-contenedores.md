@@ -1,6 +1,6 @@
 # ADR-0003: Topología de red de contenedores (host-mode selectivo)
 
-* **Estado:** proposed
+* **Estado:** accepted
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
@@ -29,3 +29,4 @@ Topología mixta:
 - Positivas: resuelve T2 (Prometheus no alcanzable desde LAN) por construcción; la sonda mide de verdad por interfaz.
 - Negativas / deuda asumida: puertos host-mode (9115) deben cubrirse en la política INPUT de nftables del proyecto de routing.
 - Impacto en threat model: reduce superficie de T2/T4; añade dependencia de la política INPUT del firewall.
+- Aceptada por el owner el 2026-09-05.

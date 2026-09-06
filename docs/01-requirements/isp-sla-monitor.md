@@ -118,12 +118,21 @@ journey
 Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
 
 ## Trazabilidad de requisitos
+Dos vistas, según la convención de ~12 nodos por diagrama: medición y alertado, y observabilidad, no funcionales y seguridad. `Mimir` aparece en ambas porque sus reglas satisfacen requisitos de los dos grupos.
+
+### Medición y alertado (RF01–RF05)
 ```mermaid
 requirementDiagram
     requirement RF01 {
       id: RF01
       text: Medir SLI por WAN de forma independiente con quorum de objetivos
       risk: high
+      verifymethod: test
+    }
+    requirement RF02 {
+      id: RF02
+      text: Medir throughput por WAN al menos 4 veces al dia alternando
+      risk: medium
       verifymethod: test
     }
     requirement RF03 {
@@ -144,6 +153,38 @@ requirementDiagram
       risk: medium
       verifymethod: test
     }
+    element HuginnMuninn {
+      type: "blackbox_exporter"
+    }
+    element Sleipnir {
+      type: "sonda de throughput"
+    }
+    element Mimir {
+      type: "Prometheus, recording y alerting rules"
+    }
+    element Gjallarhorn {
+      type: "Alertmanager"
+    }
+    element Nornas {
+      type: "Node-RED, puente MQTT"
+    }
+    HuginnMuninn - satisfies -> RF01
+    Sleipnir - satisfies -> RF02
+    Mimir - satisfies -> RF03
+    Gjallarhorn - satisfies -> RF04
+    Nornas - satisfies -> RF05
+```
+*Eje trazabilidad · fase 01 · evidencia Gate 0.*
+
+### Observabilidad, no funcionales y seguridad (RF06–RF09, RNF, RS)
+```mermaid
+requirementDiagram
+    requirement RF06 {
+      id: RF06
+      text: Dashboard comparativo ISP1 vs ISP2 con 30 dias de retencion
+      risk: medium
+      verifymethod: demonstration
+    }
     requirement RF07 {
       id: RF07
       text: Registrar percentiles p90 p95 y p99 de latencia por WAN
@@ -156,11 +197,23 @@ requirementDiagram
       risk: high
       verifymethod: test
     }
+    requirement RF09 {
+      id: RF09
+      text: Evaluar throughput contra 800 Mbps y alertar tras 2 mediciones bajas
+      risk: medium
+      verifymethod: test
+    }
     requirement RNF01 {
       id: RNF01
       text: Stack de monitoreo bajo 1.5 GB de RAM
       risk: medium
       verifymethod: analysis
+    }
+    requirement RNF02 {
+      id: RNF02
+      text: Arranque automatico tras corte de energia con restart policies
+      risk: medium
+      verifymethod: test
     }
     requirement RS01 {
       id: RS01
@@ -168,28 +221,22 @@ requirementDiagram
       risk: medium
       verifymethod: inspection
     }
-    element Sondas {
-      type: "componente"
+    element Odin {
+      type: "Grafana"
     }
-    element Alertado {
-      type: "componente"
+    element Mimir {
+      type: "Prometheus, recording y alerting rules"
     }
-    element PuenteMqtt {
-      type: "componente"
+    element Compose {
+      type: "Docker Compose, mem_limit y restart policies"
     }
-    element Grafana {
-      type: "componente"
-    }
-    element ReglasSlo {
-      type: "componente"
-    }
-    Sondas - satisfies -> RF01
-    Alertado - satisfies -> RF04
-    PuenteMqtt - satisfies -> RF05
-    Grafana - satisfies -> RS01
-    ReglasSlo - satisfies -> RF03
-    ReglasSlo - satisfies -> RF07
-    ReglasSlo - satisfies -> RF08
+    Odin - satisfies -> RF06
+    Mimir - satisfies -> RF07
+    Mimir - satisfies -> RF08
+    Mimir - satisfies -> RF09
+    Compose - satisfies -> RNF01
+    Compose - satisfies -> RNF02
+    Odin - satisfies -> RS01
 ```
 *Eje trazabilidad · fase 01 · evidencia Gate 0.*
 
@@ -210,7 +257,7 @@ flowchart LR
     subgraph TB1 [Trust boundary: appliance]
       FW[Router nftables] --> PR[Huginn y Muninn]
       PR --> TSDB[(Mimir TSDB)]
-      TSDB --> GF[Odin - Grafana]
+      TSDB --> GF[Odín - Grafana]
       TSDB --> AM[Gjallarhorn]
       AM --> MQ[[Ratatosk MQTT]]
     end

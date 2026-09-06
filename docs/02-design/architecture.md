@@ -1,6 +1,6 @@
 # Diseño del Sistema — Monitor SLA de Internet (Yggdrasil)
 
-* **Estado:** review
+* **Estado:** approved
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
@@ -18,17 +18,19 @@
 ## Vista C4 — Container
 ```mermaid
 C4Container
-    title Diagrama de contenedores — Monitor SLA (appliance Ubuntu 24.04)
+    title Diagrama de contenedores — Yggdrasil y Heimdall (appliance Ubuntu 24.04)
     Person(jeremi, "Administrador del hogar")
     System_Ext(isp1, "ISP 1 (wan1)", "Enlace 1 Gbps")
     System_Ext(isp2, "ISP 2 (wan2)", "Enlace 1 Gbps")
-    System_Boundary(heimdall, "Yggdrasil — Docker Compose") {
-        Container(blackbox, "Huginn y Muninn", "blackbox_exporter, network_mode host", "ICMP/HTTP con source IP por WAN, modulos icmp_wan1 e icmp_wan2", $tags="principle")
-        Container(speed, "Sleipnir", "speedtest-cli + timer", "Medicion periodica alternando WAN, expone textfile")
-        Container(prom, "Mimir", "Docker, retencion 30d", "Scrape, reglas SLO y evaluacion de estado")
-        Container(am, "Gjallarhorn", "Docker", "Deduplica, agrupa y rutea alertas")
-        Container(grafana, "Odín", "Docker", "Dashboards SLI/SLO comparativos", $tags="owasp-a01")
-        Container(nodered, "Nornas", "Docker existente", "Puente de alertas a MQTT y push")
+    System_Boundary(yggdrasil, "Yggdrasil — Docker Compose") {
+        Container_Boundary(heimdall, "Heimdall — Monitor SLA") {
+            Container(blackbox, "Huginn y Muninn", "blackbox_exporter, network_mode host", "ICMP/HTTP con source IP por WAN, modulos icmp_wan1 e icmp_wan2", $tags="principle")
+            Container(speed, "Sleipnir", "iperf3 o speedtest + timer", "Medicion periodica alternando WAN, expone textfile")
+            Container(prom, "Mimir", "Prometheus, retencion 30d", "Scrape, recording rules y reglas SLO")
+            Container(am, "Gjallarhorn", "Alertmanager", "Deduplica, agrupa y rutea alertas")
+            Container(grafana, "Odín", "Grafana", "Dashboards SLI/SLO comparativos", $tags="owasp-a01")
+        }
+        Container(nodered, "Nornas", "Node-RED existente", "Puente de alertas a MQTT y push")
         ContainerQueue(mqtt, "Ratatosk", "Mosquitto existente", "Bus de eventos de la plataforma")
     }
     Rel(blackbox, isp1, "Sondea via", "ICMP/HTTP source wan1")
