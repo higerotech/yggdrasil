@@ -21,7 +21,7 @@ flowchart LR
       AM --> NR[Nornas]
     end
     subgraph TBL [Trust boundary: LAN]
-      GF[Odin - Grafana]
+      GF[Odín - Grafana]
       MQ[[Ratatosk MQTT]]
       IOT([Dispositivos IoT no confiables])
     end

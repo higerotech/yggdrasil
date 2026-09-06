@@ -11,6 +11,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ### Cambiado
 - Gates movidos de `docs/gates/` a `.ai-dlc/gates/` y ADR de `docs/02-design/adr/` a `docs/00-project/adr/`, alineando el árbol con el estándar AI-DLC polyrepo de la organización.
+- C4 Container: el boundary de la plataforma pasa a id `yggdrasil` y Heimdall queda como `Container_Boundary` propio, de modo que el id `heimdall` designa lo mismo que en el C4 Context; el slot de tecnología muestra Prometheus, Alertmanager, Grafana y Node-RED en vez de "Docker".
+- Diagramas: "Odín" con acento en los DFD del PRD y del threat model; los elementos del requirementDiagram usan los nombres nórdicos (Huginn y Muninn, Sleipnir, Mimir, Gjallarhorn, Odín, Nornas) con la tecnología en `type`, según `naming.md`.
+
+### Añadido
+- Trazabilidad de RF02, RF06, RF09 y RNF02 en el requirementDiagram del PRD; todos los requisitos quedan enlazados a un componente que los satisface.
 
 ## [0.1.0] - 2026-09-05
 

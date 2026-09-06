@@ -126,6 +126,12 @@ requirementDiagram
       risk: high
       verifymethod: test
     }
+    requirement RF02 {
+      id: RF02
+      text: Medir throughput por WAN al menos 4 veces al dia alternando
+      risk: medium
+      verifymethod: test
+    }
     requirement RF03 {
       id: RF03
       text: Derivar estado del enlace por SLO con perdida mayor a 1 pct en 5 min
@@ -144,6 +150,12 @@ requirementDiagram
       risk: medium
       verifymethod: test
     }
+    requirement RF06 {
+      id: RF06
+      text: Dashboard comparativo ISP1 vs ISP2 con 30 dias de retencion
+      risk: medium
+      verifymethod: demonstration
+    }
     requirement RF07 {
       id: RF07
       text: Registrar percentiles p90 p95 y p99 de latencia por WAN
@@ -156,11 +168,23 @@ requirementDiagram
       risk: high
       verifymethod: test
     }
+    requirement RF09 {
+      id: RF09
+      text: Evaluar throughput contra 800 Mbps y alertar tras 2 mediciones bajas
+      risk: medium
+      verifymethod: test
+    }
     requirement RNF01 {
       id: RNF01
       text: Stack de monitoreo bajo 1.5 GB de RAM
       risk: medium
       verifymethod: analysis
+    }
+    requirement RNF02 {
+      id: RNF02
+      text: Arranque automatico tras corte de energia con restart policies
+      risk: medium
+      verifymethod: test
     }
     requirement RS01 {
       id: RS01
@@ -168,28 +192,39 @@ requirementDiagram
       risk: medium
       verifymethod: inspection
     }
-    element Sondas {
-      type: "componente"
+    element HuginnMuninn {
+      type: "blackbox_exporter"
     }
-    element Alertado {
-      type: "componente"
+    element Sleipnir {
+      type: "sonda de throughput"
     }
-    element PuenteMqtt {
-      type: "componente"
+    element Mimir {
+      type: "Prometheus, recording y alerting rules"
     }
-    element Grafana {
-      type: "componente"
+    element Gjallarhorn {
+      type: "Alertmanager"
     }
-    element ReglasSlo {
-      type: "componente"
+    element Odin {
+      type: "Grafana"
     }
-    Sondas - satisfies -> RF01
-    Alertado - satisfies -> RF04
-    PuenteMqtt - satisfies -> RF05
-    Grafana - satisfies -> RS01
-    ReglasSlo - satisfies -> RF03
-    ReglasSlo - satisfies -> RF07
-    ReglasSlo - satisfies -> RF08
+    element Nornas {
+      type: "Node-RED, puente MQTT"
+    }
+    element Compose {
+      type: "Docker Compose, mem_limit y restart policies"
+    }
+    HuginnMuninn - satisfies -> RF01
+    Sleipnir - satisfies -> RF02
+    Mimir - satisfies -> RF03
+    Gjallarhorn - satisfies -> RF04
+    Nornas - satisfies -> RF05
+    Odin - satisfies -> RF06
+    Mimir - satisfies -> RF07
+    Mimir - satisfies -> RF08
+    Mimir - satisfies -> RF09
+    Compose - satisfies -> RNF01
+    Compose - satisfies -> RNF02
+    Odin - satisfies -> RS01
 ```
 *Eje trazabilidad · fase 01 · evidencia Gate 0.*
 
@@ -210,7 +245,7 @@ flowchart LR
     subgraph TB1 [Trust boundary: appliance]
       FW[Router nftables] --> PR[Huginn y Muninn]
       PR --> TSDB[(Mimir TSDB)]
-      TSDB --> GF[Odin - Grafana]
+      TSDB --> GF[Odín - Grafana]
       TSDB --> AM[Gjallarhorn]
       AM --> MQ[[Ratatosk MQTT]]
     end
