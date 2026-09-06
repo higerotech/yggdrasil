@@ -215,6 +215,11 @@ temporales; se retiran al terminar (`tc qdisc del dev wanN root`).
 | TA-13 | RNF02 | `sudo reboot` del appliance | Los 8 servicios vuelven solos; Odín responde; sondas miden | `docker compose ps`, `uptime` |
 | TA-14 | RF03 (Recuperando) | Tras TA-03, reconectar `wan2` y cronometrar | `estado = recuperando` al resolverse la alerta y `saludable` a los 5 min sin recaída | MQTT con marcas de tiempo |
 
+### Evidencia TA-01 (en curso)
+| Fecha (UTC) | Intento | Resultado | Causa / acción |
+|---|---|---|---|
+| 2026-09-06 03:48 | Merge de `release/0.4.0` → `build` (sleipnir y sync en GHCR, 44 s) → `workflow_run` firmado → receptor encola `sha-20cba13` | **Fallo** en `docker compose pull` a los 1,2 s: `ghcr.io/higerotech/yggdrasil-sleipnir` y `-sync` devuelven `unauthorized`; las imágenes públicas de upstream sí descargan | Paquetes GHCR nuevos nacen privados y el receptor hace pull anónimo. Acción: hacerlos públicos (runbook de CD, paso 3b) y relanzar el build. El circuito webhook → receptor → cola quedó verificado |
+
 ## Pruebas de seguridad (equivalente DAST): los abusos del PRD como casos
 | ID | Amenaza / abuso | Cómo | Resultado esperado |
 |---|---|---|---|
