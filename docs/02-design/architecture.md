@@ -30,8 +30,8 @@ C4Container
             Container(am, "Gjallarhorn", "Alertmanager", "Deduplica, agrupa y rutea alertas")
             Container(grafana, "Odín", "Grafana", "Dashboards SLI/SLO comparativos", $tags="owasp-a01")
         }
-        Container(nodered, "Nornas", "Node-RED existente", "Puente de alertas a MQTT y push")
-        ContainerQueue(mqtt, "Ratatosk", "Mosquitto existente", "Bus de eventos de la plataforma")
+        Container(nodered, "Nornas", "Node-RED 4, servicio de plataforma", "Puente de alertas a MQTT y push; editor autenticado en la LAN", $tags="owasp-a01")
+        ContainerQueue(mqtt, "Ratatosk", "Mosquitto 2, servicio de plataforma", "Bus de eventos con auth por cliente y ACL por topico")
     }
     Rel(blackbox, isp1, "Sondea via", "ICMP/HTTP source wan1")
     Rel(blackbox, isp2, "Sondea via", "ICMP/HTTP source wan2")
@@ -39,8 +39,8 @@ C4Container
     Rel(prom, speed, "Scrapea", "HTTP 9469 (textfile servido)")
     Rel(prom, am, "Envia alertas a", "HTTP 9093")
     Rel(grafana, prom, "Consulta", "PromQL/HTTP")
-    Rel(am, nodered, "Notifica por webhook", "HTTP JSON")
-    Rel(nodered, mqtt, "Publica estado en", "MQTT retained")
+    Rel(am, nodered, "Notifica por webhook", "HTTP JSON + Bearer, red interna")
+    Rel(nodered, mqtt, "Publica estado en", "MQTT 1883 auth, retained")
     Rel(jeremi, grafana, "Consulta", "HTTPS LAN / WireGuard")
     UpdateElementStyle(grafana, $borderColor="#b30000")
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
@@ -53,6 +53,7 @@ Notas de diseño clave:
 - **Umbrales SLO y percentiles** (RF03, RF07, RF09): la pérdida > 1 % o el p95 > 500 ms sostenidos 5 min llevan el enlace a Degradado; el p95 > 200 ms solo apaga el indicador `apto_llamadas` (alerta info) sin cambiar el estado, porque una WAN válida para navegar puede no servir para llamadas. La latencia se registra como p90, p95 y p99 por WAN mediante recording rules con `quantile_over_time` sobre `probe_icmp_duration_seconds{phase="rtt"}` (el RTT real; `probe_duration_seconds` incluye resolución y setup) en ventana de 5 min, porque blackbox_exporter expone un gauge por sonda y no un histograma; p90/p99 son series de seguimiento comparativo entre ISP. El throughput se evalúa contra 800 Mbps (80 % del nominal) y alerta tras dos mediciones consecutivas por debajo; la alerta queda inhibida hasta calibrar el techo de medición (Gate 3). Umbrales confirmados por el owner el 2026-09-05.
 - **Disponibilidad mensual** (RF08): `wan:up` vale 1 cuando el quórum de sondas responde y `hogar:up = max(wan:up)`. La disponibilidad es `avg_over_time` sobre 30 días por WAN y del hogar, materializada como recording rule para que el dashboard y el reporte mensual no dependan de consultas pesadas sobre 30 días de muestras.
 - **Throughput** (RF02, RF09): iperf3 (preferido por su menor coste de CPU en el i3-3240) o speedtest cada 6 h alternando WAN, con `--source` de la interfaz correspondiente; resultado a textfile collector. El techo medible lo impone la cadena VL805/UE300 y se calibra en Gate 3; se documenta en el dashboard junto al SLO de 800 Mbps.
+- **Servicios de plataforma** (ADR-0006): Ratatosk y Nornas los despliega el propio Compose de Yggdrasil, no un stack externo. Ratatosk exige credencial por cliente (`nornas`, `frigate`, `iot`) con ACL por tópico; Nornas lleva editor autenticado y recibe el webhook por la red interna. Con ellos el presupuesto RNF01 queda en 1408 MB.
 - **Estado → MQTT** (RF05): Node-RED transforma el webhook de Alertmanager en `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado` (retained) y en notificación push; la domótica queda desacoplada del stack de métricas.
 
 ## Flujos críticos (comportamiento)

@@ -67,7 +67,7 @@ son objetivos públicos de sondeo (1.1.1.1, 8.8.8.8). Cuando lleguen los artefac
 | Dato real | Dónde vive | Cómo aparece en el repo |
 |---|---|---|
 | IPs de `wan1` / `wan2` y del appliance | `.env` (600, gitignored) | `${WAN1_IP}`, `${WAN2_IP}` |
-| Credenciales de Grafana y MQTT | `.env` y ficheros de password (gitignored) | `CAMBIAR` |
+| Credenciales de Grafana, MQTT (por cliente) y del editor de Node-RED | `.env` (gitignored); el passwd de Mosquitto se genera en el volumen | `CAMBIAR` |
 | IPs públicas asignadas por cada ISP | Solo en la TSDB local | No aparecen |
 
 Los valores de ejemplo usan `192.0.2.0/24`, el rango que RFC 5737 reserva para documentación.

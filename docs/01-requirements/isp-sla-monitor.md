@@ -293,5 +293,5 @@ quadrantChart
 - Throughput por WAN evaluado contra el SLO de 800 Mbps en cada medición, con el techo de medición calibrado y documentado en el dashboard.
 
 ## Dependencias y riesgos
-- Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`), broker MQTT y Node-RED existentes.
+- Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`) y de Ratatosk y Nornas, servicios de plataforma del propio Compose de Yggdrasil (ADR-0006).
 - Riesgo: el throughput medido queda acotado por la cadena USB 3.0/UE300 y por la CPU del i3-3240 al ejecutar la prueba; el SLO de 800 Mbps está cerca de ese techo, así que hay que calibrarlo (Gate 3) y documentarlo como límite de medición, no del ISP. Preferir iperf3 contra un servidor cercano sobre speedtest-cli para reducir el sesgo de CPU.

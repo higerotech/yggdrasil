@@ -31,7 +31,9 @@ def renombrar_backmerges(graph: str, repo: Path) -> str:
             tags[h] = m.group(1)
     # Cada "branch feature-N" va seguido de sus commits; el merge commit del back-merge es el que
     # trae el tag en la línea "merge feature-N". Emparejamos por orden de aparición.
-    bloques = re.findall(r"branch (feature-\d+)\n", graph)
+    # Un back-merge también puede salir nombrado "develop" o "main" cuando es la punta de la rama
+    # (el script toma el nombre de las referencias); esos bloques son back-merges igualmente.
+    bloques = re.findall(r"branch (feature-\d+|develop|main|master)\n", graph)
     etiquetas = [t for _, t in reversed(list(tags.items()))]   # cronológico: v0.1.0, v0.2.0, ...
     for nombre, tag in zip(bloques, etiquetas):
         nuevo = f"backmerge-{tag}"
