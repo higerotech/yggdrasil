@@ -66,6 +66,10 @@ curl -s -o /dev/null -w '%{http_code}
 
 ## 4. Primer despliegue y operación
 
+El primer arranque de Odín migra su base SQLite y en el HDD de midgard tarda unos 3 min antes de
+escuchar; por eso `health_timeout` es 300 s. Los despliegues siguientes responden en segundos. Si el
+receptor marca `healthcheck agotado` con todos los contenedores `Up`, no es un fallo del stack.
+
 El primer push a `main` que incluya este directorio dispara el workflow `build`; al terminar, el
 receptor despliega. Comprobar:
 
