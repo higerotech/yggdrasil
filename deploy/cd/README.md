@@ -48,6 +48,22 @@ gh api repos/higerotech/yggdrasil/hooks -X POST \
 unset SECRET
 ```
 
+## 3b. Paquetes GHCR públicos (una vez por imagen)
+
+Los paquetes nuevos de la organización nacen **privados** y el receptor hace `pull` anónimo, así que
+el primer build publica `yggdrasil-sleipnir` y `yggdrasil-sync` pero el despliegue falla con
+`error from registry: unauthorized` (ocurrió en la 0.4.0). Tras el primer build, en GitHub:
+Organization → Packages → `yggdrasil-sleipnir` → Package settings → Change visibility → **Public**;
+repetir para `yggdrasil-sync`. Conviene además enlazar cada paquete al repositorio (Manage
+Actions access) para que futuras publicaciones hereden los permisos. Después, relanzar el build
+(`gh run rerun <id>`) para que el `workflow_run` vuelva a disparar el despliegue. Comprobación:
+
+```bash
+TOK=$(curl -s 'https://ghcr.io/token?scope=repository:higerotech/yggdrasil-sync:pull' | jq -r .token)
+curl -s -o /dev/null -w '%{http_code}
+' -H "Authorization: Bearer $TOK" https://ghcr.io/v2/higerotech/yggdrasil-sync/manifests/latest   # 200 = público
+```
+
 ## 4. Primer despliegue y operación
 
 El primer push a `main` que incluya este directorio dispara el workflow `build`; al terminar, el
