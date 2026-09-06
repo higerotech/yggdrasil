@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
 # Prepara el appliance (midgard) para desplegar Yggdrasil con el receptor de despliegue-continuo.
 # Idempotente. Ejecutar como root:  sudo bash bootstrap-midgard.sh
+# BRANCH (por defecto main): rama a la que apunta el clon inicial. Hasta que los artefactos de CD
+# lleguen a main, usar BRANCH=develop para que el receptor encuentre deploy/docker-compose.cd.yml.
 # No imprime secretos. Después: crear el webhook en GitHub (deploy/cd/README.md, paso 3).
 set -euo pipefail
 APP_DIR=${APP_DIR:-/srv/apps/yggdrasil}
 REPO=${REPO:-https://github.com/higerotech/yggdrasil.git}
+BRANCH=${BRANCH:-main}
 LAN_IF=${LAN_IF:-lan}
 APPS_YML=/etc/cd-receiver/apps.yml
 [ "$(id -u)" = 0 ] || { echo "ejecutar con sudo"; exit 1; }
@@ -20,8 +23,8 @@ if [ ! -d "$APP_DIR/.git" ]; then
   install -d -o deploy -g deploy -m 0750 "$APP_DIR"
   sudo -u deploy git clone --quiet "$REPO" "$APP_DIR"
 fi
-sudo -u deploy git -C "$APP_DIR" fetch --quiet origin main
-sudo -u deploy git -C "$APP_DIR" checkout --quiet --detach origin/main
+sudo -u deploy git -C "$APP_DIR" fetch --quiet origin "$BRANCH"
+sudo -u deploy git -C "$APP_DIR" checkout --quiet --detach "origin/$BRANCH"
 echo "   $(sudo -u deploy git -C "$APP_DIR" log -1 --format='%h %s')"
 
 echo "== 3. deploy/.env (solo si no existe; nunca se sobrescribe)"
