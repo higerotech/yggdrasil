@@ -43,7 +43,9 @@ curl -s http://172.17.0.1:9115/probe?module=icmp_wan1\&target=1.1.1.1 | grep pro
 docker compose exec mimir wget -qO- localhost:9090/-/ready
 ```
 
-Odín queda en `http://<HOST_LAN_IP>:3000` y el editor de Nornas en `http://<HOST_LAN_IP>:1880`, ambos con
+Si una WAN no tiene IPv4 en el momento del render (ISP caído, adaptador ausente), `render.sh` conserva
+la última IP renderizada y avisa, para que un despliegue no falle justo cuando un enlace está fuera;
+solo aborta si tampoco hay render previo. Odín queda en `http://<HOST_LAN_IP>:3000` y el editor de Nornas en `http://<HOST_LAN_IP>:1880`, ambos con
 las cuentas de `.env`; `nornas-init` importa el flujo de Heimdall solo en el primer arranque. En midgard el despliegue es
 continuo (`cd/README.md`); `./scripts/deploy.sh` queda como vía manual de contingencia. Si un ISP cambia la IP, ejecutar `./scripts/render.sh` (idempotente; recarga
 blackbox y Alertmanager en caliente). Conviene engancharlo a `dhclient-exit-hooks.d` o

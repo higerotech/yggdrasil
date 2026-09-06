@@ -12,10 +12,21 @@ RECARGA=1
 set -a; . ./.env; set +a
 
 ip_de() { ip -4 -o addr show dev "$1" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
-WAN1_IP="${WAN1_IP:-$(ip_de "${WAN1_IF:-wan1}" || true)}"
-WAN2_IP="${WAN2_IP:-$(ip_de "${WAN2_IF:-wan2}" || true)}"
-[ -n "$WAN1_IP" ] || { echo "Sin IPv4 en ${WAN1_IF:-wan1}; define WAN1_IP en .env o levanta la interfaz"; exit 2; }
-[ -n "$WAN2_IP" ] || { echo "Sin IPv4 en ${WAN2_IF:-wan2}; define WAN2_IP en .env o levanta la interfaz"; exit 2; }
+# Última IP renderizada para una WAN (del blackbox.yml anterior), para no fallar el despliegue
+# cuando ese ISP está caído: la sonda seguirá fallando por la IP antigua, que es lo correcto.
+ip_anterior() { [ -f blackbox/blackbox.yml ] && awk -v m="icmp_$1:" '$1==m{f=1} f&&/source_ip_address/{gsub(/"/,"",$2); print $2; exit}' blackbox/blackbox.yml; }
+resolver_wan() { # $1 wan1|wan2  $2 interfaz  $3 valor forzado (.env)
+  local ip="$3"
+  [ -n "$ip" ] || ip=$(ip_de "$2" || true)
+  if [ -z "$ip" ]; then
+    ip=$(ip_anterior "$1" || true)
+    [ -n "$ip" ] && echo "AVISO: $2 sin IPv4 ahora; se conserva la última conocida ($ip)" >&2
+  fi
+  [ -n "$ip" ] || { echo "Sin IPv4 en $2 y sin render previo; define ${1^^}_IP en .env o levanta la interfaz" >&2; exit 2; }
+  echo "$ip"
+}
+WAN1_IP=$(resolver_wan wan1 "${WAN1_IF:-wan1}" "${WAN1_IP:-}")
+WAN2_IP=$(resolver_wan wan2 "${WAN2_IF:-wan2}" "${WAN2_IP:-}")
 export WAN1_IP WAN2_IP
 
 for v in NORNAS_URL NORNAS_WEBHOOK_TOKEN THROUGHPUT_RECEIVER; do

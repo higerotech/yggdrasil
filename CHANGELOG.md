@@ -15,6 +15,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - Prerrequisitos verificados en midgard el 2026-09-05: Ubuntu 24.04.4, Docker 29.8 y Compose v5.5, `wan1`/`wan2` con `ip rule from`, docker0 en 172.17.0.1, receptor sano con túnel; pendientes `ping_group_range`, reglas nftables y la ausencia de Node-RED y Mosquitto (Nornas y Ratatosk).
 
 ### Cambiado
+- `render.sh` tolera una WAN sin IPv4: conserva la última IP renderizada con aviso y solo aborta si no hay render previo. Motivado por la caída de `wan2` en midgard durante el bootstrap del 2026-09-05.
 - Charter (0.1.2), PRD, `architecture.md` (C4 Container y notas), `threat-model.md` (filas MQTT y Node-RED, T3) y clasificación de datos: Ratatosk y Nornas dejan de ser "existentes" y pasan a servicios propios; `NORNAS_URL` por defecto `http://nornas:1880/heimdall/alertas`; Gjallarhorn ya no necesita `host.docker.internal`.
 - Imagen de Sleipnir pasa a `ghcr.io/higerotech/yggdrasil-sleipnir` con `IMAGE_TAG`; `deploy/scripts/deploy.sh` queda como vía manual de contingencia.
 
