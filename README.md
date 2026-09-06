@@ -18,8 +18,9 @@ Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisione
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
 críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
-`https://www.gstatic.com/generate_204`. Pendiente para Gate 1: aceptar ADR-0001 y ADR-0003 y
-confirmar el presupuesto de RAM con Frigate futuro; al aprobarlo se corta `0.2.0`.
+`https://www.gstatic.com/generate_204`. Gate 1 tiene ADR-0001 y ADR-0003 aceptados y la frontera con
+Fenrir resuelta en ADR-0004 (Frigate vive en el proyecto `nvr-frigate`); solo falta la aprobación del
+owner para cortar `0.2.0`.
 
 ## Mapa del repo
 

@@ -36,7 +36,7 @@ Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wa
 ## Nombres reservados (futuros servicios)
 | Nombre | Candidato para |
 |---|---|
-| **Fenrir** | Frigate NVR (el lobo vigilante) |
+| **Fenrir** | Frigate NVR (el lobo vigilante); se implementa en el proyecto independiente `nvr-frigate` y Yggdrasil solo integrará sus métricas y eventos en una feature futura (ADR-0004) |
 | **Loki** | Agregación de logs (coincide con Grafana Loki) |
 | **Thor** | Métricas del host / node_exporter (la fuerza de la máquina) |
 | **Freyja** | Sensores IoT / Home Assistant si llegara |
