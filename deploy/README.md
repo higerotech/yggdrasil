@@ -13,7 +13,8 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
 | `grafana/` | Odín | Datasource y dashboard `heimdall-sla` provisionados |
 | `sleipnir/` | Sleipnir | Imagen propia: throughput por WAN cada 6 h, `/metrics` en :9469 |
 | `nornas/flows/heimdall-alertas.json` | Nornas | Flujo a importar en el Node-RED existente; se genera con `nornas/generar-flujo.py` a partir del JavaScript revisable de `nornas/src/` |
-| `scripts/render.sh`, `scripts/deploy.sh` | — | Render de plantillas y despliegue idempotente |
+| `scripts/render.sh`, `scripts/deploy.sh` | — | Render de plantillas y despliegue manual de contingencia |
+| `docker-compose.cd.yml`, `sync/`, `cd/` | — | Despliegue continuo con el receptor de `despliegue-continuo` (ADR-0005): tareas sync, bootstrap del servidor e inventario; ver `cd/README.md` |
 | `imagenes.md` | — | Digests de las imágenes pineadas (cadena de suministro) |
 
 ## Prerrequisitos del host
@@ -40,8 +41,8 @@ curl -s http://172.17.0.1:9115/probe?module=icmp_wan1\&target=1.1.1.1 | grep pro
 docker compose exec mimir wget -qO- localhost:9090/-/ready
 ```
 
-Odín queda en `http://<HOST_LAN_IP>:3000` con la cuenta de `.env`. Actualizaciones:
-`./scripts/deploy.sh`. Si un ISP cambia la IP, ejecutar `./scripts/render.sh` (idempotente; recarga
+Odín queda en `http://<HOST_LAN_IP>:3000` con la cuenta de `.env`. En midgard el despliegue es
+continuo (`cd/README.md`); `./scripts/deploy.sh` queda como vía manual de contingencia. Si un ISP cambia la IP, ejecutar `./scripts/render.sh` (idempotente; recarga
 blackbox y Alertmanager en caliente). Conviene engancharlo a `dhclient-exit-hooks.d` o
 `networkd-dispatcher` para que ocurra solo.
 

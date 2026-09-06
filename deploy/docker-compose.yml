@@ -41,7 +41,7 @@ services:
   sleipnir:
     <<: *comun
     build: ./sleipnir
-    image: yggdrasil/sleipnir:0.1.1
+    image: ghcr.io/higerotech/yggdrasil-sleipnir:${IMAGE_TAG:-local}   # CD: sha-<7>; local: build
     container_name: yggdrasil-throughput-probe
     network_mode: host               # bind del source IP por WAN (ADR-0003)
     cap_drop: [ALL]

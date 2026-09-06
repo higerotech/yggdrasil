@@ -1,0 +1,16 @@
+  # --- Yggdrasil (Heimdall) --- añadir a /etc/cd-receiver/apps.yml bajo `apps:`; lo hace bootstrap-midgard.sh
+  - name: yggdrasil
+    repo: higerotech/yggdrasil
+    branch: main
+    event: workflow_run
+    workflow: build
+    project_dir: /srv/apps/yggdrasil
+    compose_file: deploy/docker-compose.cd.yml
+    image: ghcr.io/higerotech/yggdrasil-sync
+    tag_template: "sha-{short_sha}"
+    services: []
+    health_url: http://192.0.2.10:3000/api/health   # bootstrap sustituye por la IP LAN real
+    health_timeout: 120
+    health_interval: 5
+    rollback: true
+    command_timeout: 900
