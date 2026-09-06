@@ -13,6 +13,7 @@ Documentación bajo metodología AI-DLC.
 | 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
+| 03-implementation | `deploy/` (Compose, configuraciones, Sleipnir, Nornas), baseline de configuración, triaje de CVEs, historial del repo | Gate 2 | approved — v0.3.0 (2026-09-05) |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
@@ -20,16 +21,21 @@ críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, 
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 `https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
-frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Siguiente hito: Gate 2 (Implementation),
-que cortará `0.3.0` con el Docker Compose, las configuraciones y el historial del repo derivado del git log.
+frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Gate 2 quedó aprobado como `v0.3.0` con los
+artefactos ejecutables de `deploy/`, las imágenes re-pineadas tras el triaje de CVEs y la documentación de
+la fase 03. Siguiente hito: Gate 3 (Testing), que cortará `0.4.0` con el despliegue en el appliance, las
+pruebas de aceptación de RF01–RF09 y la calibración del techo de throughput.
 
 ## Mapa del repo
 
 - `docs/00-project/` — charter, glosario (lenguaje ubicuo), clasificación de datos, `naming.md` y `adr/` (registro de decisiones de arquitectura)
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
 - `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
-- `.ai-dlc/gates/` — checklists de los Gates 0 y 1
-- `.github/workflows/` — guardia de GitFlow para los PR hacia `main`
+- `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
+- `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas y scripts de despliegue
+- `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
+- `.ai-dlc/gates/` — checklists de los Gates 0, 1 y 2
+- `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
 - `LICENSE` — GNU Affero General Public License v3.0
 

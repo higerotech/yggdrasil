@@ -7,6 +7,10 @@
 **/passwd
 **/secrets/
 
+# Renderizados por deploy/scripts/render.sh (contienen IPs WAN y el token del webhook)
+deploy/blackbox/blackbox.yml
+deploy/alertmanager/alertmanager.yml
+
 # Datos de contenedores (volúmenes locales de Prometheus, Grafana, Mosquitto, Node-RED)
 deploy/**/data/
 **/volumes/

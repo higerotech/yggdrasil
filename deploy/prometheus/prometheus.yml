@@ -1,0 +1,78 @@
+# Mimir (Prometheus) — scrape de las sondas de Heimdall y evaluación de reglas.
+# Las sondas corren en host-mode y escuchan en la IP de docker0; host.docker.internal se
+# resuelve a esa IP gracias a extra_hosts en docker-compose.yml.
+global:
+  scrape_interval: 15s          # RF01: cada 15 s
+  evaluation_interval: 15s
+  external_labels:
+    plataforma: yggdrasil
+    servicio: heimdall
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["gjallarhorn:9093"]
+
+scrape_configs:
+  - job_name: mimir
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: gjallarhorn
+    static_configs:
+      - targets: ["gjallarhorn:9093"]
+
+  - job_name: huginn_muninn            # salud del propio exporter
+    static_configs:
+      - targets: ["host.docker.internal:9115"]
+
+  - job_name: sleipnir                 # throughput periódico (textfile servido por httpd)
+    scrape_interval: 60s
+    static_configs:
+      - targets: ["host.docker.internal:9469"]
+
+  # --- Sondas por WAN: el target real viaja en ?target= y la dirección pasa a ser blackbox ---
+  - job_name: blackbox_icmp_wan1
+    metrics_path: /probe
+    params:
+      module: [icmp_wan1]
+    static_configs:
+      - targets: ["1.1.1.1", "8.8.8.8"]
+        labels: {wan: wan1, sonda: icmp}
+    relabel_configs: &sonda_relabel
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: target
+      - target_label: __address__
+        replacement: host.docker.internal:9115
+
+  - job_name: blackbox_icmp_wan2
+    metrics_path: /probe
+    params:
+      module: [icmp_wan2]
+    static_configs:
+      - targets: ["1.1.1.1", "8.8.8.8"]
+        labels: {wan: wan2, sonda: icmp}
+    relabel_configs: *sonda_relabel
+
+  - job_name: blackbox_tls_wan1
+    metrics_path: /probe
+    params:
+      module: [tls_wan1]
+    static_configs:
+      - targets: ["www.gstatic.com:443"]
+        labels: {wan: wan1, sonda: tls}
+    relabel_configs: *sonda_relabel
+
+  - job_name: blackbox_tls_wan2
+    metrics_path: /probe
+    params:
+      module: [tls_wan2]
+    static_configs:
+      - targets: ["www.gstatic.com:443"]
+        labels: {wan: wan2, sonda: tls}
+    relabel_configs: *sonda_relabel

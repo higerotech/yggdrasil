@@ -1,0 +1,140 @@
+# Yggdrasil / Heimdall — Monitor SLA de internet (dual ISP)
+# Decisiones: ADR-0001 (stack Prometheus + Grafana), ADR-0002 (placement en el appliance),
+# ADR-0003 (host-mode solo para las sondas). Nombres: servicio = nombre nórdico (naming.md);
+# container_name = tecnología real, para que `docker ps` sea legible por terceros.
+#
+# Presupuesto RNF01 (RAM ≤ 1.5 GB): mem_limit 64 + 128 + 512 + 128 + 256 = 1088 MB.
+# Puertos: solo Odín (Grafana) publica 3000, y solo en la IP LAN (${HOST_LAN_IP}). Las sondas
+# en host-mode escuchan en la IP de docker0 (${DOCKER_HOST_GW}) para que Mimir las scrapee sin
+# exponerlas a la LAN ni a las WAN; la política INPUT de nftables es la segunda barrera (T2).
+name: yggdrasil
+
+x-comun: &comun
+  restart: unless-stopped            # RNF02: vuelve solo tras un corte de energía
+  security_opt:
+    - no-new-privileges:true
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"                # json-file no rota por defecto
+      max-file: "3"
+
+services:
+  # Huginn y Muninn — blackbox_exporter: sondas ICMP y TCP/TLS con source IP por WAN
+  huginn-muninn:
+    <<: *comun
+    image: prom/blackbox-exporter:v0.28.0
+    container_name: yggdrasil-blackbox-exporter
+    network_mode: host               # necesita ver wan1/wan2 (ADR-0003)
+    cap_drop: [ALL]
+    cap_add: [NET_RAW]               # ICMP; ver además net.ipv4.ping_group_range en README
+    read_only: true
+    mem_limit: 64m
+    volumes:
+      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro   # renderizado por scripts/render.sh
+    command:
+      - --config.file=/etc/blackbox/blackbox.yml
+      - --web.listen-address=${DOCKER_HOST_GW:-172.17.0.1}:9115
+      - --log.level=info
+
+  # Sleipnir — sonda de throughput (speedtest-cli o iperf3); expone /metrics con busybox httpd
+  sleipnir:
+    <<: *comun
+    build: ./sleipnir
+    image: yggdrasil/sleipnir:0.1.1
+    container_name: yggdrasil-throughput-probe
+    network_mode: host               # bind del source IP por WAN (ADR-0003)
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 128m
+    environment:
+      TZ: ${TZ:-UTC}
+      WAN1_IF: ${WAN1_IF}
+      WAN2_IF: ${WAN2_IF}
+      SLEIPNIR_MODO: ${SLEIPNIR_MODO:-speedtest}
+      SLEIPNIR_INTERVALO: ${SLEIPNIR_INTERVALO:-10800}
+      SLEIPNIR_LISTEN: ${DOCKER_HOST_GW:-172.17.0.1}:9469
+      IPERF3_SERVER: ${IPERF3_SERVER:-}
+    volumes:
+      - sleipnir-datos:/var/lib/sleipnir
+
+  # Mimir — Prometheus: TSDB 30 d, recording rules y alertas del contrato
+  mimir:
+    <<: *comun
+    image: prom/prometheus:v3.14.0
+    container_name: yggdrasil-prometheus
+    read_only: true
+    mem_limit: 512m
+    extra_hosts:
+      - host.docker.internal:host-gateway   # alcanza a las sondas en host-mode
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - mimir-datos:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d    # RF06
+      - --web.enable-lifecycle                # POST /-/reload desde la red interna
+      - --web.listen-address=:9090
+    networks: [heimdall]
+    # sin `ports:` → solo alcanzable desde la red heimdall (ADR-0003, T2)
+    depends_on: [gjallarhorn]
+
+  # Gjallarhorn — Alertmanager: agrupa, inhibe y rutea al webhook de Nornas
+  gjallarhorn:
+    <<: *comun
+    image: prom/alertmanager:v0.34.0
+    container_name: yggdrasil-alertmanager
+    read_only: true
+    mem_limit: 128m
+    extra_hosts:
+      - host.docker.internal:host-gateway   # Node-RED (Nornas) existente en el host
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro   # renderizado
+      - gjallarhorn-datos:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=:9093
+    networks: [heimdall]
+
+  # Odín — Grafana: dashboards comparativos; único puerto publicado, solo en la LAN
+  odin:
+    <<: *comun
+    image: grafana/grafana:12.4.10
+    container_name: yggdrasil-grafana
+    mem_limit: 256m
+    ports:
+      - "${HOST_LAN_IP}:3000:3000"   # RS01: bind explícito a la IP LAN; nunca 0.0.0.0
+    environment:
+      TZ: ${TZ:-UTC}
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"       # RS01 / T1
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_SECURITY_COOKIE_SECURE: "false"       # HTTP en LAN/WireGuard; poner true detrás de TLS
+      GF_SERVER_ROOT_URL: http://${HOST_LAN_IP}:3000/
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ""   # sin plugins no firmados (STRIDE Elevation)
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/heimdall-sla.json
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - odin-datos:/var/lib/grafana
+    networks: [heimdall]
+    depends_on: [mimir]
+
+networks:
+  heimdall:
+    name: yggdrasil_heimdall
+
+volumes:
+  mimir-datos:
+  gjallarhorn-datos:
+  odin-datos:
+  sleipnir-datos:

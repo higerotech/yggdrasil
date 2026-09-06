@@ -1,0 +1,41 @@
+# Plantilla de Huginn y Muninn (blackbox_exporter). scripts/render.sh sustituye ${WAN1_IP} y
+# ${WAN2_IP} por las IPv4 actuales de wan1/wan2 y escribe blackbox.yml (gitignored).
+#
+# Cada WAN sondea 1.1.1.1 y 8.8.8.8 por ICMP y www.gstatic.com:443 por TCP+TLS. El prober
+# http de blackbox no permite fijar la IP de origen, así que el tercer objetivo (DNS + TLS de
+# extremo a extremo) se valida con el handshake TLS en vez de esperar un HTTP 204.
+modules:
+  icmp_wan1:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      source_ip_address: "${WAN1_IP}"
+  icmp_wan2:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      source_ip_address: "${WAN2_IP}"
+  tls_wan1:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      source_ip_address: "${WAN1_IP}"
+      tls: true
+      tls_config:
+        server_name: www.gstatic.com
+  tls_wan2:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      source_ip_address: "${WAN2_IP}"
+      tls: true
+      tls_config:
+        server_name: www.gstatic.com
