@@ -12,6 +12,8 @@ política de aceptación están en `docs/03-implementation/cadena-suministro.md`
 | `prom/blackbox-exporter` | `v0.28.0` | `sha256:e753ff9f3fc458d02cca5eddab5a77e1c175eee484a8925ac7d524f04366c2fc` | `sha256:43027b43fb785b7c5adc53bd3b5dbc1a258270a2e8aff24f477b45c4e38dac68` | 2025-12-06 | Huginn y Muninn (última release publicada) |
 | `prom/alertmanager` | `v0.34.0` | `sha256:690c7b525f4367aa91f73e2f91c632206d32e97c6384bdbf2fb7a861b420340d` | `sha256:268d4bf0e4bc0fe6dbdef6a59ce81a2918c88458bf8edf7dd0572ad372a093e6` | 2026-08-16 | Gjallarhorn |
 | `grafana/grafana` | `12.4.10` | `sha256:c132a683b2430fff9115a29b2a79c8ab97540cdcc90846e3c81878c778ca3596` | `sha256:27e80e0f4fa3d423bcbbbb3418f2a6475833f94a2a88b6f2547c74830ce4286e` | 2026-09-01 | Odín (línea 12.x, mantenida) |
+| `eclipse-mosquitto` | `2.0.22` | `sha256:212f89e1eaeb2c322d6441b64396e3346026674db8fa9c27beac293405c32b3c` | `sha256:54c90ecc78645241b6aa272b2a5ac8fc20b0eaf02cc4dd431c0cc8d2fd4447dd` | 2026-06-22 | Ratatosk (ADR-0006) |
+| `nodered/node-red` | `4.1.14-22` | `sha256:427c7dce93108c57cca613e5c9fbfbda0e46fd69328f76735d9537915d0ce396` | `sha256:55e5cfe31b28a791b632913e1f8a280eacb8d7f14448300be5e10cb8ce3da922` | 2026-09-01 | Nornas y nornas-init (ADR-0006); línea 4.x sobre Node 22 |
 | `alpine` | `3.22` | `sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce` | `sha256:7c8cb692ae09657cbc4a3f3cbd0e8d5a2690ba38386aaaf252dbb060bf5eb2e6` | 2026-06-22 | Base de Sleipnir `0.1.1` (pineada por digest; `apk upgrade` en el build) |
 
 Dependencia Python de Sleipnir: `speedtest-cli==2.1.3` (PyPI), instalada en la imagen.
@@ -22,6 +24,7 @@ Imágenes propias publicadas por `build-and-push.yml` en cada push a `main` (ADR
 | Fecha | Cambio | Motivo |
 |---|---|---|
 | 2026-09-05 | Pines iniciales: prometheus `v3.5.0`, blackbox `v0.27.0`, alertmanager `v0.28.1`, grafana `12.1.1` | Gate 2, PR #7 |
+| 2026-09-05 | Añadidos `eclipse-mosquitto:2.0.22` (Ratatosk) y `nodered/node-red:4.1.14-22` (Nornas) | ADR-0006 |
 | 2026-09-05 | prometheus → `v3.14.0`, alertmanager → `v0.34.0`, blackbox → `v0.28.0`, grafana → `12.4.10`; Sleipnir `0.1.1` con `apk upgrade` | Triaje de Trivy: los pines de 2025 arrastraban CVEs de Go y `x/*` ya corregidos río arriba (de 41 a 123 hallazgos por imagen a entre 2 y 6, salvo blackbox) |
 
 ## Escaneo de vulnerabilidades

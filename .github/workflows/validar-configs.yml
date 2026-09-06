@@ -23,6 +23,8 @@ env:
   AM: prom/alertmanager:v0.34.0
   BB: prom/blackbox-exporter:v0.28.0
   GRAFANA: grafana/grafana:12.4.10
+  MOSQ: eclipse-mosquitto:2.0.22
+  NODERED: nodered/node-red:4.1.14-22
 
 jobs:
   configs:
@@ -49,6 +51,10 @@ jobs:
         run: docker run --rm -v "$PWD/deploy/alertmanager:/cfg:ro" --entrypoint amtool "$AM" check-config /cfg/alertmanager.yml
       - name: blackbox --config.check
         run: docker run --rm -v "$PWD/deploy/blackbox:/cfg:ro" "$BB" --config.check --config.file=/cfg/blackbox.yml
+      - name: settings.js e init de Nornas (sintaxis)
+        run: |
+          docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/settings.js
+          docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/init/importar-flujo.mjs
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
@@ -83,7 +89,7 @@ jobs:
         run: docker run --rm -v "$PWD/deploy:/deploy:ro" aquasec/trivy:0.66.0 config --exit-code 0 --severity HIGH,CRITICAL /deploy
       - name: Trivy image (CRITICAL/HIGH, sin bloquear hasta triaje)
         run: |
-          for img in "$PROM" "$AM" "$BB" "$GRAFANA"; do
+          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED"; do
             echo "== $img =="
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed "$img"
           done
