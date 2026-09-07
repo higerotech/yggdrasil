@@ -66,6 +66,12 @@ curl -s -o /dev/null -w '%{http_code}
 
 ## 4. Primer despliegue y operación
 
+**Desfase del Compose.** El receptor ejecuta `up -d` con el `docker-compose*.yml` del checkout anterior,
+porque `sync-host` actualiza el clon durante ese mismo despliegue. Por eso los cambios en el Compose
+(montajes, variables, servicios) se aplican un despliegue después. El workflow `build` lo compensa: si
+el commit cambia el Compose, se relanza a sí mismo (`workflow_dispatch`) y el receptor despliega una
+segunda vez con el Compose nuevo. Los cambios en ficheros de configuración no sufren el desfase.
+
 El primer arranque de Odín migra su base SQLite y en el HDD de midgard tarda unos 3 min antes de
 escuchar; por eso `health_timeout` es 300 s. Los despliegues siguientes responden en segundos. Si el
 receptor marca `healthcheck agotado` con todos los contenedores `Up`, no es un fallo del stack.
