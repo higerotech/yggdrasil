@@ -72,8 +72,7 @@ services:
     extra_hosts:
       - host.docker.internal:host-gateway   # alcanza a las sondas en host-mode
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - ./prometheus:/etc/prometheus:ro   # directorio, no fichero: el checkout de sync crea inodos nuevos
       - mimir-datos:/prometheus
     command:
       - --config.file=/etc/prometheus/prometheus.yml
@@ -145,6 +144,7 @@ services:
       MQTT_NORNAS_PASSWORD: ${MQTT_NORNAS_PASSWORD}
       MQTT_FRIGATE_PASSWORD: ${MQTT_FRIGATE_PASSWORD}
       MQTT_IOT_PASSWORD: ${MQTT_IOT_PASSWORD}
+      YGG_REV: ${IMAGE_TAG:-local}                    # fuerza recreacion por despliegue (conf y ACL montados como ficheros)
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - ./mosquitto/acl:/mosquitto/config/acl:ro
@@ -187,6 +187,7 @@ services:
       NORNAS_CREDENTIAL_SECRET: ${NORNAS_CREDENTIAL_SECRET}
       NORNAS_WEBHOOK_TOKEN: ${NORNAS_WEBHOOK_TOKEN}   # lo lee el nodo de autorización del flujo
       YGG_WANS: ${YGG_WANS:-wan1,wan2}                # WANs que el flujo considera para el estado del hogar
+      YGG_REV: ${IMAGE_TAG:-local}                    # fuerza recreacion por despliegue (settings.js montado como fichero)
     volumes:
       - nornas-datos:/data
       - ./nornas/settings.js:/data/settings.js:ro
@@ -215,12 +216,14 @@ services:
       - no-new-privileges:true
     entrypoint: ["node", "/init/importar-flujo.mjs"]
     environment:
+      IMAGE_TAG: ${IMAGE_TAG:-local}                  # en CD espera a que sync-host haya hecho checkout
       NORNAS_ADMIN_USER: ${NORNAS_ADMIN_USER:-admin}
       NORNAS_ADMIN_PASSWORD: ${NORNAS_ADMIN_PASSWORD}
       MQTT_NORNAS_PASSWORD: ${MQTT_NORNAS_PASSWORD}
     volumes:
       - ./nornas/init:/init:ro
       - ./nornas/flows:/flujos:ro
+      - ./.sync:/sync:ro                           # marcador de revision escrito por sync-host
     networks: [heimdall]
     depends_on:
       nornas:

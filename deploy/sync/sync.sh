@@ -25,6 +25,7 @@ case "$MODO" in
     log "checkout $(git rev-parse --short HEAD): $(git log -1 --format=%s)"
     if [ ! -f deploy/.env ]; then log "falta deploy/.env; no se renderiza (ejecutar bootstrap-midgard.sh)"; exit 1; fi
     (cd deploy && ./scripts/render.sh --sin-recarga)
+    mkdir -p deploy/.sync && echo "$TAG" > deploy/.sync/rev   # nornas-init espera a este marcador
     recargar "blackbox" "http://${DOCKER_HOST_GW:-172.17.0.1}:9115/-/reload"
     ;;
   net)
