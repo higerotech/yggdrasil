@@ -9,6 +9,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
 
+## [0.4.2] - 2026-09-07
+
+Hotfix sobre la 0.4.1, a partir de lo observado al desplegarla en midgard.
+
+### Corregido
+- Mimir no aplicaba `prometheus.yml` nuevo al recargar: el fichero estaba montado suelto y el checkout de `sync-host` lo sustituye por un inodo nuevo que el bind mount no sigue. Se monta el directorio `prometheus/` completo. Ratatosk y Nornas, cuyos ficheros de configuración solo se leen al arrancar, se recrean en cada despliegue del CD (`YGG_REV`).
+- `nornas-init` se ejecutaba en paralelo a `sync-host` y leía el flujo del checkout anterior, así que la 0.4.1 no actualizó la pestaña de Heimdall. `sync-host` deja el marcador `deploy/.sync/rev` y `nornas-init` espera a que coincida con `IMAGE_TAG` antes de importar.
+- Flujo de Nornas: si `WanDegradada` seguía activa al terminar la recuperación de una caída, el enlace quedaba `saludable` hasta el siguiente aviso (4 h). El traductor recuerda la degradación por WAN y al salir de Recuperando publica `degradado` cuando corresponde.
+
 ## [0.4.1] - 2026-09-07
 
 Hotfix sobre la 0.4.0 tras la primera caída real detectada por Heimdall (ISP1, 2026-09-07 13:05 UTC).
@@ -93,7 +102,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/higerotech/yggdrasil/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...v0.3.0

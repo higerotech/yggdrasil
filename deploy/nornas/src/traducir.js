@@ -12,6 +12,7 @@ const WANS = (env.get("YGG_WANS") || "wan1,wan2").split(",").map(s => s.trim()).
 const alertas = (msg.payload && msg.payload.alerts) || [];
 const estados = flow.get("estado_wan") || {};
 const apto = flow.get("apto_wan") || {};          // ultimo valor conocido de apto_llamadas por WAN
+const degradada = flow.get("degradada_wan") || {};  // WanDegradada firing por WAN (para salir de Recuperando)
 const timers = context.get("timers") || {};
 const mqtt = [];
 const push = [];
@@ -51,9 +52,11 @@ for (const a of alertas) {
                     const t = context.get("timers") || {};
                     delete t[wan]; context.set("timers", t);
                     if (e[wan] !== "recuperando") return;
-                    e[wan] = "saludable"; flow.set("estado_wan", e);
+                    // Si la degradacion sigue activa al terminar la recuperacion, el enlace queda Degradado
+                    const final = ((flow.get("degradada_wan") || {})[wan]) ? "degradado" : "saludable";
+                    e[wan] = final; flow.set("estado_wan", e);
                     const ap = (flow.get("apto_wan") || {})[wan];
-                    node.send([[m(`midgard/wan/${wan}/estado`, "saludable", true),
+                    node.send([[m(`midgard/wan/${wan}/estado`, final, true),
                                 m(`midgard/wan/${wan}/apto_llamadas`, ap === false ? "no" : "si", true),
                                 m("midgard/hogar/internet/estado", calcHogar(e), true)], null, null]);
                 }, RECUPERACION_MS);
@@ -61,6 +64,7 @@ for (const a of alertas) {
             }
             break;
         case "WanDegradada":
+            degradada[wan] = firing;
             if (estados[wan] === "caido" || estados[wan] === "recuperando") break;
             fijar(wan, firing ? "degradado" : "saludable");
             if (firing) aviso(`Heimdall: ${wan} degradada`, an.resumen || "");
@@ -79,6 +83,7 @@ for (const a of alertas) {
 }
 flow.set("estado_wan", estados);
 flow.set("apto_wan", apto);
+flow.set("degradada_wan", degradada);
 context.set("timers", timers);
 mqtt.push(m("midgard/hogar/internet/estado", calcHogar(estados), true));
 msg.statusCode = 200;

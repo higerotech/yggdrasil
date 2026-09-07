@@ -7,6 +7,9 @@
 **/passwd
 **/secrets/
 
+# Marcador de revision que deja sync-host en cada despliegue
+deploy/.sync/
+
 # Renderizados por deploy/scripts/render.sh (contienen IPs WAN y el token del webhook)
 deploy/blackbox/blackbox.yml
 deploy/alertmanager/alertmanager.yml
