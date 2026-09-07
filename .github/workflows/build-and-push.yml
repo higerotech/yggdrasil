@@ -7,10 +7,12 @@ name: build
 on:
   push:
     branches: [main]
+  workflow_dispatch:      # segundo despliegue cuando el commit cambia el Compose (ver job redespliegue)
 
 permissions:
   contents: read
   packages: write
+  actions: write        # para relanzarse a si mismo (redespliegue)
 
 concurrency:
   group: build-${{ github.ref }}
@@ -45,3 +47,25 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.imagen }}
           cache-to: type=gha,mode=max,scope=${{ matrix.imagen }}
+
+  # El receptor levanta el stack con el Compose del checkout ANTERIOR (sync-host lo actualiza
+  # durante el propio despliegue). Si este push cambio docker-compose*.yml, se dispara un segundo
+  # workflow_run (workflow_dispatch) para que el receptor vuelva a desplegar con el Compose nuevo.
+  redespliegue:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+      - name: Relanzar si cambio el Compose
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --name-only HEAD~1 HEAD | grep -qE '^deploy/docker-compose(\.cd)?\.yml$'; then
+            echo 'El commit cambia el Compose: se pide un segundo despliegue'
+            gh workflow run build-and-push.yml --ref main
+          else
+            echo 'El Compose no cambio; no hace falta redesplegar'
+          fi
