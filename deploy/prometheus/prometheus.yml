@@ -31,6 +31,8 @@ scrape_configs:
 
   - job_name: sleipnir                 # throughput periódico (textfile servido por httpd)
     scrape_interval: 60s
+    # busybox httpd no envía Content-Type y Prometheus 3 rechaza el scrape sin este respaldo
+    fallback_scrape_protocol: PrometheusText0.0.4
     static_configs:
       - targets: ["host.docker.internal:9469"]
 

@@ -4,6 +4,7 @@
 El JSON es el artefacto que se importa; el JavaScript de los nodos function vive en src/ para
 poder revisarlo. Ejecutar tras editar src/: python3 generar-flujo.py
 """
+import hashlib
 import json
 from pathlib import Path
 
@@ -26,8 +27,12 @@ def fn(id_, name, src, outputs, x, y, wires):
             "x": x, "y": y, "wires": wires}
 
 
+# Revision del flujo = hash de las fuentes; nornas-init reimporta la pestaña cuando cambia.
+REV = hashlib.sha256(b"".join((AQUI / "src" / f).read_bytes() for f in sorted(("autorizar.js", "traducir.js")))).hexdigest()[:12]
+
 flow = [
-    {"id": TAB, "type": "tab", "label": "Heimdall · alertas SLA", "disabled": False, "info": INFO, "env": []},
+    {"id": TAB, "type": "tab", "label": "Heimdall · alertas SLA", "disabled": False, "info": INFO,
+     "env": [{"name": "HEIMDALL_FLOW_REV", "type": "str", "value": REV}]},
     {"id": "ratatosk.broker", "type": "mqtt-broker", "name": "Ratatosk", "broker": "ratatosk", "port": "1883",
      "clientid": "nornas-heimdall", "autoConnect": True, "usetls": False, "protocolVersion": "4", "keepalive": "60",
      "cleansession": True, "autoUnsubscribe": True,
@@ -55,4 +60,4 @@ salida = AQUI / "flows" / "heimdall-alertas.json"
 salida.parent.mkdir(parents=True, exist_ok=True)
 salida.write_text(json.dumps(flow, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 json.loads(salida.read_text(encoding="utf-8"))
-print(f"{salida.relative_to(AQUI.parent.parent)}: {len(flow)} nodos, {salida.stat().st_size} bytes")
+print(f"{salida.relative_to(AQUI.parent.parent)}: {len(flow)} nodos, {salida.stat().st_size} bytes, rev {REV}")
