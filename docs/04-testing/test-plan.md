@@ -268,11 +268,12 @@ stateDiagram-v2
 | Sleipnir `0.1.1` en producción (`speedtest-cli`, primeros puntos) | 188 ↓ / 23 ↑ Mbps | 76 ↓ / 13 ↑ Mbps | No fiable: cliente Python limitado por CPU en el i3 y por servidores lejanos; contradice las medidas de abajo |
 | CLI de Ookla `1.2.0` desde midgard, `-I wan1` / `-I wan2` | 16 ↓ / 940 ↑ Mbps | 939 ↓ / 487 ↑ Mbps | `wan2` en SLO de bajada; la subida de `wan1` prueba que la cadena USB llega al gigabit |
 | `iperf3` en LAN, midgard ↔ equipo del hogar, ambos sentidos | 935 y 939 Mbps | | Techo de la cadena de medición del servidor |
+| CLI de Ookla, segunda muestra, 18:58 UTC (`-I wanN -f json`) | 940 ↓ / 940 ↑ Mbps, ping 7,3 ms, jitter 0,7 ms, 0 % pérdida | 936 ↓ / 487 ↑ Mbps, ping 3,2 ms, jitter 0,2 ms, 0 % pérdida | `wan1` recuperada del todo; `wan2` repite la primera muestra |
 
 - **Techo calibrado ≥ 939 Mbps**: el SLO de 800 Mbps es medible y no hace falta ajustar la regla.
-- **`wan1` a 16 Mbps de bajada** el mismo día de su caída (13:05 UTC) es una degradación del ISP1, no del
-  equipo: la subida por la misma interfaz da 940 Mbps. Queda como evidencia para el reclamo y explica
-  que `WanDegradada` siga activa.
+- **`wan1` a 16 Mbps de bajada** durante la tarde de su caída (13:05 UTC) fue una degradación del ISP1,
+  no del equipo: la subida por la misma interfaz daba 940 Mbps y a las 18:58 UTC la bajada volvió a 940.
+  Queda como evidencia para el reclamo, junto con la caída de 13:05 a 14:25 UTC.
 - **Sleipnir pasa a modo `ookla`** (imagen `0.2.0`, `SLEIPNIR_MODO=ookla`): `speedtest-cli` queda como
   alternativa. `THROUGHPUT_RECEIVER` sigue en `nulo` hasta ver dos ciclos en producción coherentes con
   esta tabla; entonces se arma `nornas` y TA-07 se cierra.
