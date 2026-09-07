@@ -9,6 +9,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard: TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
 
+## [0.4.1] - 2026-09-07
+
+Hotfix sobre la 0.4.0 tras la primera caída real detectada por Heimdall (ISP1, 2026-09-07 13:05 UTC).
+
+### Corregido
+- Flujo de Nornas: el estado del hogar se calculaba solo con las WAN de las que ya había habido alertas, así que la caída de `wan1` publicó `midgard/hogar/internet/estado = caido` con `wan2` sana. Ahora considera todas las WAN (`YGG_WANS`, por defecto `wan1,wan2`) y una WAN sin alertas cuenta como saludable. Una WAN caída publica además `apto_llamadas = no`, y al volver a saludable se restaura el último valor conocido del indicador.
+- Mimir no ingería las métricas de Sleipnir: Prometheus 3 rechaza un objetivo sin `Content-Type` y busybox httpd no lo envía (`SondaCaida` activa desde el primer despliegue). El job `sleipnir` declara `fallback_scrape_protocol: PrometheusText0.0.4`.
+- `nornas-init` reimporta la pestaña Heimdall cuando cambia la revisión del flujo (hash de `src/*.js` en el nodo de pestaña), conservando las demás pestañas del editor; antes solo importaba la primera vez.
+
 ## [0.4.0] - 2026-09-05
 
 Release de arranque de Gate 3. Lleva a `main` el despliegue continuo (ADR-0005) y los servicios de plataforma Ratatosk y Nornas (ADR-0006); su primer despliegue automático en midgard es la primera prueba de aceptación (TA-01). Con esta release la convención de versiones se desplaza un menor: el cierre de Gate 3 cortará 0.5.0.
@@ -84,7 +93,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/higerotech/yggdrasil/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/higerotech/yggdrasil/compare/v0.1.0...v0.2.0
