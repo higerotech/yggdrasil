@@ -16,6 +16,18 @@ if (!clave || !mqttPass) {
   process.exit(1);
 }
 
+// Bajo el receptor, sync-host hace el checkout del commit IMAGE_TAG en paralelo: esperar a que
+// deje el marcador antes de leer el flujo, o se importaria la version anterior.
+async function esperarSync() {
+  const tag = process.env.IMAGE_TAG || "local";
+  if (tag === "local") return;
+  for (let i = 0; i < 90; i++) {
+    try { if (readFileSync("/sync/rev", "utf8").trim() === tag) return; } catch {}
+    await new Promise((res) => setTimeout(res, 2000));
+  }
+  throw new Error(`sync-host no dejo el marcador ${tag} en /sync/rev`);
+}
+
 async function esperarNornas() {
   for (let i = 0; i < 60; i++) {
     try { const r = await fetch(base + "/"); if (r.status < 500) return; } catch {}
@@ -24,6 +36,7 @@ async function esperarNornas() {
   throw new Error("Nornas no responde en " + base);
 }
 
+await esperarSync();
 await esperarNornas();
 const tok = await fetch(base + "/auth/token", {
   method: "POST",
