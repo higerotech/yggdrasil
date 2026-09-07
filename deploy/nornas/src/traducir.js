@@ -6,15 +6,18 @@
 //   midgard/wan/<id>/alerta          JSON {alerta, severidad, desde, detalle} (no retained)
 // Salidas: 1 = MQTT (Ratatosk), 2 = notificación push, 3 = respuesta HTTP al webhook.
 const RECUPERACION_MS = 5 * 60 * 1000;   // Recuperando -> Saludable tras 5 min estable
+// WANs de la plataforma: una WAN de la que no se ha sabido nada cuenta como saludable, para que
+// la caida de una sola no deje al hogar en "caido" (YGG_WANS en el entorno del contenedor).
+const WANS = (env.get("YGG_WANS") || "wan1,wan2").split(",").map(s => s.trim()).filter(Boolean);
 const alertas = (msg.payload && msg.payload.alerts) || [];
 const estados = flow.get("estado_wan") || {};
+const apto = flow.get("apto_wan") || {};          // ultimo valor conocido de apto_llamadas por WAN
 const timers = context.get("timers") || {};
 const mqtt = [];
 const push = [];
 
 function calcHogar(e) {
-    const v = Object.values(e);
-    if (v.length === 0) return "ok";
+    const v = WANS.map(w => e[w] || "saludable");
     if (v.every(x => x === "caido")) return "caido";
     if (v.some(x => x === "saludable")) return "ok";
     return "degradado";
@@ -39,6 +42,7 @@ for (const a of alertas) {
             if (timers[wan]) { clearTimeout(timers[wan]); delete timers[wan]; }
             if (firing) {
                 fijar(wan, "caido");
+                mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, "no", true));   // caida => no apta
                 aviso(`Heimdall: ${wan} CAÍDA`, an.descripcion || an.resumen || "");
             } else {
                 fijar(wan, "recuperando");
@@ -48,7 +52,10 @@ for (const a of alertas) {
                     delete t[wan]; context.set("timers", t);
                     if (e[wan] !== "recuperando") return;
                     e[wan] = "saludable"; flow.set("estado_wan", e);
-                    node.send([[m(`midgard/wan/${wan}/estado`, "saludable", true), m("midgard/hogar/internet/estado", calcHogar(e), true)], null, null]);
+                    const ap = (flow.get("apto_wan") || {})[wan];
+                    node.send([[m(`midgard/wan/${wan}/estado`, "saludable", true),
+                                m(`midgard/wan/${wan}/apto_llamadas`, ap === false ? "no" : "si", true),
+                                m("midgard/hogar/internet/estado", calcHogar(e), true)], null, null]);
                 }, RECUPERACION_MS);
                 aviso(`Heimdall: ${wan} recuperando`, "Las sondas responden; si sigue estable 5 min pasa a saludable.");
             }
@@ -59,6 +66,7 @@ for (const a of alertas) {
             if (firing) aviso(`Heimdall: ${wan} degradada`, an.resumen || "");
             break;
         case "WanNoAptaLlamadas":
+            apto[wan] = !firing;
             mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, firing ? "no" : "si", true));
             break;
         case "WanThroughputBajo":
@@ -70,6 +78,7 @@ for (const a of alertas) {
     }
 }
 flow.set("estado_wan", estados);
+flow.set("apto_wan", apto);
 context.set("timers", timers);
 mqtt.push(m("midgard/hogar/internet/estado", calcHogar(estados), true));
 msg.statusCode = 200;

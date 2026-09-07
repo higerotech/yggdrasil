@@ -36,19 +36,23 @@ const auth = { Authorization: `Bearer ${access_token}`, "Node-RED-API-Version": 
 
 const actual = await (await fetch(base + "/flows", { headers: auth })).json();
 const existentes = actual.flows || [];
-if (existentes.some((n) => n.id === TAB)) {
-  console.log("importar-flujo: el flujo Heimdall ya está desplegado; sin cambios");
+const flujo = JSON.parse(readFileSync(ruta, "utf8"));
+const revDe = (nodos) => { const t = nodos.find((n) => n.id === TAB); const e = (t && t.env || []).find((x) => x.name === "HEIMDALL_FLOW_REV"); return e ? e.value : null; };
+const revNueva = revDe(flujo), revActual = revDe(existentes);
+if (existentes.some((n) => n.id === TAB) && revActual === revNueva) {
+  console.log(`importar-flujo: el flujo Heimdall ya está desplegado en la revisión ${revActual}; sin cambios`);
   process.exit(0);
 }
-
-const flujo = JSON.parse(readFileSync(ruta, "utf8"));
+// Sustituye solo los nodos de Heimdall (pestaña, sus nodos y el broker Ratatosk); conserva el resto.
+const propios = new Set(flujo.map((n) => n.id));
+const conservados = existentes.filter((n) => n.id !== TAB && n.z !== TAB && !propios.has(n.id));
 for (const n of flujo) {
   if (n.type === "mqtt-broker") n.credentials = { user: mqttUser, password: mqttPass };
 }
 const r = await fetch(base + "/flows", {
   method: "POST",
   headers: { ...auth, "Content-Type": "application/json", "Node-RED-Deployment-Type": "full" },
-  body: JSON.stringify({ flows: [...existentes, ...flujo] }),
+  body: JSON.stringify({ flows: [...conservados, ...flujo] }),
 });
 if (!r.ok) throw new Error(`despliegue del flujo: HTTP ${r.status} ${await r.text()}`);
-console.log(`importar-flujo: flujo Heimdall importado (${flujo.length} nodos) con credenciales MQTT de ${mqttUser}`);
+console.log(`importar-flujo: flujo Heimdall ${revActual ? "actualizado de " + revActual + " a " : "importado en la revisión "}${revNueva} (${flujo.length} nodos) con credenciales MQTT de ${mqttUser}`);

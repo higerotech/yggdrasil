@@ -186,6 +186,7 @@ services:
       NORNAS_ADMIN_PASSWORD: ${NORNAS_ADMIN_PASSWORD}
       NORNAS_CREDENTIAL_SECRET: ${NORNAS_CREDENTIAL_SECRET}
       NORNAS_WEBHOOK_TOKEN: ${NORNAS_WEBHOOK_TOKEN}   # lo lee el nodo de autorización del flujo
+      YGG_WANS: ${YGG_WANS:-wan1,wan2}                # WANs que el flujo considera para el estado del hogar
     volumes:
       - nornas-datos:/data
       - ./nornas/settings.js:/data/settings.js:ro
