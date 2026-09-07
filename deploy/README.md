@@ -11,7 +11,7 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
 | `prometheus/` | Mimir | Scrape cada 15 s, recording rules y alertas del contrato |
 | `alertmanager/alertmanager.yml.tmpl` | Gjallarhorn | Rutas, inhibición y webhook a Nornas con token Bearer |
 | `grafana/` | Odín | Datasource y dashboard `heimdall-sla` provisionados |
-| `sleipnir/` | Sleipnir | Imagen propia: throughput por WAN cada 6 h, `/metrics` en :9469 |
+| `sleipnir/` | Sleipnir | Imagen propia: throughput con la CLI de Ookla, una WAN cada 3 h, `/metrics` en :9469 |
 | `mosquitto/` | Ratatosk | Mosquitto 2 (servicio de plataforma, ADR-0006): auth por cliente y ACL por tópico; passwd generado al arrancar desde `.env` |
 | `nornas/settings.js`, `nornas/init/` | Nornas | Node-RED 4 (servicio de plataforma): editor autenticado; `nornas-init` importa el flujo por la Admin API con las credenciales MQTT |
 | `nornas/flows/heimdall-alertas.json` | Nornas | Flujo de Heimdall; se genera con `nornas/generar-flujo.py` a partir del JavaScript revisable de `nornas/src/` |
@@ -68,6 +68,10 @@ La misma batería corre en GitHub Actions (`validar-configs.yml`) en cada PR que
 - **Tercer objetivo por TCP+TLS, no HTTP 204.** El prober `http` de blackbox no permite fijar la IP
   de origen; `www.gstatic.com:443` se valida con el handshake TLS (DNS + TLS de extremo a extremo).
 - **Token en cabecera `Authorization: Bearer`,** no en la URL (mejora sobre el control de T4).
+- **Sleipnir mide con la CLI oficial de Ookla ligada a cada interfaz (`-I wanN`),** no con
+  `speedtest-cli`: en el i3 ese cliente Python quedaba entre 76 y 188 Mbps por CPU y por el servidor que
+  elegía, y la CLI de Ookla midió 939 Mbps sobre la misma WAN (TA-07). `SLEIPNIR_MODO=speedtest` e
+  `iperf3` siguen disponibles; `OOKLA_SERVER_ID` fija un servidor si el automático varía.
 - **Sleipnir sirve su textfile por HTTP** (busybox httpd en :9469) en vez de pasar por
   node_exporter, que llegará con Thor. Contrato de métricas intacto.
 - **Latencia desde `probe_icmp_duration_seconds{phase="rtt"}`** (RTT real) y no desde

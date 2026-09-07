@@ -7,6 +7,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
+### Cambiado
+- Sleipnir `0.2.0` mide con la CLI oficial de Ookla (`1.2.0`, pineada por sha256 en el `Dockerfile`) ligada a cada interfaz WAN; `speedtest-cli` daba 76–188 Mbps de bajada en el i3 frente a los 939 Mbps reales medidos en TA-07. `SLEIPNIR_MODO` pasa a `ookla` por defecto (`speedtest` e `iperf3` siguen disponibles) y `OOKLA_SERVER_ID` permite fijar servidor.
+
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
 
 ## [0.4.2] - 2026-09-07

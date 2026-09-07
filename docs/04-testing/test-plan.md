@@ -35,7 +35,7 @@ C4Container
     System_Boundary(yggdrasil, "Yggdrasil en midgard") {
         Container_Boundary(heimdall, "Heimdall") {
             Container(blackbox, "Huginn y Muninn", "blackbox_exporter host-mode", "TA-02 sondas por WAN, TA-05 quorum", $tags="aceptacion")
-            Container(speed, "Sleipnir", "speedtest / iperf3", "TA-07 throughput y calibracion", $tags="rendimiento")
+            Container(speed, "Sleipnir", "CLI de Ookla / iperf3", "TA-07 throughput y calibracion", $tags="rendimiento")
             Container(prom, "Mimir", "Prometheus", "TA-03/04/09/10 reglas, TS-04 no expuesto", $tags="aceptacion+seguridad")
             Container(am, "Gjallarhorn", "Alertmanager", "TA-03/04 alertas, TS-04 no expuesto", $tags="aceptacion+seguridad")
             Container(grafana, "Odín", "Grafana", "TA-08 dashboard, TS-03 login", $tags="seguridad")
@@ -255,13 +255,27 @@ stateDiagram-v2
   24 h. Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
 - **Latencia de alertado** (TA-03/TA-04): el cronómetro arranca al inducir el fallo y termina cuando
   el push llega; el SLO es 2 min para caída y 5 min para degradación.
-- **Calibración** (TA-07): conectar un portátil con `iperf3 -s` al segmento de cada módem
-  (192.168.1.x y 192.168.2.x) y desde midgard `iperf3 -c <portátil> -B <IP de la WAN> -t 20` en ambos
-  sentidos: ese valor es el **techo de la cadena USB/UE300** por WAN. Comparar con `speedtest-cli
-  --source <IP>` hacia internet. Decisión: si el techo ≥ 800 Mbps, `THROUGHPUT_RECEIVER=nornas` y la
-  alerta queda armada; si es menor, el SLO se evalúa contra el techo calibrado (ajustar la regla) y se
-  documenta como límite de medición, no del ISP. La inestabilidad USB de `wan2` (resets del r8152)
-  puede distorsionar la calibración: repetir en dos momentos distintos.
+- **Calibración** (TA-07): medir cada WAN hacia internet con la CLI oficial de Ookla ligada a la
+  interfaz (`speedtest -I wanN -f json`) y contrastar con un `iperf3` en LAN entre midgard y un equipo
+  del hogar, que acota el techo de la cadena NIC/USB del servidor. Decisión: si el techo ≥ 800 Mbps,
+  `THROUGHPUT_RECEIVER=nornas` y la alerta queda armada; si es menor, el SLO se evalúa contra el techo
+  calibrado (ajustar la regla) y se documenta como límite de medición, no del ISP. Repetir en dos
+  momentos distintos y, si `wan2` vuelve a dar resets del r8152, descartar la muestra.
+
+### Evidencia TA-07 (calibración del 2026-09-07; caso abierto)
+| Medida | `wan1` (ISP1) | `wan2` (ISP2) | Lectura |
+|---|---|---|---|
+| Sleipnir `0.1.1` en producción (`speedtest-cli`, primeros puntos) | 188 ↓ / 23 ↑ Mbps | 76 ↓ / 13 ↑ Mbps | No fiable: cliente Python limitado por CPU en el i3 y por servidores lejanos; contradice las medidas de abajo |
+| CLI de Ookla `1.2.0` desde midgard, `-I wan1` / `-I wan2` | 16 ↓ / 940 ↑ Mbps | 939 ↓ / 487 ↑ Mbps | `wan2` en SLO de bajada; la subida de `wan1` prueba que la cadena USB llega al gigabit |
+| `iperf3` en LAN, midgard ↔ equipo del hogar, ambos sentidos | 935 y 939 Mbps | | Techo de la cadena de medición del servidor |
+
+- **Techo calibrado ≥ 939 Mbps**: el SLO de 800 Mbps es medible y no hace falta ajustar la regla.
+- **`wan1` a 16 Mbps de bajada** el mismo día de su caída (13:05 UTC) es una degradación del ISP1, no del
+  equipo: la subida por la misma interfaz da 940 Mbps. Queda como evidencia para el reclamo y explica
+  que `WanDegradada` siga activa.
+- **Sleipnir pasa a modo `ookla`** (imagen `0.2.0`, `SLEIPNIR_MODO=ookla`): `speedtest-cli` queda como
+  alternativa. `THROUGHPUT_RECEIVER` sigue en `nulo` hasta ver dos ciclos en producción coherentes con
+  esta tabla; entonces se arma `nornas` y TA-07 se cierra.
 
 ## Criterio de salida del Gate 3
 - TA-01 a TA-14 ejecutados con evidencia y resultado esperado, o desviación documentada y aceptada.
