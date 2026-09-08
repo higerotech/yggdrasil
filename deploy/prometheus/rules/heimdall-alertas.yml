@@ -16,7 +16,9 @@ groups:
           descripcion: "Al menos 2 de los 3 objetivos fallan por {{ $labels.wan }} desde hace 2 min."
 
       - alert: WanDegradada
-        expr: (wan:perdida_pct:5m > 1 or wan:latencia_p95:5m > 0.5) and on (wan) wan:up == 1
+        # min_over_time(wan:up[5m]): la WAN debe llevar toda la ventana arriba; tras una caida la ventana
+        # de perdida arrastra los fallos del corte y disparaba una degradacion falsa (TA-14, v0.4.7).
+        expr: (wan:perdida_pct:5m > 1 or wan:latencia_p95:5m > 0.5) and on (wan) min_over_time(wan:up[5m]) == 1
         for: 5m
         labels:
           severity: warning
@@ -27,7 +29,7 @@ groups:
           descripcion: "Revisar wan:perdida_pct:5m y wan:latencia_p95:5m de {{ $labels.wan }} en Odín."
 
       - alert: WanNoAptaLlamadas
-        expr: wan:apto_llamadas == 0 and on (wan) wan:up == 1
+        expr: wan:apto_llamadas == 0 and on (wan) min_over_time(wan:up[5m]) == 1
         for: 5m
         labels:
           severity: info
