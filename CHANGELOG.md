@@ -7,10 +7,18 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-### Cambiado
-- Sleipnir `0.2.0` mide con la CLI oficial de Ookla (`1.2.0`, pineada por sha256 en el `Dockerfile`) ligada a cada interfaz WAN; `speedtest-cli` daba 76–188 Mbps de bajada en el i3 frente a los 939 Mbps reales medidos en TA-07. `SLEIPNIR_MODO` pasa a `ookla` por defecto (`speedtest` e `iperf3` siguen disponibles) y `OOKLA_SERVER_ID` permite fijar servidor.
-
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+
+## [0.4.3] - 2026-09-07
+
+Release de corrección desde `develop` durante Gate 3: las lecturas de throughput de Heimdall eran inservibles (calibración de TA-07).
+
+### Corregido
+- Sleipnir `0.2.0` mide con la CLI oficial de Ookla (`1.2.0`, pineada por sha256 en el `Dockerfile`) ligada a cada interfaz WAN; `speedtest-cli` daba 76–188 Mbps de bajada en el i3 frente a los 939 Mbps reales medidos en TA-07. `SLEIPNIR_MODO` pasa a `ookla` por defecto (`speedtest` e `iperf3` siguen disponibles) y `OOKLA_SERVER_ID` permite fijar servidor.
+- Evidencia de la calibración de TA-07 en `docs/04-testing/test-plan.md`: techo de la cadena de medición ≥ 939 Mbps, dos muestras por WAN; `wan1` degradada a 16 Mbps de bajada tras la caída del ISP1 y recuperada a 940/940 a las 18:58 UTC.
+
+### CI/CD
+- El workflow `build` se relanza a sí mismo cuando un push a `main` cambia el Compose, para que el receptor despliegue una segunda vez con el Compose ya actualizado (PR #21).
 
 ## [0.4.2] - 2026-09-07
 
@@ -106,7 +114,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/higerotech/yggdrasil/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...v0.4.0
