@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
 
+## [0.4.6] - 2026-09-08
+
+Hotfix sobre la 0.4.5, a partir de TA-05 (quórum) en Gate 3.
+
+### Corregido
+- `wan:perdida_pct:5m` promediaba los fallos de todos los objetivos ICMP, así que un solo objetivo inalcanzable (1.1.1.1 bloqueado en TA-05) contaba como 50 % de pérdida y disparaba `WanDegradada` y `WanNoAptaLlamadas` en ambas WAN aunque el enlace estuviera sano. La regla excluye ahora los objetivos sin ninguna respuesta en la ventana: la pérdida del enlace es la de los objetivos que sí responden.
+- Las sondas ICMP se raspan cada 5 s (antes 15 s): con 120 muestras por ventana de 5 min la resolución de la pérdida es 0,8 %, coherente con el umbral del 1 %; a 15 s era 2,5 %.
+
 ## [0.4.5] - 2026-09-08
 
 Hotfix sobre la 0.4.4, tras la primera medición de Sleipnir `0.2.0` en producción.
@@ -128,7 +136,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.5...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.6...HEAD
+[0.4.6]: https://github.com/higerotech/yggdrasil/compare/v0.4.5...v0.4.6
 [0.4.5]: https://github.com/higerotech/yggdrasil/compare/v0.4.4...v0.4.5
 [0.4.4]: https://github.com/higerotech/yggdrasil/compare/v0.4.3...v0.4.4
 [0.4.3]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...v0.4.3
