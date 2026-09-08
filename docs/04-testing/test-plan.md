@@ -202,8 +202,8 @@ temporales; se retiran al terminar (`tc qdisc del dev wanN root`).
 |---|---|---|---|---|
 | TA-01 | ADR-0005 | Fusionar `release/0.4.0` en `main`; observar el workflow `build`, el receptor (`/status`, journal) y `docker compose ps` | Imágenes `sha-<7>` en GHCR; despliegue `ok` con healthcheck de Odín; `sync-host` y `sync-net` salen con 0; 8 servicios arriba | `/status`, logs de sync, `docker compose ps` |
 | TA-02 | RF01 | En Mimir: `probe_success{job=~"blackbox_.*"}` por `wan` y `target`; contadores `ip -s link` de cada WAN durante 5 min | 6 series (2 WAN × 3 objetivos) con valor 1; los contadores de ambas WAN crecen | Consulta PromQL, captura de Odín |
-| TA-03 | RF03, RF04 | Retirar el cable de `wan2` (o `ip link set wan2 down`) y cronometrar | `WanCaida{wan="wan2"}` firing en < 2 min; `midgard/wan/wan2/estado = caido` retained; push recibido | Alertmanager `/api/v2/alerts`, `mosquitto_sub`, hora del push |
-| TA-04 | RF03, RF04 | `tc qdisc add dev wan1 root netem loss 5%` durante 6 min (5 % y no 3 %: con 120 sondas por ventana la resolución es 0,8 % y al 3 % la ventana puede quedar por debajo del umbral por azar) | `wan:perdida_pct:5m{wan="wan1"} > 1`; `WanDegradada` en < 5 min; `estado = degradado`; al retirar, vuelve a `saludable` | PromQL, Alertmanager, MQTT |
+| TA-03 | RF03, RF04 | Retirar el cable de `wan2` (o `ip link set wan2 down`) y cronometrar | `WanCaida{wan="wan2"}` firing en ≈ 2,5 min (`for: 2m` + detección; SLO aceptado en Gate 3); `midgard/wan/wan2/estado = caido` retained; push recibido | Alertmanager `/api/v2/alerts`, `mosquitto_sub`, hora del push |
+| TA-04 | RF03, RF04 | `tc qdisc add dev wan1 root netem loss 5%` durante 6 min (5 % y no 3 %: con 120 sondas por ventana la resolución es 0,8 % y al 3 % la ventana puede quedar por debajo del umbral por azar) | `wan:perdida_pct:5m{wan="wan1"} > 1`; `WanDegradada` en ≈ 6 min (`for: 5m` + ventana; SLO aceptado en Gate 3); `estado = degradado`; al retirar, vuelve a `saludable` | PromQL, Alertmanager, MQTT |
 | TA-05 | RF01 (quórum) | Bloquear solo 1.1.1.1 con nftables (`ip daddr 1.1.1.1 drop` en output) 5 min | `probe_success` de 1.1.1.1 = 0 en ambas WAN; `wan:up` sigue en 1; **no** hay `WanCaida` ni `WanDegradada` (un objetivo caído no es pérdida del enlace) | PromQL, Alertmanager |
 | TA-06 | RF05 | `mosquitto_sub -u iot -t 'midgard/#' -v` tras TA-03 y TA-04 | Mensajes retained en `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado` coherentes con las alertas | Salida de `mosquitto_sub` |
 | TA-07 | RF02, RF09 | Esperar dos ciclos de Sleipnir (6 h) y ejecutar la calibración (abajo) | `wan_throughput_mbps` para ambas WAN y direcciones; alternancia visible en `wan_throughput_ultima_medicion_timestamp_seconds`; techo calibrado documentado | PromQL, tabla de calibración |
@@ -255,8 +255,8 @@ lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2
 **Hallazgos.**
 - *Latencia de alertado.* Con `for: 2m` (caída) y `for: 5m` (degradación) la alerta llega a
   `for` + detección + lote de Gjallarhorn: medidos 2 m 18–46 s para la caída y ≈ 6 min para la
-  degradación, frente a los 2 y 5 min que fija este plan. Decisión HITL: aceptar los valores medidos
-  como SLO de alertado (recomendado: la histéresis evita falsos positivos) o bajar `for` a 90 s y 4 m.
+  degradación, frente a los 2 y 5 min que fijaba este plan. **Decisión HITL: aceptados los valores
+  medidos** (2026-09-08); los casos TA-03 y TA-04 y el apartado de rendimiento quedan actualizados.
 - *Resoluciones con retraso.* Las notificaciones `resolved` salen en el siguiente lote del grupo
   (`group_interval: 5m`), así que el estado MQTT podía ir hasta 5 min por detrás de Mimir (visto a las
   01:13, 01:38 y 01:46 en `wan2`). Corregido en v0.4.7: `group_interval: 1m`.
@@ -279,6 +279,22 @@ lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2
 | TS-09 | A06 supply chain | `docker inspect --format '{{index .RepoDigests 0}}'` de cada imagen vs `deploy/imagenes.md` | Digests coinciden |
 | TS-10 | Tampering | Intentar escribir en Mimir desde la LAN (`curl -X POST :9090/api/v1/admin/tsdb/...`) | Inalcanzable; además la API de administración está deshabilitada |
 
+### Evidencia TS-01 a TS-10 (2026-09-08, 02:15–02:40 UTC)
+Desde un equipo de la LAN (192.168.10.74, `nmap` y `curl`) y desde midgard (`docker exec`, `docker inspect`, `nft`, `ss`).
+
+| Caso | Observación | Resultado |
+|---|---|---|
+| TS-01 | `nmap -Pn` sobre 192.168.10.1: abiertos 22, 1880, 1883, 3000 y los previos del router (9091 y 51413 de Transmission); 53/tcp cerrado (DNS solo UDP); filtrados 9090, 9093, 9115, 9469 y 51820/tcp. Barrido completo de los 65 535 puertos (en dos mitades): abiertos únicamente 1883, 3000, 9091 y 51413, más 22 y 1880 que el barrido marcó filtrados por pérdida de paquetes y un escaneo dirigido confirmó abiertos (`ssh` responde y 1880 devuelve 200). Ningún puerto inesperado | **Superado** |
+| TS-02 | Sin vantage externo en la sesión: evidencia indirecta. `chain input` con `policy drop`; por `wan1`/`wan2` solo se aceptan respuestas DHCP (`sport 67 dport 68`) y WireGuard 51820/udp; 22/53 solo desde `lan`/`wg0`; 9115 y 9469 solo desde 172.16.0.0/12. Sockets de Yggdrasil ligados a 192.168.10.1 (1880, 1883, 3000) y 172.17.0.1 (9115, 9469). Ambas WAN están además tras el NAT del CPE del ISP | **Superado con evidencia indirecta**; el `nmap` desde datos móviles queda como HITL |
+| TS-03 | `GET /api/dashboards/uid/heimdall-sla` sin sesión → 401; `GF_AUTH_ANONYMOUS_ENABLED=false`, `GF_USERS_ALLOW_SIGN_UP=false`; login con la cuenta de `.env` → 200 | **Superado** |
+| TS-04 | Desde la LAN, `curl` a 9090 y 9093 → sin respuesta (timeout; código 000) | **Superado** |
+| TS-05 | Anónimo: `Connection Refused: not authorised`. MQTT v5 con QoS 1: `iot → midgard/x` RC 135, `frigate → midgard/x` RC 135, `iot → frigate/x` RC 135, `frigate → frigate/x` RC 16; `iot` sí lee `midgard/wan/wan1/estado` | **Superado** |
+| TS-06 | `POST /heimdall/alertas` sin Bearer → 401; `/flows` y `/settings` del editor sin login → 401 | **Superado** |
+| TS-07 | Mimir y Gjallarhorn `nobody`, rootfs ro; Sleipnir 65532, `cap_drop ALL`, ro; Odín 472; Nornas 1000; Ratatosk arranca como root y el broker corre como `mosquitto` (uid 1883); todos con `no-new-privileges`. **Hallazgo**: Huginn y Muninn corrían como root con `CAP_NET_RAW`; probado en midgard con uid 65534 sin capacidades (`probe_success` 1 gracias a `ping_group_range`) y corregido en v0.4.8: desplegada a las 02:24 UTC (dos despliegues automáticos), Huginn y Muninn corren como `nobody` con `cap_drop ALL` y las cuatro sondas ICMP siguen en 1 | **Superado** |
+| TS-08 | `deploy/.env` → `deploy:deploy 0600`; gitleaks en verde en cada PR; en `alertmanager.yml` renderizado ninguna `url:` lleva token y la autorización va en cabecera (`authorization`/`credentials`) | **Superado** |
+| TS-09 | Digests en ejecución = `deploy/imagenes.md`: mosquitto `212f89e1…`, grafana `c132a683…`, node-red `427c7dce…`, prometheus `5ce7540c…`, alertmanager `690c7b52…`, blackbox `e753ff9f…`; Sleipnir `sha-797a356` construido en CI | **Superado** |
+| TS-10 | Desde la LAN, `POST /api/v1/admin/tsdb/delete_series` a 9090 → sin respuesta; Mimir sin `--web.enable-admin-api` (solo `--web.enable-lifecycle`, alcanzable únicamente dentro de la red `heimdall`) | **Superado** |
+
 ## Pruebas de transición de estado (EnlaceWan)
 ```mermaid
 stateDiagram-v2
@@ -297,7 +313,9 @@ stateDiagram-v2
 - **RNF01** (TA-12): la suma de `mem_limit` es 1408 MB; se mide el uso real con `docker stats` durante
   24 h. Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
 - **Latencia de alertado** (TA-03/TA-04): el cronómetro arranca al inducir el fallo y termina cuando
-  el push llega; el SLO es 2 min para caída y 5 min para degradación.
+  el push llega. Medido en Gate 3: 2 min 18–46 s para la caída y ≈ 6 min para la degradación
+  (`for` + detección + lote de Gjallarhorn). **Decisión HITL (Jeremi, 2026-09-08): se aceptan los
+  valores medidos como SLO de alertado**; la histéresis de `for` evita falsos positivos.
 - **Calibración** (TA-07): medir cada WAN hacia internet con la CLI oficial de Ookla ligada a la
   interfaz (`speedtest -I wanN -f json`) y contrastar con un `iperf3` en LAN entre midgard y un equipo
   del hogar, que acota el techo de la cadena NIC/USB del servidor. Decisión: si el techo ≥ 800 Mbps,
