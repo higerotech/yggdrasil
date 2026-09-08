@@ -71,7 +71,8 @@ La misma batería corre en GitHub Actions (`validar-configs.yml`) en cada PR que
 - **Sleipnir mide con la CLI oficial de Ookla ligada a cada interfaz (`-I wanN`),** no con
   `speedtest-cli`: en el i3 ese cliente Python quedaba entre 76 y 188 Mbps por CPU y por el servidor que
   elegía, y la CLI de Ookla midió 939 Mbps sobre la misma WAN (TA-07). `SLEIPNIR_MODO=speedtest` e
-  `iperf3` siguen disponibles; `OOKLA_SERVER_ID` fija un servidor si el automático varía.
+  `iperf3` siguen disponibles; `OOKLA_SERVER_ID` admite una lista de servidores y la sonda se queda con el máximo por sentido: la
+  elección automática puede caer en un servidor lento (312 Mbps frente a 941 en la misma WAN).
 - **Sleipnir sirve su textfile por HTTP** (busybox httpd en :9469) en vez de pasar por
   node_exporter, que llegará con Thor. Contrato de métricas intacto.
 - **Latencia desde `probe_icmp_duration_seconds{phase="rtt"}`** (RTT real) y no desde
