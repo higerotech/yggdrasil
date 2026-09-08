@@ -7,7 +7,18 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard: TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+> Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+
+## [0.4.3] - 2026-09-07
+
+Release de corrección desde `develop` durante Gate 3: las lecturas de throughput de Heimdall eran inservibles (calibración de TA-07).
+
+### Corregido
+- Sleipnir `0.2.0` mide con la CLI oficial de Ookla (`1.2.0`, pineada por sha256 en el `Dockerfile`) ligada a cada interfaz WAN; `speedtest-cli` daba 76–188 Mbps de bajada en el i3 frente a los 939 Mbps reales medidos en TA-07. `SLEIPNIR_MODO` pasa a `ookla` por defecto (`speedtest` e `iperf3` siguen disponibles) y `OOKLA_SERVER_ID` permite fijar servidor.
+- Evidencia de la calibración de TA-07 en `docs/04-testing/test-plan.md`: techo de la cadena de medición ≥ 939 Mbps, dos muestras por WAN; `wan1` degradada a 16 Mbps de bajada tras la caída del ISP1 y recuperada a 940/940 a las 18:58 UTC.
+
+### CI/CD
+- El workflow `build` se relanza a sí mismo cuando un push a `main` cambia el Compose, para que el receptor despliegue una segunda vez con el Compose ya actualizado (PR #21).
 
 ## [0.4.2] - 2026-09-07
 
@@ -32,6 +43,7 @@ Hotfix sobre la 0.4.0 tras la primera caída real detectada por Heimdall (ISP1, 
 Release de arranque de Gate 3. Lleva a `main` el despliegue continuo (ADR-0005) y los servicios de plataforma Ratatosk y Nornas (ADR-0006); su primer despliegue automático en midgard es la primera prueba de aceptación (TA-01). Con esta release la convención de versiones se desplaza un menor: el cierre de Gate 3 cortará 0.5.0.
 
 ### Añadido
+- Workflow `build`: si el commit cambia `docker-compose*.yml`, se relanza a sí mismo por `workflow_dispatch` para que el receptor haga un segundo despliegue con el Compose nuevo (compensa el desfase de un despliegue del Compose dentro del clon, observado al desplegar la 0.4.2). Documentado en `deploy/cd/README.md`.
 - Gate 3 abierto: `docs/04-testing/test-plan.md` (estrategia en cuatro capas, alcance sobre la arquitectura, trazabilidad requisito ↔ prueba con `verifies`, casos TA-01..TA-14, seguridad TS-01..TS-10, transiciones de estado, calibración del techo de throughput y criterio de salida) y checklist `.ai-dlc/gates/gate-3-testing.md`.
 - ADR-0006: Ratatosk (Mosquitto 2.0.22) y Nornas (Node-RED 4.1.14) pasan a ser servicios de plataforma desplegados por el Compose de Yggdrasil, ya que no existía broker ni Node-RED en midgard. Ratatosk con `allow_anonymous false`, una credencial por cliente (`nornas`, `frigate`, `iot`) generada al arrancar desde `.env`, ACL por tópico (control T3 propio) y límites; Nornas con editor autenticado (`settings.js`), secreto de credenciales estable y webhook de Alertmanager por la red interna; `nornas-init` importa el flujo de Heimdall por la Admin API e inyecta las credenciales MQTT. RNF01 sube a 1408 MB. El bootstrap completa las claves nuevas de `.env` sin tocar las existentes.
 - ADR-0005: despliegue continuo con el receptor de `higerotech/despliegue-continuo` (supersede la sección CD de ADR-0002). `build-and-push.yml` publica `yggdrasil-sleipnir` y `yggdrasil-sync` en GHCR con tag `sha-<7>`; `deploy/docker-compose.cd.yml` añade las tareas `sync-host` (checkout del commit, render con las IPs de las WAN, recarga de blackbox) y `sync-net` (recarga de Mimir y Gjallarhorn); `deploy/cd/bootstrap-midgard.sh` prepara el appliance con sudo (sysctl, clon como `deploy`, `.env`, inventario del receptor) y `deploy/cd/README.md` documenta webhook, operación y rollback.
@@ -102,7 +114,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.3...HEAD
+[0.4.3]: https://github.com/higerotech/yggdrasil/compare/v0.4.2...v0.4.3
 [0.4.2]: https://github.com/higerotech/yggdrasil/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/higerotech/yggdrasil/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/higerotech/yggdrasil/compare/v0.3.0...v0.4.0

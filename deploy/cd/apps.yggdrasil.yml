@@ -10,7 +10,7 @@
     tag_template: "sha-{short_sha}"
     services: []
     health_url: http://192.0.2.10:3000/api/health   # bootstrap sustituye por la IP LAN real
-    health_timeout: 120
+    health_timeout: 300   # el primer arranque de Grafana migra SQLite (~3 min en el HDD de midgard)
     health_interval: 5
     rollback: true
     command_timeout: 900

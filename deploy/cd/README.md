@@ -48,7 +48,33 @@ gh api repos/higerotech/yggdrasil/hooks -X POST \
 unset SECRET
 ```
 
+## 3b. Paquetes GHCR públicos (una vez por imagen)
+
+Los paquetes nuevos de la organización nacen **privados** y el receptor hace `pull` anónimo, así que
+el primer build publica `yggdrasil-sleipnir` y `yggdrasil-sync` pero el despliegue falla con
+`error from registry: unauthorized` (ocurrió en la 0.4.0). Tras el primer build, en GitHub:
+Organization → Packages → `yggdrasil-sleipnir` → Package settings → Change visibility → **Public**;
+repetir para `yggdrasil-sync`. Conviene además enlazar cada paquete al repositorio (Manage
+Actions access) para que futuras publicaciones hereden los permisos. Después, relanzar el build
+(`gh run rerun <id>`) para que el `workflow_run` vuelva a disparar el despliegue. Comprobación:
+
+```bash
+TOK=$(curl -s 'https://ghcr.io/token?scope=repository:higerotech/yggdrasil-sync:pull' | jq -r .token)
+curl -s -o /dev/null -w '%{http_code}
+' -H "Authorization: Bearer $TOK" https://ghcr.io/v2/higerotech/yggdrasil-sync/manifests/latest   # 200 = público
+```
+
 ## 4. Primer despliegue y operación
+
+**Desfase del Compose.** El receptor ejecuta `up -d` con el `docker-compose*.yml` del checkout anterior,
+porque `sync-host` actualiza el clon durante ese mismo despliegue. Por eso los cambios en el Compose
+(montajes, variables, servicios) se aplican un despliegue después. El workflow `build` lo compensa: si
+el commit cambia el Compose, se relanza a sí mismo (`workflow_dispatch`) y el receptor despliega una
+segunda vez con el Compose nuevo. Los cambios en ficheros de configuración no sufren el desfase.
+
+El primer arranque de Odín migra su base SQLite y en el HDD de midgard tarda unos 3 min antes de
+escuchar; por eso `health_timeout` es 300 s. Los despliegues siguientes responden en segundos. Si el
+receptor marca `healthcheck agotado` con todos los contenedores `Up`, no es un fallo del stack.
 
 El primer push a `main` que incluya este directorio dispara el workflow `build`; al terminar, el
 receptor despliega. Comprobar:

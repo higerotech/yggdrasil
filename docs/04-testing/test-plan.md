@@ -35,7 +35,7 @@ C4Container
     System_Boundary(yggdrasil, "Yggdrasil en midgard") {
         Container_Boundary(heimdall, "Heimdall") {
             Container(blackbox, "Huginn y Muninn", "blackbox_exporter host-mode", "TA-02 sondas por WAN, TA-05 quorum", $tags="aceptacion")
-            Container(speed, "Sleipnir", "speedtest / iperf3", "TA-07 throughput y calibracion", $tags="rendimiento")
+            Container(speed, "Sleipnir", "CLI de Ookla / iperf3", "TA-07 throughput y calibracion", $tags="rendimiento")
             Container(prom, "Mimir", "Prometheus", "TA-03/04/09/10 reglas, TS-04 no expuesto", $tags="aceptacion+seguridad")
             Container(am, "Gjallarhorn", "Alertmanager", "TA-03/04 alertas, TS-04 no expuesto", $tags="aceptacion+seguridad")
             Container(grafana, "Odín", "Grafana", "TA-08 dashboard, TS-03 login", $tags="seguridad")
@@ -215,6 +215,13 @@ temporales; se retiran al terminar (`tc qdisc del dev wanN root`).
 | TA-13 | RNF02 | `sudo reboot` del appliance | Los 8 servicios vuelven solos; Odín responde; sondas miden | `docker compose ps`, `uptime` |
 | TA-14 | RF03 (Recuperando) | Tras TA-03, reconectar `wan2` y cronometrar | `estado = recuperando` al resolverse la alerta y `saludable` a los 5 min sin recaída | MQTT con marcas de tiempo |
 
+### Evidencia TA-01 (superado el 2026-09-06)
+| Fecha (UTC) | Intento | Resultado | Causa / acción |
+|---|---|---|---|
+| 2026-09-06 03:48 | Merge de `release/0.4.0` → `build` (sleipnir y sync en GHCR, 44 s) → `workflow_run` firmado → receptor encola `sha-20cba13` | **Fallo** en `docker compose pull` a los 1,2 s: `ghcr.io/higerotech/yggdrasil-sleipnir` y `-sync` devuelven `unauthorized`; las imágenes públicas de upstream sí descargan | Paquetes GHCR nuevos nacen privados y el receptor hace pull anónimo. Acción: hacerlos públicos (runbook de CD, paso 3b) y relanzar el build. El circuito webhook → receptor → cola quedó verificado |
+| 2026-09-06 04:13 | Paquetes públicos; `gh run rerun` → build OK → receptor despliega `sha-20cba13` | **Parcial**: `pull` + `up -d` en 118 s; los 10 contenedores `Up`; `sync-host` (checkout, render con wan2 nueva, blackbox recargado), `sync-net` (Mimir y Gjallarhorn recargados) y `nornas-init` (flujo importado) salen con 0; sondas `probe_success 1` por ambas WAN; Mimir con 9 targets `up`; RAM del stack ~183 MB. **Healthcheck agotado a los 120 s**: Odín tardó ~3 min en escuchar (migración SQLite del primer arranque en HDD) | `health_timeout` de la app subido a 300 s en `apps.yml` (servidor y repo). Tercer intento con arranques ya rápidos para dejar el despliegue registrado como `ok` |
+| 2026-09-06 04:20 | `gh run rerun` → build OK (caché, 36 s) → receptor despliega `sha-20cba13` | **OK** en 40,6 s: `pull` + `up -d` 40,5 s, healthcheck de Odín `200` en 0,05 s; `current_tag` guardado (`sha-20cba13`, sin `previous_tag`); Sleipnir recreado con la imagen nueva; resto de servicios sin cambios | **TA-01 superado.** El receptor queda con estado para el rollback de los próximos despliegues |
+
 ## Pruebas de seguridad (equivalente DAST): los abusos del PRD como casos
 | ID | Amenaza / abuso | Cómo | Resultado esperado |
 |---|---|---|---|
@@ -248,13 +255,28 @@ stateDiagram-v2
   24 h. Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
 - **Latencia de alertado** (TA-03/TA-04): el cronómetro arranca al inducir el fallo y termina cuando
   el push llega; el SLO es 2 min para caída y 5 min para degradación.
-- **Calibración** (TA-07): conectar un portátil con `iperf3 -s` al segmento de cada módem
-  (192.168.1.x y 192.168.2.x) y desde midgard `iperf3 -c <portátil> -B <IP de la WAN> -t 20` en ambos
-  sentidos: ese valor es el **techo de la cadena USB/UE300** por WAN. Comparar con `speedtest-cli
-  --source <IP>` hacia internet. Decisión: si el techo ≥ 800 Mbps, `THROUGHPUT_RECEIVER=nornas` y la
-  alerta queda armada; si es menor, el SLO se evalúa contra el techo calibrado (ajustar la regla) y se
-  documenta como límite de medición, no del ISP. La inestabilidad USB de `wan2` (resets del r8152)
-  puede distorsionar la calibración: repetir en dos momentos distintos.
+- **Calibración** (TA-07): medir cada WAN hacia internet con la CLI oficial de Ookla ligada a la
+  interfaz (`speedtest -I wanN -f json`) y contrastar con un `iperf3` en LAN entre midgard y un equipo
+  del hogar, que acota el techo de la cadena NIC/USB del servidor. Decisión: si el techo ≥ 800 Mbps,
+  `THROUGHPUT_RECEIVER=nornas` y la alerta queda armada; si es menor, el SLO se evalúa contra el techo
+  calibrado (ajustar la regla) y se documenta como límite de medición, no del ISP. Repetir en dos
+  momentos distintos y, si `wan2` vuelve a dar resets del r8152, descartar la muestra.
+
+### Evidencia TA-07 (calibración del 2026-09-07; caso abierto)
+| Medida | `wan1` (ISP1) | `wan2` (ISP2) | Lectura |
+|---|---|---|---|
+| Sleipnir `0.1.1` en producción (`speedtest-cli`, primeros puntos) | 188 ↓ / 23 ↑ Mbps | 76 ↓ / 13 ↑ Mbps | No fiable: cliente Python limitado por CPU en el i3 y por servidores lejanos; contradice las medidas de abajo |
+| CLI de Ookla `1.2.0` desde midgard, `-I wan1` / `-I wan2` | 16 ↓ / 940 ↑ Mbps | 939 ↓ / 487 ↑ Mbps | `wan2` en SLO de bajada; la subida de `wan1` prueba que la cadena USB llega al gigabit |
+| `iperf3` en LAN, midgard ↔ equipo del hogar, ambos sentidos | 935 y 939 Mbps | | Techo de la cadena de medición del servidor |
+| CLI de Ookla, segunda muestra, 18:58 UTC (`-I wanN -f json`) | 940 ↓ / 940 ↑ Mbps, ping 7,3 ms, jitter 0,7 ms, 0 % pérdida | 936 ↓ / 487 ↑ Mbps, ping 3,2 ms, jitter 0,2 ms, 0 % pérdida | `wan1` recuperada del todo; `wan2` repite la primera muestra |
+
+- **Techo calibrado ≥ 939 Mbps**: el SLO de 800 Mbps es medible y no hace falta ajustar la regla.
+- **`wan1` a 16 Mbps de bajada** durante la tarde de su caída (13:05 UTC) fue una degradación del ISP1,
+  no del equipo: la subida por la misma interfaz daba 940 Mbps y a las 18:58 UTC la bajada volvió a 940.
+  Queda como evidencia para el reclamo, junto con la caída de 13:05 a 14:25 UTC.
+- **Sleipnir pasa a modo `ookla`** (imagen `0.2.0`, `SLEIPNIR_MODO=ookla`): `speedtest-cli` queda como
+  alternativa. `THROUGHPUT_RECEIVER` sigue en `nulo` hasta ver dos ciclos en producción coherentes con
+  esta tabla; entonces se arma `nornas` y TA-07 se cierra.
 
 ## Criterio de salida del Gate 3
 - TA-01 a TA-14 ejecutados con evidencia y resultado esperado, o desviación documentada y aceptada.

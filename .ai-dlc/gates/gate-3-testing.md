@@ -12,9 +12,9 @@
 > continuo a `main` y su primer despliegue en midgard es TA-01. El cierre de este gate corta `0.5.0`
 > (la convención sugerida del skill se desplaza un menor a partir de aquí).
 
-- [ ] TA-01 Despliegue continuo: build → GHCR → webhook → receptor → `up -d` → `sync-host`/`sync-net` → healthcheck de Odín, con evidencia de `/status` y logs
+- [x] TA-01 Despliegue continuo (2026-09-06, tercer intento): build → GHCR → webhook → receptor → `up -d` → `sync-host`/`sync-net` → healthcheck de Odín `200`; evidencia en `test-plan.md`. Hallazgos por el camino: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min
 - [ ] TA-02 a TA-06: sondas por WAN, caída (< 2 min), degradación (< 5 min), quórum anti falso negativo y estado MQTT retained, cada uno ejecutado con evidencia
-- [ ] TA-07 Sleipnir mide y alterna; techo de throughput calibrado por WAN y decisión sobre `THROUGHPUT_RECEIVER`
+- [ ] TA-07 Sleipnir mide y alterna; techo de throughput calibrado por WAN y decisión sobre `THROUGHPUT_RECEIVER`. Calibrado el 2026-09-07 (techo de la cadena ≥ 939 Mbps; `speedtest-cli` descartado y Sleipnir pasado a la CLI de Ookla): faltan dos ciclos en producción con el modo nuevo antes de armar el receptor
 - [ ] TA-08 a TA-11: dashboard, percentiles, disponibilidad 30 d e indicador `apto_llamadas`
 - [ ] TA-12 RNF01 (RAM ≤ 1.5 GB, CPU media < 10 %) medido 24 h; TA-13 RNF02 tras reinicio del appliance; TA-14 Recuperando → Saludable en 5 min
 - [ ] TS-01 a TS-10: puertos desde LAN y desde WAN, login de Odín y Nornas, anónimo y ACL en Ratatosk, webhook sin Bearer, contenedores sin root, secretos fuera del repo, digests
