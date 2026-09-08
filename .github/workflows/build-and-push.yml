@@ -14,8 +14,11 @@ permissions:
   packages: write
   actions: write        # para relanzarse a si mismo (redespliegue)
 
+# El grupo incluye el evento: el relanzamiento (workflow_dispatch) que pide `redespliegue` no debe
+# cancelar la ejecucion del push que lo lanzo. Con un solo grupo, esa cancelacion dejaba el run
+# del push con conclusion 'cancelled', el receptor lo ignoraba y solo habia un despliegue (v0.4.3).
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 jobs:
