@@ -13,24 +13,30 @@ mkdir -p "$WWW"
 : "${WAN1_IF:=wan1}" "${WAN2_IF:=wan2}" "${SLEIPNIR_MODO:=ookla}" "${OOKLA_SERVER_ID:=}"
 : "${SLEIPNIR_INTERVALO:=10800}" "${SLEIPNIR_LISTEN:=172.17.0.1:9469}" "${IPERF3_SERVER:=}"
 
-log() { echo "$(date -Iseconds) sleipnir: $*"; }
+log() { echo "$(date -Iseconds) sleipnir: $*" >&2; }  # a stderr: las mediciones se capturan con $(...)
 
 ip_de() { ip -4 -o addr show dev "$1" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
 
 # Imprime "down_mbps up_mbps ping_ms" o devuelve 1 si la medición falla.
-medir_ookla() { # $1 ip  $2 interfaz
-  out=$(speedtest --accept-license --accept-gdpr -I "$2" ${OOKLA_SERVER_ID:+-s "$OOKLA_SERVER_ID"} -f json 2>/dev/null) || return 1
-  echo "$out" | jq -r '"\(.download.bandwidth*8/1000000) \(.upload.bandwidth*8/1000000) \(.ping.latency)"'
-}
-medir_speedtest() {
-  out=$(speedtest-cli --source "$1" --json 2>/dev/null) || return 1
-  echo "$out" | jq -r '"\(.download/1000000) \(.upload/1000000) \(.ping)"'
-}
-medir_iperf3() {
-  [ -n "$IPERF3_SERVER" ] || { log "modo iperf3 sin IPERF3_SERVER"; return 1; }
-  down=$(iperf3 -c "$IPERF3_SERVER" -B "$1" -R -t 10 -J 2>/dev/null | jq -r '.end.sum_received.bits_per_second/1000000') || return 1
-  up=$(iperf3 -c "$IPERF3_SERVER" -B "$1" -t 10 -J 2>/dev/null | jq -r '.end.sum_received.bits_per_second/1000000') || return 1
-  echo "$down $up 0"
+medir_ookla() { # $1 ip  $2 interfaz -> "down up ping". OOKLA_SERVER_ID admite varios IDs separados por
+  # coma: se mide contra cada uno y se devuelve el maximo por sentido (y el mejor ping). El SLO mide la
+  # capacidad del enlace, y un servidor lento no debe parecer una degradacion del ISP (v0.4.5).
+  ifc=$2; lista=$(printf '%s' "$OOKLA_SERVER_ID" | tr ',' ' '); [ -n "$lista" ] || lista=auto
+  d=0; u=0; p=; n=0
+  for s in $lista; do
+    if [ "$s" = auto ]; then out=$(speedtest --accept-license --accept-gdpr -I "$ifc" -f json 2>/dev/null) || continue
+    else out=$(speedtest --accept-license --accept-gdpr -I "$ifc" -s "$s" -f json 2>/dev/null) || continue; fi
+    r=$(echo "$out" | jq -r '"\(.download.bandwidth*8/1000000) \(.upload.bandwidth*8/1000000) \(.ping.latency) \(.server.id) \(.server.name|gsub(" ";"_"))"' 2>/dev/null) || continue
+    # shellcheck disable=SC2086
+    set -- $r
+    log "  ookla servidor $4 ($5): down=$1 up=$2 ping=$3 ms"
+    d=$(awk -v a="$d" -v b="$1" 'BEGIN{print (b>a)?b:a}')
+    u=$(awk -v a="$u" -v b="$2" 'BEGIN{print (b>a)?b:a}')
+    p=$(awk -v a="${p:-$3}" -v b="$3" 'BEGIN{print (b<a)?b:a}')
+    n=$((n+1))
+  done
+  [ "$n" -gt 0 ] || return 1
+  echo "$d $u $p"
 }
 medir() { # $1 ip  $2 interfaz
   case "$SLEIPNIR_MODO" in

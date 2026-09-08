@@ -268,6 +268,7 @@ stateDiagram-v2
 | Sleipnir `0.1.1` en producción (`speedtest-cli`, primeros puntos) | 188 ↓ / 23 ↑ Mbps | 76 ↓ / 13 ↑ Mbps | No fiable: cliente Python limitado por CPU en el i3 y por servidores lejanos; contradice las medidas de abajo |
 | CLI de Ookla `1.2.0` desde midgard, `-I wan1` / `-I wan2` | 16 ↓ / 940 ↑ Mbps | 939 ↓ / 487 ↑ Mbps | `wan2` en SLO de bajada; la subida de `wan1` prueba que la cadena USB llega al gigabit |
 | `iperf3` en LAN, midgard ↔ equipo del hogar, ambos sentidos | 935 y 939 Mbps | | Techo de la cadena de medición del servidor |
+| Sleipnir `0.2.0` en producción (v0.4.3), 00:32 UTC del 2026-09-08, servidor automático | 940 ↓ / 941 ↑ Mbps | 321 ↓ / 484 ↑ Mbps | Falso bajo en `wan2`: en el mismo minuto, desde la misma sonda, M21 Telecom da 312 ↓, Thundernet 941 ↓ y MDS Telecom 939 ↓. La elección automática de servidor no es fiable; Sleipnir `0.2.1` (v0.4.5) mide contra una lista y publica el máximo |
 | CLI de Ookla, segunda muestra, 18:58 UTC (`-I wanN -f json`) | 940 ↓ / 940 ↑ Mbps, ping 7,3 ms, jitter 0,7 ms, 0 % pérdida | 936 ↓ / 487 ↑ Mbps, ping 3,2 ms, jitter 0,2 ms, 0 % pérdida | `wan1` recuperada del todo; `wan2` repite la primera muestra |
 
 - **Techo calibrado ≥ 939 Mbps**: el SLO de 800 Mbps es medible y no hace falta ajustar la regla.
