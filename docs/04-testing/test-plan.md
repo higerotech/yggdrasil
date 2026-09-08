@@ -229,6 +229,42 @@ temporales; se retiran al terminar (`tc qdisc del dev wanN root`).
 | 01:04:30 y 01:05:30 | `probe_success{target="1.1.1.1"}` = 0 en `wan1` y `wan2`; 8.8.8.8 y TLS = 1; `wan:up` = 1 en ambas; sin alertas | **Quórum correcto**: no hubo `WanCaida` |
 | 01:08:50 | 1.1.1.1 responde de nuevo. Firing: `WanDegradada` y `WanNoAptaLlamadas` en ambas WAN | **Hallazgo**: `wan:perdida_pct:5m` promediaba los fallos de todos los objetivos, así que un objetivo bloqueado contaba como 50 % de pérdida. Corregido en v0.4.6: se excluyen los objetivos sin ninguna respuesta en la ventana y las sondas ICMP pasan a 5 s (resolución 0,8 %) |
 
+### Evidencia de la tanda del 2026-09-08 (TA-02, TA-03, TA-04, TA-06, TA-08 a TA-12, TA-14)
+Ejecutada desde midgard con `~/ta12/ta.sh` (inducciones con limpieza programada por `systemd-run`) y
+observación cada 30–40 s de Mimir (`promtool query`), Gjallarhorn (`amtool alert query`) y los
+mensajes retenidos de Ratatosk (`mosquitto_sub -u iot`). Horas en UTC.
+
+| Caso | Observación | Resultado |
+|---|---|---|
+| TA-02 | 01:01:16 `probe_success` = 1 en las 6 series (2 ICMP + 1 TLS por WAN). Contadores en 7,5 min: `wan1` rx +258 KB / tx +1,10 MB, `wan2` rx +12,3 MB / tx +25,8 MB | **Superado** |
+| TA-08 | Dashboard `heimdall-sla` con sus 10 paneles (hogar, estado por WAN, aptitud para llamadas, pérdida, percentiles, throughput, disponibilidad 30 d por WAN y del hogar, sondas, alertas); Mimir con `--storage.tsdb.retention.time=30d` | **Superado** |
+| TA-09 | `wan1` p90 29,8 / p95 30,0 / p99 30,1 ms; `wan2` p90 45,7 / p95 46,0 / p99 46,8 ms | **Superado** (p90 ≤ p95 ≤ p99) |
+| TA-11 | `netem delay 250ms` en `wan1` 01:13:50–01:19:50. A +43 s p95 = 279 ms y `wan:apto_llamadas{wan1}` = 0 con `estado` saludable; `WanNoAptaLlamadas/wan1` firing a +5 m 50 s; MQTT `apto_llamadas = no` a +6 m 21 s, `estado` saludable, `wan2` intacta. Resuelta a +5 m 19 s de retirar el retardo (ventana de 5 min); MQTT `si` 2 s después | **Superado** |
+| TA-04 | `netem loss 5%` en `wan1` 01:27:02–01:33:02 (5 % y no 3 %, ver nota del caso). `wan:perdida_pct:5m{wan1}` 7,5–8,4 %; `WanDegradada/wan1` y `WanNoAptaLlamadas/wan1` firing entre +5 m 50 s y +6 m 33 s; MQTT `estado = degradado`, `apto_llamadas = no` a +6 m 33 s; hogar `ok`. Resuelta a +5 m 25 s de retirar la pérdida; MQTT `saludable` 32 s después | **Superado** con desviación de latencia (ver hallazgos) |
+| TA-03 | `ip link set wan2 down` 01:38:32 (estado previo de `wan2`: degradado por un evento real). `wan:up{wan2}` = 0 a +28 s; `WanCaida/wan2` firing entre +2 m 18 s y +2 m 46 s; MQTT `estado = caido` a +3 m 14 s; hogar `ok` (`wan1` arriba). Transición Degradado → Caído del diagrama | **Superado** con desviación de latencia |
+| TA-14 | `ip link set wan2 up` 01:42:32 (temporizador). `wan:up{wan2}` = 1 y `WanCaida` resuelta a +52 s. MQTT `recuperando` a 01:46:39 (+3 m 15 s tras la resolución: lote de Gjallarhorn). A 01:48:17 dispararon `WanDegradada/wan2` y `WanNoAptaLlamadas/wan2` con el enlace sano (la ventana de pérdida arrastraba el corte), así que Recuperando cerró en `degradado` (01:51:57) y solo pasó a `saludable` a 01:54:24, al llegar la resolución. Secuencia caido → recuperando → degradado → saludable: nunca caido → saludable directo | **Superado** en la máquina de estados; dos hallazgos corregidos en v0.4.7 |
+| TA-06 | Durante TA-04/TA-11/TA-03 los retenidos `midgard/wan/<id>/estado`, `.../apto_llamadas` y `midgard/hogar/internet/estado` reflejaron cada alerta y cada resolución; el hogar solo pasó a `degradado` cuando ambas WAN estaban degradadas (efecto colateral de TA-05, 01:10). Retenidos al cierre (01:54): `wan1` saludable/si, `wan2` saludable/si, hogar `ok`, `nornas/heimdall/estado online` | **Superado** (con el retraso de resolución corregido en v0.4.7) |
+| TA-10 | Antes de TA-03 (01:38:32): `wan1` 0,9692, `wan2` 1, hogar 1. Después (01:53): `wan1` 0,9694, `wan2` 0,9984 (bajó por los 4 min de caída), hogar 1 (`wan1` siguió arriba) | **Superado** |
+| TA-12 | Recolector `ta12.service` (una muestra por hora, 24 h desde 01:02). Primera muestra: 367 MiB de RAM para los 7 contenedores, 2,8 % de CPU de contenedores, load1 0,33 | **En curso** hasta el 2026-09-09 01:00 |
+| TA-13 | Reinicio del appliance: corta el internet del hogar; se ejecuta con HITL | **Pendiente** |
+
+**Eventos reales durante la tanda.** `wan2` mostró 1,7–2,5 % de pérdida sin inducción (las sondas a 5 s
+lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2` y
+`WanNoAptaLlamadas/wan2`, resueltas 33 s después: la alerta es sensible a la pérdida real del ISP2.
+
+**Hallazgos.**
+- *Latencia de alertado.* Con `for: 2m` (caída) y `for: 5m` (degradación) la alerta llega a
+  `for` + detección + lote de Gjallarhorn: medidos 2 m 18–46 s para la caída y ≈ 6 min para la
+  degradación, frente a los 2 y 5 min que fija este plan. Decisión HITL: aceptar los valores medidos
+  como SLO de alertado (recomendado: la histéresis evita falsos positivos) o bajar `for` a 90 s y 4 m.
+- *Resoluciones con retraso.* Las notificaciones `resolved` salen en el siguiente lote del grupo
+  (`group_interval: 5m`), así que el estado MQTT podía ir hasta 5 min por detrás de Mimir (visto a las
+  01:13, 01:38 y 01:46 en `wan2`). Corregido en v0.4.7: `group_interval: 1m`.
+- *Degradación falsa tras una caída.* La ventana de 5 min de pérdida arrastra los fallos del corte y
+  `WanDegradada` disparaba ≈ 5 min después de recuperar el enlace. Corregido en v0.4.7: las alertas de
+  degradación y de llamadas exigen `min_over_time(wan:up[5m]) == 1`.
+- *TA-05* (arriba): un objetivo caído contaba como pérdida del enlace; corregido en v0.4.6.
+
 ## Pruebas de seguridad (equivalente DAST): los abusos del PRD como casos
 | ID | Amenaza / abuso | Cómo | Resultado esperado |
 |---|---|---|---|

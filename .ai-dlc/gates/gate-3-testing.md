@@ -13,12 +13,12 @@
 > (la convención sugerida del skill se desplaza un menor a partir de aquí).
 
 - [x] TA-01 Despliegue continuo (2026-09-06, tercer intento): build → GHCR → webhook → receptor → `up -d` → `sync-host`/`sync-net` → healthcheck de Odín `200`; evidencia en `test-plan.md`. Hallazgos por el camino: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min
-- [ ] TA-02 a TA-06: sondas por WAN, caída (< 2 min), degradación (< 5 min), quórum anti falso negativo y estado MQTT retained, cada uno ejecutado con evidencia
+- [x] TA-02 a TA-06: sondas por WAN, caída (< 2 min), degradación (< 5 min), quórum anti falso negativo y estado MQTT retained, cada uno ejecutado con evidencia — **hechos el 2026-09-08** (evidencia en `test-plan.md`); latencias medidas 2 m 18–46 s y ≈ 6 min (decisión HITL sobre `for`); TA-05 destapó la regla de pérdida (v0.4.6)
 - [x] TA-07 Sleipnir mide y alterna; techo de throughput calibrado por WAN y decisión sobre `THROUGHPUT_RECEIVER` (2026-09-08): techo de la cadena ≥ 939 Mbps; `speedtest-cli` descartado y Sleipnir en la CLI de Ookla contra tres servidores (v0.4.3–v0.4.5); lecturas en producción 967/941 (wan1) y 941/487 (wan2); `THROUGHPUT_RECEIVER=nornas` armado a las 00:48 UTC. Evidencia en `test-plan.md`
-- [ ] TA-08 a TA-11: dashboard, percentiles, disponibilidad 30 d e indicador `apto_llamadas`
-- [ ] TA-12 RNF01 (RAM ≤ 1.5 GB, CPU media < 10 %) medido 24 h; TA-13 RNF02 tras reinicio del appliance; TA-14 Recuperando → Saludable en 5 min
+- [x] TA-08 a TA-11: dashboard, percentiles, disponibilidad 30 d e indicador `apto_llamadas` — **hechos el 2026-09-08**
+- [ ] TA-12 RNF01 (RAM ≤ 1.5 GB, CPU media < 10 %) medido 24 h; TA-13 RNF02 tras reinicio del appliance; TA-14 Recuperando → Saludable en 5 min — TA-12 en curso (24 h desde 2026-09-08 01:02 UTC); TA-13 pendiente de HITL (reinicio); TA-14 hecho (hallazgos → v0.4.7)
 - [ ] TS-01 a TS-10: puertos desde LAN y desde WAN, login de Odín y Nornas, anónimo y ACL en Ratatosk, webhook sin Bearer, contenedores sin root, secretos fuera del repo, digests
 - [ ] Matriz OWASP del PRD verificada: A01/A07 (login Grafana y Node-RED), A01 (Prometheus y Alertmanager no alcanzables), A05 (secretos), A06 (imágenes pineadas)
-- [ ] Transiciones del `stateDiagram` de EnlaceWan verificadas, incluidas las inválidas (Caído → Saludable directo no ocurre)
+- [x] Transiciones del `stateDiagram` de EnlaceWan verificadas, incluidas las inválidas (Caído → Saludable directo no ocurre) — **verificadas el 2026-09-08**: Saludable → Degradado (TA-04, TA-11), Degradado → Caído (TA-03), Caído → Recuperando → Degradado/Saludable (TA-14); Caído → Saludable directo no ocurrió
 - [ ] Riesgo conocido evaluado: inestabilidad USB del adaptador de `wan2` (resets del r8152) y su efecto en las pruebas
 - [ ] **HITL**: Jeremi acepta los resultados, el techo calibrado y el residual; al aprobar, cortar `0.5.0`
