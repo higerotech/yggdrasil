@@ -95,3 +95,17 @@ publicado, o `docker compose build` para construir en local).
   las credenciales MQTT y del editor si faltan. Conectar la salida push del flujo sigue siendo manual.
 - El resultado de `sync-host`/`sync-net` no forma parte del healthcheck del receptor; revisar sus
   logs en el primer despliegue.
+
+## Arranque del appliance
+
+`bootstrap-midgard.sh` instala y habilita `yggdrasil-arranque.service`, que tras cada arranque
+ejecuta `docker compose -f docker-compose.yml -p yggdrasil up -d --no-build` con la etiqueta que
+el receptor tiene registrada en `/var/lib/cd-receiver/yggdrasil.json`.
+
+Hace falta porque Docker no reaplica `restart: unless-stopped` a un contenedor que quedó en estado
+`exited` durante un apagado sucio: en el reinicio del 2026-09-08 Gjallarhorn no volvió y el sistema
+de alertas quedó caído en silencio. La unidad usa el Compose base a propósito, para no ejecutar en
+el arranque los servicios de un solo uso `sync-host` y `sync-net`, que necesitan red hacia GitHub.
+
+Comprobación: `systemctl is-enabled yggdrasil-arranque` y, tras un reinicio,
+`systemctl status yggdrasil-arranque` más `docker compose -p yggdrasil ps`.
