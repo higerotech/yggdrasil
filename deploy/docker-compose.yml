@@ -29,7 +29,7 @@ services:
     container_name: yggdrasil-blackbox-exporter
     network_mode: host               # necesita ver wan1/wan2 (ADR-0003)
     cap_drop: [ALL]
-    cap_add: [NET_RAW]               # ICMP; ver además net.ipv4.ping_group_range en README
+    user: "65534:65534"            # nobody: ICMP sin CAP_NET_RAW gracias a net.ipv4.ping_group_range del host (TS-07, v0.4.8)               # ICMP; ver además net.ipv4.ping_group_range en README
     read_only: true
     mem_limit: 64m
     volumes:
