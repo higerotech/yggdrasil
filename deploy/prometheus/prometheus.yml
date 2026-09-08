@@ -38,6 +38,8 @@ scrape_configs:
 
   # --- Sondas por WAN: el target real viaja en ?target= y la dirección pasa a ser blackbox ---
   - job_name: blackbox_icmp_wan1
+    scrape_interval: 5s          # pérdida con resolución 1/120 por ventana de 5 min (2 objetivos); a 15 s era 1/40 = 2,5 % y el umbral es 1 %
+    scrape_timeout: 5s
     metrics_path: /probe
     params:
       module: [icmp_wan1]
@@ -53,6 +55,8 @@ scrape_configs:
         replacement: host.docker.internal:9115
 
   - job_name: blackbox_icmp_wan2
+    scrape_interval: 5s          # pérdida con resolución 1/120 por ventana de 5 min (2 objetivos); a 15 s era 1/40 = 2,5 % y el umbral es 1 %
+    scrape_timeout: 5s
     metrics_path: /probe
     params:
       module: [icmp_wan2]
