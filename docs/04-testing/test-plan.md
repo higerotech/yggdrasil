@@ -246,7 +246,7 @@ mensajes retenidos de Ratatosk (`mosquitto_sub -u iot`). Horas en UTC.
 | TA-06 | Durante TA-04/TA-11/TA-03 los retenidos `midgard/wan/<id>/estado`, `.../apto_llamadas` y `midgard/hogar/internet/estado` reflejaron cada alerta y cada resolución; el hogar solo pasó a `degradado` cuando ambas WAN estaban degradadas (efecto colateral de TA-05, 01:10). Retenidos al cierre (01:54): `wan1` saludable/si, `wan2` saludable/si, hogar `ok`, `nornas/heimdall/estado online` | **Superado** (con el retraso de resolución corregido en v0.4.7) |
 | TA-10 | Antes de TA-03 (01:38:32): `wan1` 0,9692, `wan2` 1, hogar 1. Después (01:53): `wan1` 0,9694, `wan2` 0,9984 (bajó por los 4 min de caída), hogar 1 (`wan1` siguió arriba) | **Superado** |
 | TA-12 | Recolector `ta12.service` (una muestra por hora, 24 h desde 01:02). Primera muestra: 367 MiB de RAM para los 7 contenedores, 2,8 % de CPU de contenedores, load1 0,33 | **En curso** hasta el 2026-09-09 01:00 |
-| TA-13 | Reinicio del appliance: corta el internet del hogar; se ejecuta con HITL | **Pendiente** |
+| TA-13 | Reinicio autorizado el 2026-09-08 a las 12:12 UTC. SSH a los 274 s (unos 200 s de apagado y POST más 72 s de arranque), Odín `200` a los 403 s. Volvieron solos seis de los siete servicios: **Gjallarhorn quedó `exited` (255)** porque Docker lo marcó así al restaurar los contenedores y no le reaplicó `restart: unless-stopped` (`RestartCount` 0); el alertado quedó caído sin aviso. Se levantó a mano y se corrigió con `yggdrasil-arranque.service` (v0.4.9), verificada en midgard: con Gjallarhorn parado la unidad lo levanta sin recrear los demás contenedores | **Fallido**; corregido, pendiente de repetir el reinicio |
 
 **Eventos reales durante la tanda.** `wan2` mostró 1,7–2,5 % de pérdida sin inducción (las sondas a 5 s
 lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2` y
@@ -278,6 +278,15 @@ lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2
 | TS-08 | A05 secretos | `stat` de `deploy/.env`; `gitleaks` en CI; token no aparece en URLs de Alertmanager | 0600 `deploy`; CI limpia; token solo en cabecera |
 | TS-09 | A06 supply chain | `docker inspect --format '{{index .RepoDigests 0}}'` de cada imagen vs `deploy/imagenes.md` | Digests coinciden |
 | TS-10 | Tampering | Intentar escribir en Mimir desde la LAN (`curl -X POST :9090/api/v1/admin/tsdb/...`) | Inalcanzable; además la API de administración está deshabilitada |
+
+### Evidencia TA-13 (2026-09-08; incidencias del entorno)
+Durante la prueba ocurrieron dos hechos ajenos al software que conviene registrar porque condicionan la lectura:
+- **`wan2` se colgó en el arranque.** A las 12:21–12:22 UTC el kernel registró `NETDEV WATCHDOG` en `wan2`
+  (cola de transmisión bloqueada 71–82 s). Es el riesgo de la cadena USB del charter, que la tanda de
+  aceptación no había vuelto a ver desde el cambio de adaptador.
+- **Apagado manual.** A las 12:22:07 `systemd-logind` registró «Power key pressed short» y el equipo se apagó;
+  volvió a arrancar a las 12:23:06. El segundo arranque no lo provocó la prueba.
+En el arranque actual ambas WAN responden sin pérdida y los 10 objetivos de Mimir están en `up`.
 
 ### Evidencia TS-01 a TS-10 (2026-09-08, 02:15–02:40 UTC)
 Desde un equipo de la LAN (192.168.10.74, `nmap` y `curl`) y desde midgard (`docker exec`, `docker inspect`, `nft`, `ss`).
