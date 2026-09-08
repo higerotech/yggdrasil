@@ -69,6 +69,12 @@ else
   echo "   ya declarado"
 fi
 
+echo "== 5b. Unidad de arranque (converge el stack tras un reinicio)"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-arranque.sh" /usr/local/sbin/yggdrasil-arranque.sh
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-arranque.service" /etc/systemd/system/yggdrasil-arranque.service
+systemctl daemon-reload
+systemctl enable yggdrasil-arranque.service >/dev/null 2>&1 && echo "   yggdrasil-arranque.service habilitada"
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

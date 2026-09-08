@@ -9,6 +9,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
 
+## [0.4.9] - 2026-09-08
+
+Hotfix sobre la 0.4.8, a partir de TA-13 (reinicio del appliance) en Gate 3.
+
+### Añadido
+- `yggdrasil-arranque.service`: unidad de systemd que converge el stack (`compose up -d`) tras cada arranque del appliance, con la etiqueta que el receptor dejó desplegada. `bootstrap-midgard.sh` la instala y la habilita.
+
+### Corregido
+- Tras el reinicio del 2026-09-08, Gjallarhorn no volvió a arrancar: Docker lo marcó `exited` (código 255) mientras restauraba los contenedores y no le reaplicó `restart: unless-stopped`, así que el sistema de alertas quedó caído sin que nada lo notificara. La unidad de arranque converge el proyecto entero sea cual sea el estado en que quedó cada contenedor.
+
 ## [0.4.8] - 2026-09-08
 
 Hotfix sobre la 0.4.7, a partir de TS-07 (elevación de privilegios) en Gate 3.
@@ -151,7 +161,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...HEAD
+[0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/higerotech/yggdrasil/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/higerotech/yggdrasil/compare/v0.4.6...v0.4.7
 [0.4.6]: https://github.com/higerotech/yggdrasil/compare/v0.4.5...v0.4.6
