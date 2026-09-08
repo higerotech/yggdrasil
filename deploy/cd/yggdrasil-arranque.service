@@ -1,0 +1,15 @@
+[Unit]
+Description=Yggdrasil: converge el stack tras el arranque del appliance
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/yggdrasil-arranque.sh
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target
