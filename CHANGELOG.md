@@ -7,7 +7,51 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+> Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
+
+## [0.5.2] - 2026-09-09
+
+Hotfix sobre la 0.5.1, a partir de lo que se vio en las primeras horas de las alertas del NVR ya en marcha.
+
+### Añadido
+- `CpuNvrAlta`: CPU del appliance por encima del 70 % durante 15 min. Vigila `frigate_cpu_usage_percent{pid="frigate.full_system"}`, que es la **única** serie de esa métrica en escala 0-100 del sistema entero; las demás son por proceso y relativas a **un** núcleo —el detector marca 195,7 en un i3 de 4 hilos—, así que un umbral de 70 sobre ellas estaría disparando siempre. El umbral es 70 y no el 50 que fija RNF01 del NVR porque la media real ya es del 56 % (medido: min 40,8 / media 56,4 / max 75,0 en una hora): a 50 la alerta estaría encendida a todas horas y no distinguiría «seguimos fuera de presupuesto» de «esto ha empeorado». El incumplimiento de RNF01 se sigue por la medición del gate, no por una alerta permanentemente en rojo. La anotación manda comparar con la serie del detector antes de tocar nada: si la CPU de la máquina sube y la del detector no, el NVR es la víctima y no la causa.
+
+### Cambiado
+- `DetectorSaturado` pasa de `frigate_skipped_fps > 0` instantáneo a `avg_over_time(frigate_skipped_fps[10m]) > 0.5`, con `for: 10m`. El cambio se hizo esperando que dejara de saltar por picos —y **sigue saltando**: la media de 10 min es 0,88 en `cam_01` y 0,685 en `cam_02`, y en media hora **el 10-11 % de los frames no se analizan** en ambas cámaras. No era ruido: el detector por CPU del NVR está saturado de forma sostenida. La regla nueva es mejor igualmente, porque ahora distingue una racha de una saturación real, pero el diagnóstico no cambia y sigue en el tejado del proyecto del NVR (bajar `detect.fps` o acotar con `cpuset`).
+
+## [0.5.1] - 2026-09-09
+
+Hotfix sobre la 0.5.0. Fenrir (el NVR, `higerotech/fenrir`) llevaba desde su despliegue **sin ninguna alerta activa**: su job de scrape y sus reglas existían como especificación en aquel repositorio, pero nunca llegaron a este `prometheus.yml`. Va por hotfix y no por `develop` porque la alerta de disco protege al appliance entero, no solo al vídeo: `/srv` comparte volumen con la raíz y el grupo de volúmenes no tiene espacio libre (`VFree = 0`), así que llenarlo degrada también el enrutamiento.
+
+### Añadido
+- Job `fenrir` en `scrape_configs`: `/api/metrics` sobre `fenrir:5000` por `yggdrasil_heimdall`, a 30 s en vez de los 15 del resto (el NVR cambia despacio y el appliance ya va al 52 % de CPU sostenida). El 5000 no está publicado en ninguna interfaz y se alcanza solo por esa red, que es lo que mantiene intacta la amenaza T6 del NVR. Comprobado antes de escribirlo: el endpoint responde, manda `Content-Type: text/plain; version=0.0.4` —así que no necesita el `fallback_scrape_protocol` de Sleipnir— y publica las cinco métricas que usan las reglas.
+- `rules/fenrir-alertas.yml`: 6 alertas del NVR (caída, cámara sin frames, disco al 85 % y al 92 %, detector saturado y memoria). Copia instalada; la especificación vive en el repositorio del NVR para que los umbrales sigan trazados a sus requisitos.
+- El paso de `promtool check rules` del CI enumera los ficheros a mano: se añade el nuevo a esa lista, aunque `check config` ya lo cubra por el glob de `rule_files`.
+
+### Corregido
+- Las alertas de disco del NVR medían también la RAM. `frigate_storage_*` publica cuatro series y dos no son disco: `/tmp/cache` (tmpfs, 954 MB) y `/dev/shm` (128 MB). Sin filtrar, un `/dev/shm` al 90 % —115 MB, nada— habría anunciado «Almacenamiento del NVR al 90 %» y mandado al runbook del disco, con el problema real siendo de memoria. Se acota con `storage=~"/media/frigate/.*"`. Medido en este Prometheus: recordings 7,11 %, clips 7,11 %, tmpfs 4,05 %, shm 10,47 %. El defecto no se ve leyendo el YAML; hace falta ejecutar la expresión contra datos reales.
+- Las anotaciones de esas alertas pasan de `summary` a `resumen`. El nodo *Alertmanager → estados MQTT* de Nornas hace `aviso(titulo, an.resumen)` para toda alerta sin etiqueta `wan`, que son las seis: con `summary` la notificación habría llegado con el cuerpo vacío —ni falla ni avisa—. Queda una arista conocida: el título dirá `Heimdall: FenrirCaido`, porque el prefijo está fijo en esa función del flujo.
+
+### Observado al instalarlo
+- `DetectorSaturado` entró en `pending` en la primera evaluación, y no es ruido: `frigate_skipped_fps` marcaba 0,2 en `cam_01` con picos de 2,2 en 15 minutos. Es el canario de T2 del NVR y llega junto al 52 % de CPU sostenida sobre su presupuesto del 50 %. La decisión (bajar `detect.fps` o acotar con `cpuset`) es del proyecto del NVR, no de la plataforma.
+
+## [0.5.0] - 2026-09-09
+
+**Cierre del Gate 3 (Testing).** Heimdall queda verificado sobre el sistema real desplegado en midgard.
+No cambia código: recoge la evidencia de la verificación y aprueba el plan de pruebas. Las correcciones
+que salieron de las pruebas se publicaron durante el gate, de la `0.4.3` a la `0.4.9`.
+
+### Verificado
+- **Aceptación (TA-01 a TA-14)**: despliegue continuo, sondeo por WAN, detección de caída y de degradación, quórum frente a falsos positivos, estado retenido en MQTT, throughput calibrado, dashboard y retención de 30 días, percentiles, disponibilidad, aptitud para llamadas, consumo de recursos, arranque tras corte de corriente y ciclo completo de recuperación.
+- **Seguridad (TS-01 a TS-10)**: barrido completo de puertos, autenticación de Odín y Nornas, listas de control de acceso de Ratatosk, webhook con Bearer, contenedores sin root, secretos fuera del repositorio y digests de imágenes. Matriz OWASP del PRD verificada con casos, no declarada.
+- **Rendimiento (RNF01)**: 26 muestras horarias sobre 24 h 31 min; 406 MiB de RAM de media y 554 en el pico, frente al límite de 1536; CPU de los contenedores en el 1,8 % de media, frente al 10 %.
+- **Transiciones de `EnlaceWan`**: verificadas, incluida la inválida (Caído nunca pasa a Saludable sin Recuperando).
+
+### Desviaciones aceptadas
+- La latencia de alertado medida (≈ 2,5 min para una caída y ≈ 6 min para una degradación) pasa a ser el SLO, en lugar de los 2 y 5 min que fijaba el plan: la histéresis de `for` evita falsos positivos.
+- TS-02 queda con evidencia indirecta del cortafuegos, a falta de un punto de observación fuera de la red.
+- El riesgo del adaptador USB de `wan2` queda aceptado con vigilancia: en marcha es estable, pero la enumeración USB del arranque puede dejarlo colgado.
+- Limitación conocida: Heimdall no registra su propia caída, porque sin muestras las reglas de disponibilidad no ven esa ventana.
 
 ## [0.4.9] - 2026-09-08
 
@@ -161,7 +205,10 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/higerotech/yggdrasil/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/higerotech/yggdrasil/compare/v0.4.6...v0.4.7
