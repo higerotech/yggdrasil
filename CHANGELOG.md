@@ -18,13 +18,12 @@ que salieron de las pruebas se publicaron durante el gate, de la `0.4.3` a la `0
 ### Verificado
 - **Aceptación (TA-01 a TA-14)**: despliegue continuo, sondeo por WAN, detección de caída y de degradación, quórum frente a falsos positivos, estado retenido en MQTT, throughput calibrado, dashboard y retención de 30 días, percentiles, disponibilidad, aptitud para llamadas, consumo de recursos, arranque tras corte de corriente y ciclo completo de recuperación.
 - **Seguridad (TS-01 a TS-10)**: barrido completo de puertos, autenticación de Odín y Nornas, listas de control de acceso de Ratatosk, webhook con Bearer, contenedores sin root, secretos fuera del repositorio y digests de imágenes. Matriz OWASP del PRD verificada con casos, no declarada.
-- **Rendimiento (RNF01)**: 401 MiB de RAM de media y 554 en el pico, frente al límite de 1536; CPU de los contenedores en el 1,7 % de media, frente al 10 %.
+- **Rendimiento (RNF01)**: 26 muestras horarias sobre 24 h 31 min; 406 MiB de RAM de media y 554 en el pico, frente al límite de 1536; CPU de los contenedores en el 1,8 % de media, frente al 10 %.
 - **Transiciones de `EnlaceWan`**: verificadas, incluida la inválida (Caído nunca pasa a Saludable sin Recuperando).
 
 ### Desviaciones aceptadas
 - La latencia de alertado medida (≈ 2,5 min para una caída y ≈ 6 min para una degradación) pasa a ser el SLO, en lugar de los 2 y 5 min que fijaba el plan: la histéresis de `for` evita falsos positivos.
 - TS-02 queda con evidencia indirecta del cortafuegos, a falta de un punto de observación fuera de la red.
-- TA-12 cubre 23 h 31 min en vez de 24 h, porque el corte de corriente detuvo el recolector.
 - El riesgo del adaptador USB de `wan2` queda aceptado con vigilancia: en marcha es estable, pero la enumeración USB del arranque puede dejarlo colgado.
 - Limitación conocida: Heimdall no registra su propia caída, porque sin muestras las reglas de disponibilidad no ven esa ventana.
 

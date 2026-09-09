@@ -311,24 +311,24 @@ seguridad para el modo de fallo del reinicio de las 12:12, en el que Docker dej�
 - *Aviso cosmético.* Al converger con el Compose base, Compose advierte de contenedores huérfanos
   (`sync-host` y `sync-net`, de un solo uso). No afecta al resultado.
 
-### Evidencia TA-12 (RNF01): 25 muestras horarias, 2026-09-08 01:02 → 2026-09-09 00:33 UTC
+### Evidencia TA-12 (RNF01): 26 muestras horarias, 2026-09-08 01:02 → 2026-09-09 01:33 UTC
 Recolector `ta12.sh` como unidad de systemd, una muestra por hora con `docker stats --no-stream`.
 
 | Medida | Resultado | Criterio | Margen |
 |---|---|---|---|
-| RAM del stack, media | 401 MiB | ≤ 1536 MiB | 74 % libre |
+| RAM del stack, media | 406 MiB | ≤ 1536 MiB | 74 % libre |
 | RAM del stack, máximo | 554 MiB (justo tras el corte de corriente, con Odín y Mimir arrancando) | ≤ 1536 MiB | 64 % libre |
 | RAM del stack, mínimo | 247 MiB | — | — |
-| CPU de los contenedores, media | 1,7 % | < 10 % | — |
+| CPU de los contenedores, media | 1,8 % | < 10 % | — |
 | CPU de los contenedores, máximo | 4,3 % | < 10 % | — |
 
-Reparto por contenedor al cierre (uso / límite declarado): Mimir 195/512 MiB, Odín 152/256, Gjallarhorn
-64/128, Nornas 60/256, Huginn y Muninn 36/64, Ratatosk 1,6/64, Sleipnir 0,6/128. Mimir se queda muy por
+Reparto por contenedor al cierre (uso / límite declarado): Mimir 196/512 MiB, Odín 155/256, Gjallarhorn
+66/128, Nornas 62/256, Huginn y Muninn 37/64, Ratatosk 1,6/64, Sleipnir 0,6/128. Mimir se queda muy por
 debajo del umbral de 400 MiB que obligaría a revisar cardinalidad y retención.
 
-**Desviación aceptada**: la ventana cubre 23 h 31 min en vez de 24 h exactas, porque el corte de
-corriente de las 23:17 detuvo el recolector 27 min. Con la RAM máxima en el 36 % del límite y la CPU
-media en una sexta parte del criterio, ninguna hora adicional cambia el resultado. **TA-12 superado.**
+La ventana cubre 24 h 31 min. El corte de corriente de las 23:17 dejó un hueco de 27 min entre dos
+muestras, así que el recolector siguió hasta completar el día. Con la RAM máxima en el 36 % del límite
+y la CPU media en una sexta parte del criterio, **TA-12 queda superado con holgura.**
 
 ### Evidencia TS-01 a TS-10 (2026-09-08, 02:15–02:40 UTC)
 Desde un equipo de la LAN (192.168.10.74, `nmap` y `curl`) y desde midgard (`docker exec`, `docker inspect`, `nft`, `ss`).
@@ -409,7 +409,6 @@ la calibración del throughput obligó a cambiar de método de medición (v0.4.3
 
 Desviaciones aceptadas por Jeremi: la latencia de alertado medida (≈ 2,5 min para caída y ≈ 6 min para
 degradación) pasa a ser el SLO; TS-02 queda con evidencia indirecta del cortafuegos, a falta de un punto
-de observación fuera de la red; TA-12 cubre 23 h 31 min; y el riesgo del adaptador USB de `wan2` queda
-aceptado con vigilancia, porque la enumeración del arranque puede dejarlo colgado aunque en marcha sea
+de observación fuera de la red; y el riesgo del adaptador USB de `wan2` queda aceptado con vigilancia, porque la enumeración del arranque puede dejarlo colgado aunque en marcha sea
 estable. Limitación conocida: Heimdall no registra su propia caída.
 
