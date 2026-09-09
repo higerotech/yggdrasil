@@ -36,6 +36,14 @@ scrape_configs:
     static_configs:
       - targets: ["host.docker.internal:9469"]
 
+  - job_name: fenrir                   # NVR (higerotech/fenrir, ADR-0008 de ese repo)
+    scrape_interval: 30s              # el NVR cambia despacio; 15 s no aporta y cuesta CPU
+    metrics_path: /api/metrics
+    # El 5000 no esta publicado en ninguna interfaz: se alcanza por esta red y solo por
+    # ella, que es justo lo que mantiene intacta la amenaza T6 del NVR (API sin auth).
+    static_configs:
+      - targets: ["fenrir:5000"]
+
   # --- Sondas por WAN: el target real viaja en ?target= y la dirección pasa a ser blackbox ---
   - job_name: blackbox_icmp_wan1
     scrape_interval: 5s          # pérdida con resolución 1/120 por ventana de 5 min (2 objetivos); a 15 s era 1/40 = 2,5 % y el umbral es 1 %

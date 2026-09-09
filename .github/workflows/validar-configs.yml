@@ -46,7 +46,7 @@ jobs:
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
-          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/fenrir-alertas.yml
       - name: amtool check-config
         run: docker run --rm -v "$PWD/deploy/alertmanager:/cfg:ro" --entrypoint amtool "$AM" check-config /cfg/alertmanager.yml
       - name: blackbox --config.check
