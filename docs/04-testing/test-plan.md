@@ -1,11 +1,11 @@
 # Plan de verificación — Heimdall (Monitor SLA de internet)
 
-* **Estado:** draft
-* **Fecha:** 2026-09-05
+* **Estado:** approved
+* **Fecha:** 2026-09-05 (aprobado el 2026-09-09)
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 04-testing
-* **Versión:** 0.4.0
-* **Gate:** 3
+* **Versión:** 0.5.0
+* **Gate:** 3 (cerrado)
 * **Alcance de prueba:** el sistema desplegado en midgard por el despliegue continuo (ADR-0005); no hay unidades de código que probar salvo dos scripts y dos nodos function
 * **Requisitos cubiertos:** RF01–RF09, RNF01–RNF02, RS01, escenarios de abuso del PRD, amenazas T1–T5
 
@@ -311,6 +311,25 @@ seguridad para el modo de fallo del reinicio de las 12:12, en el que Docker dej�
 - *Aviso cosmético.* Al converger con el Compose base, Compose advierte de contenedores huérfanos
   (`sync-host` y `sync-net`, de un solo uso). No afecta al resultado.
 
+### Evidencia TA-12 (RNF01): 25 muestras horarias, 2026-09-08 01:02 → 2026-09-09 00:33 UTC
+Recolector `ta12.sh` como unidad de systemd, una muestra por hora con `docker stats --no-stream`.
+
+| Medida | Resultado | Criterio | Margen |
+|---|---|---|---|
+| RAM del stack, media | 401 MiB | ≤ 1536 MiB | 74 % libre |
+| RAM del stack, máximo | 554 MiB (justo tras el corte de corriente, con Odín y Mimir arrancando) | ≤ 1536 MiB | 64 % libre |
+| RAM del stack, mínimo | 247 MiB | — | — |
+| CPU de los contenedores, media | 1,7 % | < 10 % | — |
+| CPU de los contenedores, máximo | 4,3 % | < 10 % | — |
+
+Reparto por contenedor al cierre (uso / límite declarado): Mimir 195/512 MiB, Odín 152/256, Gjallarhorn
+64/128, Nornas 60/256, Huginn y Muninn 36/64, Ratatosk 1,6/64, Sleipnir 0,6/128. Mimir se queda muy por
+debajo del umbral de 400 MiB que obligaría a revisar cardinalidad y retención.
+
+**Desviación aceptada**: la ventana cubre 23 h 31 min en vez de 24 h exactas, porque el corte de
+corriente de las 23:17 detuvo el recolector 27 min. Con la RAM máxima en el 36 % del límite y la CPU
+media en una sexta parte del criterio, ninguna hora adicional cambia el resultado. **TA-12 superado.**
+
 ### Evidencia TS-01 a TS-10 (2026-09-08, 02:15–02:40 UTC)
 Desde un equipo de la LAN (192.168.10.74, `nmap` y `curl`) y desde midgard (`docker exec`, `docker inspect`, `nft`, `ss`).
 
@@ -380,3 +399,17 @@ stateDiagram-v2
 - Techo de throughput calibrado por WAN y decisión sobre `WanThroughputBajo` tomada.
 - RNF01 y RNF02 medidos, no estimados.
 - HITL: Jeremi acepta resultados y residual; se corta `0.5.0` y este documento pasa a `approved`.
+
+### Cierre del Gate 3 (2026-09-09)
+Los catorce casos de aceptación y los diez de seguridad quedan ejecutados con evidencia. Cinco defectos
+salieron de las pruebas y se corrigieron y desplegaron durante el gate: la regla de pérdida con un objetivo
+caído (v0.4.6), la degradación falsa tras recuperar una WAN y el retraso de las resoluciones (v0.4.7),
+las sondas ejecutándose como root (v0.4.8) y el stack que no converge tras un arranque (v0.4.9). Antes,
+la calibración del throughput obligó a cambiar de método de medición (v0.4.3 a v0.4.5).
+
+Desviaciones aceptadas por Jeremi: la latencia de alertado medida (≈ 2,5 min para caída y ≈ 6 min para
+degradación) pasa a ser el SLO; TS-02 queda con evidencia indirecta del cortafuegos, a falta de un punto
+de observación fuera de la red; TA-12 cubre 23 h 31 min; y el riesgo del adaptador USB de `wan2` queda
+aceptado con vigilancia, porque la enumeración del arranque puede dejarlo colgado aunque en marcha sea
+estable. Limitación conocida: Heimdall no registra su propia caída.
+

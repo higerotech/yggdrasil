@@ -7,7 +7,26 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 3 (Testing) en curso sobre el despliegue de `v0.4.0` en midgard (TA-01 superado el 2026-09-06 al tercer intento: paquetes GHCR privados por defecto y primer arranque de Grafana de ~3 min; `health_timeout` 300 s): TA-01 despliegue continuo, aceptación de RF01–RF09, seguridad TS-01..TS-10, RNF01/RNF02 y calibración del techo de throughput. Al aprobarlo, cortar 0.5.0.
+> Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
+
+## [0.5.0] - 2026-09-09
+
+**Cierre del Gate 3 (Testing).** Heimdall queda verificado sobre el sistema real desplegado en midgard.
+No cambia código: recoge la evidencia de la verificación y aprueba el plan de pruebas. Las correcciones
+que salieron de las pruebas se publicaron durante el gate, de la `0.4.3` a la `0.4.9`.
+
+### Verificado
+- **Aceptación (TA-01 a TA-14)**: despliegue continuo, sondeo por WAN, detección de caída y de degradación, quórum frente a falsos positivos, estado retenido en MQTT, throughput calibrado, dashboard y retención de 30 días, percentiles, disponibilidad, aptitud para llamadas, consumo de recursos, arranque tras corte de corriente y ciclo completo de recuperación.
+- **Seguridad (TS-01 a TS-10)**: barrido completo de puertos, autenticación de Odín y Nornas, listas de control de acceso de Ratatosk, webhook con Bearer, contenedores sin root, secretos fuera del repositorio y digests de imágenes. Matriz OWASP del PRD verificada con casos, no declarada.
+- **Rendimiento (RNF01)**: 401 MiB de RAM de media y 554 en el pico, frente al límite de 1536; CPU de los contenedores en el 1,7 % de media, frente al 10 %.
+- **Transiciones de `EnlaceWan`**: verificadas, incluida la inválida (Caído nunca pasa a Saludable sin Recuperando).
+
+### Desviaciones aceptadas
+- La latencia de alertado medida (≈ 2,5 min para una caída y ≈ 6 min para una degradación) pasa a ser el SLO, en lugar de los 2 y 5 min que fijaba el plan: la histéresis de `for` evita falsos positivos.
+- TS-02 queda con evidencia indirecta del cortafuegos, a falta de un punto de observación fuera de la red.
+- TA-12 cubre 23 h 31 min en vez de 24 h, porque el corte de corriente detuvo el recolector.
+- El riesgo del adaptador USB de `wan2` queda aceptado con vigilancia: en marcha es estable, pero la enumeración USB del arranque puede dejarlo colgado.
+- Limitación conocida: Heimdall no registra su propia caída, porque sin muestras las reglas de disponibilidad no ven esa ventana.
 
 ## [0.4.9] - 2026-09-08
 
@@ -161,7 +180,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/higerotech/yggdrasil/compare/v0.4.7...v0.4.8
 [0.4.7]: https://github.com/higerotech/yggdrasil/compare/v0.4.6...v0.4.7
