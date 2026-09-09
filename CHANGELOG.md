@@ -9,6 +9,22 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.1] - 2026-09-09
+
+Hotfix sobre la 0.5.0. Fenrir (el NVR, `higerotech/fenrir`) llevaba desde su despliegue **sin ninguna alerta activa**: su job de scrape y sus reglas existían como especificación en aquel repositorio, pero nunca llegaron a este `prometheus.yml`. Va por hotfix y no por `develop` porque la alerta de disco protege al appliance entero, no solo al vídeo: `/srv` comparte volumen con la raíz y el grupo de volúmenes no tiene espacio libre (`VFree = 0`), así que llenarlo degrada también el enrutamiento.
+
+### Añadido
+- Job `fenrir` en `scrape_configs`: `/api/metrics` sobre `fenrir:5000` por `yggdrasil_heimdall`, a 30 s en vez de los 15 del resto (el NVR cambia despacio y el appliance ya va al 52 % de CPU sostenida). El 5000 no está publicado en ninguna interfaz y se alcanza solo por esa red, que es lo que mantiene intacta la amenaza T6 del NVR. Comprobado antes de escribirlo: el endpoint responde, manda `Content-Type: text/plain; version=0.0.4` —así que no necesita el `fallback_scrape_protocol` de Sleipnir— y publica las cinco métricas que usan las reglas.
+- `rules/fenrir-alertas.yml`: 6 alertas del NVR (caída, cámara sin frames, disco al 85 % y al 92 %, detector saturado y memoria). Copia instalada; la especificación vive en el repositorio del NVR para que los umbrales sigan trazados a sus requisitos.
+- El paso de `promtool check rules` del CI enumera los ficheros a mano: se añade el nuevo a esa lista, aunque `check config` ya lo cubra por el glob de `rule_files`.
+
+### Corregido
+- Las alertas de disco del NVR medían también la RAM. `frigate_storage_*` publica cuatro series y dos no son disco: `/tmp/cache` (tmpfs, 954 MB) y `/dev/shm` (128 MB). Sin filtrar, un `/dev/shm` al 90 % —115 MB, nada— habría anunciado «Almacenamiento del NVR al 90 %» y mandado al runbook del disco, con el problema real siendo de memoria. Se acota con `storage=~"/media/frigate/.*"`. Medido en este Prometheus: recordings 7,11 %, clips 7,11 %, tmpfs 4,05 %, shm 10,47 %. El defecto no se ve leyendo el YAML; hace falta ejecutar la expresión contra datos reales.
+- Las anotaciones de esas alertas pasan de `summary` a `resumen`. El nodo *Alertmanager → estados MQTT* de Nornas hace `aviso(titulo, an.resumen)` para toda alerta sin etiqueta `wan`, que son las seis: con `summary` la notificación habría llegado con el cuerpo vacío —ni falla ni avisa—. Queda una arista conocida: el título dirá `Heimdall: FenrirCaido`, porque el prefijo está fijo en esa función del flujo.
+
+### Observado al instalarlo
+- `DetectorSaturado` entró en `pending` en la primera evaluación, y no es ruido: `frigate_skipped_fps` marcaba 0,2 en `cam_01` con picos de 2,2 en 15 minutos. Es el canario de T2 del NVR y llega junto al 52 % de CPU sostenida sobre su presupuesto del 50 %. La decisión (bajar `detect.fps` o acotar con `cpuset`) es del proyecto del NVR, no de la plataforma.
+
 ## [0.5.0] - 2026-09-09
 
 **Cierre del Gate 3 (Testing).** Heimdall queda verificado sobre el sistema real desplegado en midgard.
@@ -179,7 +195,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/higerotech/yggdrasil/compare/v0.4.7...v0.4.8
