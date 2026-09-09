@@ -35,8 +35,21 @@ groups:
 
       # --- T1: disco. El media store comparte volumen con la raíz del host, así que esta
       # alerta protege al sistema entero, no solo a las grabaciones. -------------------
+      #
+      # El filtro `storage=~"/media/frigate/.*"` no es cosmético. `frigate_storage_*` publica
+      # CUATRO series y dos no son disco: `/tmp/cache` (tmpfs, 954 MB de RAM) y `/dev/shm`
+      # (128 MB). Sin filtrar, un `/dev/shm` al 90 % —que son 115 MB, nada— anuncia
+      # "Almacenamiento del NVR al 90 %" y manda al runbook I-2, que trata del disco. El
+      # problema de memoria lo cubren FenrirMemoriaAlta e I-6. Comprobado el 2026-09-09
+      # contra el Prometheus del host: recordings 7,11 %, clips 7,11 %, tmpfs 4,05 %,
+      # shm 10,47 %.
+      #
+      # `recordings` y `clips` son hoy el MISMO sistema de ficheros, así que un disco lleno
+      # levanta dos series idénticas; Alertmanager las agrupa por `alertname`. Se conserva la
+      # etiqueta `storage` a propósito: dice qué ruta se miró, y si algún día dejan de
+      # compartir volumen la alerta sigue cubriendo las dos sin tocar nada.
       - alert: DiscoNvrAlto
-        expr: frigate_storage_used_bytes / frigate_storage_total_bytes > 0.85
+        expr: frigate_storage_used_bytes{storage=~"/media/frigate/.*"} / frigate_storage_total_bytes{storage=~"/media/frigate/.*"} > 0.85
         for: 15m
         labels: { severity: warning, servicio: fenrir }
         annotations:
@@ -48,7 +61,7 @@ groups:
           runbook: "docs/06-monitoring/observability.md — I-2"
 
       - alert: DiscoNvrCritico
-        expr: frigate_storage_used_bytes / frigate_storage_total_bytes > 0.92
+        expr: frigate_storage_used_bytes{storage=~"/media/frigate/.*"} / frigate_storage_total_bytes{storage=~"/media/frigate/.*"} > 0.92
         for: 5m
         labels: { severity: critical, servicio: fenrir }
         annotations:
