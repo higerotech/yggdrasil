@@ -9,6 +9,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.2] - 2026-09-09
+
+Hotfix sobre la 0.5.1, a partir de lo que se vio en las primeras horas de las alertas del NVR ya en marcha.
+
+### Añadido
+- `CpuNvrAlta`: CPU del appliance por encima del 70 % durante 15 min. Vigila `frigate_cpu_usage_percent{pid="frigate.full_system"}`, que es la **única** serie de esa métrica en escala 0-100 del sistema entero; las demás son por proceso y relativas a **un** núcleo —el detector marca 195,7 en un i3 de 4 hilos—, así que un umbral de 70 sobre ellas estaría disparando siempre. El umbral es 70 y no el 50 que fija RNF01 del NVR porque la media real ya es del 56 % (medido: min 40,8 / media 56,4 / max 75,0 en una hora): a 50 la alerta estaría encendida a todas horas y no distinguiría «seguimos fuera de presupuesto» de «esto ha empeorado». El incumplimiento de RNF01 se sigue por la medición del gate, no por una alerta permanentemente en rojo. La anotación manda comparar con la serie del detector antes de tocar nada: si la CPU de la máquina sube y la del detector no, el NVR es la víctima y no la causa.
+
+### Cambiado
+- `DetectorSaturado` pasa de `frigate_skipped_fps > 0` instantáneo a `avg_over_time(frigate_skipped_fps[10m]) > 0.5`, con `for: 10m`. El cambio se hizo esperando que dejara de saltar por picos —y **sigue saltando**: la media de 10 min es 0,88 en `cam_01` y 0,685 en `cam_02`, y en media hora **el 10-11 % de los frames no se analizan** en ambas cámaras. No era ruido: el detector por CPU del NVR está saturado de forma sostenida. La regla nueva es mejor igualmente, porque ahora distingue una racha de una saturación real, pero el diagnóstico no cambia y sigue en el tejado del proyecto del NVR (bajar `detect.fps` o acotar con `cpuset`).
+
 ## [0.5.1] - 2026-09-09
 
 Hotfix sobre la 0.5.0. Fenrir (el NVR, `higerotech/fenrir`) llevaba desde su despliegue **sin ninguna alerta activa**: su job de scrape y sus reglas existían como especificación en aquel repositorio, pero nunca llegaron a este `prometheus.yml`. Va por hotfix y no por `develop` porque la alerta de disco protege al appliance entero, no solo al vídeo: `/srv` comparte volumen con la raíz y el grupo de volúmenes no tiene espacio libre (`VFree = 0`), así que llenarlo degrada también el enrutamiento.
@@ -195,7 +205,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
