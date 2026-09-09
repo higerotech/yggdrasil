@@ -246,7 +246,7 @@ mensajes retenidos de Ratatosk (`mosquitto_sub -u iot`). Horas en UTC.
 | TA-06 | Durante TA-04/TA-11/TA-03 los retenidos `midgard/wan/<id>/estado`, `.../apto_llamadas` y `midgard/hogar/internet/estado` reflejaron cada alerta y cada resolución; el hogar solo pasó a `degradado` cuando ambas WAN estaban degradadas (efecto colateral de TA-05, 01:10). Retenidos al cierre (01:54): `wan1` saludable/si, `wan2` saludable/si, hogar `ok`, `nornas/heimdall/estado online` | **Superado** (con el retraso de resolución corregido en v0.4.7) |
 | TA-10 | Antes de TA-03 (01:38:32): `wan1` 0,9692, `wan2` 1, hogar 1. Después (01:53): `wan1` 0,9694, `wan2` 0,9984 (bajó por los 4 min de caída), hogar 1 (`wan1` siguió arriba) | **Superado** |
 | TA-12 | Recolector `ta12.service` (una muestra por hora, 24 h desde 01:02). Primera muestra: 367 MiB de RAM para los 7 contenedores, 2,8 % de CPU de contenedores, load1 0,33 | **En curso** hasta el 2026-09-09 01:00 |
-| TA-13 | Reinicio autorizado el 2026-09-08 a las 12:12 UTC. SSH a los 274 s (unos 200 s de apagado y POST más 72 s de arranque), Odín `200` a los 403 s. Volvieron solos seis de los siete servicios: **Gjallarhorn quedó `exited` (255)** porque Docker lo marcó así al restaurar los contenedores y no le reaplicó `restart: unless-stopped` (`RestartCount` 0); el alertado quedó caído sin aviso. Se levantó a mano y se corrigió con `yggdrasil-arranque.service` (v0.4.9), verificada en midgard: con Gjallarhorn parado la unidad lo levanta sin recrear los demás contenedores | **Fallido**; corregido, pendiente de repetir el reinicio |
+| TA-13 | Reinicio autorizado el 2026-09-08 a las 12:12 UTC. SSH a los 274 s (unos 200 s de apagado y POST más 72 s de arranque), Odín `200` a los 403 s. Volvieron solos seis de los siete servicios: **Gjallarhorn quedó `exited` (255)** porque Docker lo marcó así al restaurar los contenedores y no le reaplicó `restart: unless-stopped` (`RestartCount` 0); el alertado quedó caído sin aviso. Se levantó a mano y se corrigió con `yggdrasil-arranque.service` (v0.4.9), verificada en midgard: con Gjallarhorn parado la unidad lo levanta sin recrear los demás contenedores | **Superado en la repetición** (ver abajo) |
 
 **Eventos reales durante la tanda.** `wan2` mostró 1,7–2,5 % de pérdida sin inducción (las sondas a 5 s
 lo resuelven; a 15 s no se veía) y a las 01:37:54 dispararon `WanDegradada/wan2` y
@@ -287,6 +287,29 @@ Durante la prueba ocurrieron dos hechos ajenos al software que conviene registra
 - **Apagado manual.** A las 12:22:07 `systemd-logind` registró «Power key pressed short» y el equipo se apagó;
   volvió a arrancar a las 12:23:06. El segundo arranque no lo provocó la prueba.
 En el arranque actual ambas WAN responden sin pérdida y los 10 objetivos de Mimir están en `up`.
+
+### Repetición de TA-13 (2026-09-08 23:17 UTC): corte de corriente real
+La repetición no hizo falta provocarla. A las 23:17:01 el appliance perdió la corriente de golpe: el
+diario se corta en mitad de una tarea rutinaria, sin secuencia de apagado. Volvió 54 s después, a las
+23:17:55, con la unidad `yggdrasil-arranque.service` (v0.4.9) ya instalada.
+
+| Comprobación | Resultado |
+|---|---|
+| Los siete servicios vuelven solos | **Sí**; esta vez Docker restauró los siete por su cuenta |
+| `yggdrasil-arranque.service` | Terminó con éxito a las 23:20:20; encontró los siete ya en marcha, ejecutó el importador de flujo y dejó constancia de la convergencia |
+| Etiqueta usada | `sha-3d0e5e1`, la que el receptor tenía registrada: correcta |
+| Odín, sondas y estado | 10 objetivos en `up`, ambas WAN sanas y el estado retenido en MQTT coherente |
+
+**TA-13 queda superado.** La unidad de arranque no fue necesaria en esta ocasión, pero es la red de
+seguridad para el modo de fallo del reinicio de las 12:12, en el que Docker dejó a Gjallarhorn fuera.
+
+**Dos observaciones que quedan como limitación conocida, no como defecto:**
+- *Heimdall no registra su propia caída.* Durante los tres minutos sin servicio no hubo muestras, y las
+  reglas de disponibilidad promedian sobre las muestras existentes: un corte del appliance no aparece
+  en `wan:disponibilidad:30d`. Medir la disponibilidad del propio observador exige un testigo externo,
+  fuera del alcance de Heimdall.
+- *Aviso cosmético.* Al converger con el Compose base, Compose advierte de contenedores huérfanos
+  (`sync-host` y `sync-net`, de un solo uso). No afecta al resultado.
 
 ### Evidencia TS-01 a TS-10 (2026-09-08, 02:15–02:40 UTC)
 Desde un equipo de la LAN (192.168.10.74, `nmap` y `curl`) y desde midgard (`docker exec`, `docker inspect`, `nft`, `ss`).
