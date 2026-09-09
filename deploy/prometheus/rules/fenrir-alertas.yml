@@ -70,14 +70,43 @@ groups:
 
       # --- T2: el detector no da abasto ------------------------------------------------
       - alert: DetectorSaturado
-        expr: frigate_skipped_fps > 0
-        for: 3m
+        # Media de 10 min, no valor instantaneo: el detector descarta frames a rachas y un
+        # `> 0` puntual disparaba con picos que no significan nada (2,2 fps un instante el
+        # 2026-09-09, con el sistema atendiendo las dos camaras sin perder eventos). Lo que
+        # importa es la saturacion sostenida, que es la que se traga detecciones.
+        expr: avg_over_time(frigate_skipped_fps[10m]) > 0.5
+        for: 10m
         labels: { severity: warning, servicio: fenrir }
         annotations:
           resumen: "El detector descarta frames en {{ $labels.camera_name }}"
           descripcion: >-
             Canario de T2: el detector CPU no da abasto. Es la señal temprana de la condición
             de revocación de ADR-0002, antes de que la CPU sostenida lo delate.
+          runbook: "docs/06-monitoring/observability.md — I-3"
+
+      # --- RNF01: carga de la maquina. OJO con la serie que se elige --------------------
+      #
+      # `frigate_cpu_usage_percent` es POR PROCESO y relativa a UN nucleo: el detector marca
+      # 195,7 en un i3 de 4 hilos (≈2 nucleos). Un umbral de 70 sobre esas series estaria
+      # disparando siempre. La unica serie en escala 0-100 del sistema entero es la de
+      # `pid="frigate.full_system"`, y es la que se usa aqui.
+      #
+      # 70 y no 50: el presupuesto de RNF01 es <50 % sostenido, pero la media real ya es del
+      # 56 % (medido el 2026-09-09: min 40,8 / media 56,4 / max 75,0 en una hora). Una alerta
+      # a 50 estaria encendida a todas horas y no se podria distinguir "seguimos fuera de
+      # presupuesto, ya lo sabemos" de "esto ha empeorado". 70 marca el empeoramiento. El
+      # incumplimiento de RNF01 se sigue por la medicion de Gate 3, no por esta alerta.
+      - alert: CpuNvrAlta
+        expr: frigate_cpu_usage_percent{pid="frigate.full_system"} > 70
+        for: 15m
+        labels: { severity: warning, servicio: fenrir }
+        annotations:
+          resumen: "CPU del appliance al {{ $value }} % durante 15 min"
+          descripcion: >-
+            Es la CPU de la MAQUINA, no la de Frigate: incluye al resto de contenedores y al
+            enrutamiento. Para atribuir, comparar con `frigate_cpu_usage_percent{process="cpu0"}`
+            (el detector). Si el detector no ha subido, el NVR es la victima y no la causa, y
+            tocar `detect.fps` no arregla nada.
           runbook: "docs/06-monitoring/observability.md — I-3"
 
       # --- RNF03: memoria del propio Frigate -------------------------------------------
