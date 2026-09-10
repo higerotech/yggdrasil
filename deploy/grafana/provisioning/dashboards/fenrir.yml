@@ -1,0 +1,14 @@
+# Odin (Grafana): dashboards de Fenrir (el NVR) cargados desde archivo.
+# Carpeta aparte de Heimdall a proposito: son dos sistemas distintos, y la
+# especificacion de estos paneles vive en higerotech/fenrir.
+apiVersion: 1
+providers:
+  - name: fenrir
+    folder: Fenrir
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/dashboards/fenrir
+      foldersFromFilesStructure: false
