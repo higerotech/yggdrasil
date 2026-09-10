@@ -57,7 +57,7 @@ jobs:
           docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/init/importar-flujo.mjs
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
-          python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
+          for d in deploy/grafana/dashboards/*/*.json; do python3 -m json.tool "$d" > /dev/null; done
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
       - name: Construir Sleipnir y sync

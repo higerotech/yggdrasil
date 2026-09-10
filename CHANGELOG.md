@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Dashboard `Fenrir · NVR` en Odín** (`deploy/grafana/dashboards/fenrir/fenrir-nvr.json`, uid `fenrir-nvr`): 14 paneles sobre detección, CPU y memoria del NVR, con los umbrales de sus alertas dibujados en los ejes para que panel y alerta digan lo mismo. Las 17 consultas están comprobadas contra Mimir una a una: ninguna sale «No data».
+- **Un directorio de dashboards por proveedor.** `heimdall-sla.json` se mueve a `dashboards/heimdall/` y cada proveedor apunta a su subdirectorio, con carpeta propia en la UI (`Heimdall`, `Fenrir`). El lector de ficheros de Grafana recorre subdirectorios, así que con el proveedor apuntando a la raíz los dos habrían reclamado el mismo fichero. `GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH` se ajusta a la ruta nueva.
+- El CI validaba el JSON de **un** dashboard por su ruta literal; ahora recorre todos.
+
+### Corregido
+- **`frigate_cpu_usage_percent` y `frigate_mem_usage_percent` no se pueden sumar tal cual**, y el primer borrador de dos paneles lo hacía. Dos trampas encontradas al consultarlas: agrupar por `process` da **55 series**, porque para `type="Other"` esa etiqueta lleva la línea de comandos entera de cada proceso de s6; y `Other` **no es trabajo extra, es cada proceso contado una segunda vez**, así que sumarlo daba 406 % de CPU frente a los 248 % reales del appliance. Los paneles agrupan por `type` excluyendo `Other`: 6 series y el total cuadra.
+
 ## [0.5.2] - 2026-09-09
 
 Hotfix sobre la 0.5.1, a partir de lo que se vio en las primeras horas de las alertas del NVR ya en marcha.
