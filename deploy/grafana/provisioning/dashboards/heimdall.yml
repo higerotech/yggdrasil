@@ -8,5 +8,5 @@ providers:
     allowUiUpdates: false
     updateIntervalSeconds: 60
     options:
-      path: /etc/grafana/dashboards/heimdall
+      path: /etc/grafana/dashboards
       foldersFromFilesStructure: false

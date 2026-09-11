@@ -121,7 +121,7 @@ services:
       GF_SECURITY_COOKIE_SECURE: "false"       # HTTP en LAN/WireGuard; poner true detrás de TLS
       GF_SERVER_ROOT_URL: http://${HOST_LAN_IP}:3000/
       GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: ""   # sin plugins no firmados (STRIDE Elevation)
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/heimdall/heimdall-sla.json
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/heimdall-sla.json
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
