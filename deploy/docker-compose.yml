@@ -129,7 +129,7 @@ services:
     networks: [heimdall]
     depends_on: [mimir]
 
-  # --- Servicios de plataforma (ADR-0006): compartidos por Heimdall, Fenrir y la domótica ---
+  # --- Servicios de plataforma (ADR-0006): compartidos por Heimdall y la domótica ---
 
   # Ratatosk — Mosquitto 2: bus de eventos. Auth obligatoria y ACL por usuario (T3); el archivo de
   # contraseñas se genera al arrancar a partir de .env, dentro del volumen de datos.
@@ -140,10 +140,9 @@ services:
     read_only: true
     mem_limit: 64m
     ports:
-      - "${HOST_LAN_IP}:1883:1883"   # Fenrir y dispositivos IoT de la LAN, con usuario y contraseña
+      - "${HOST_LAN_IP}:1883:1883"   # dispositivos IoT de la LAN, con usuario y contraseña
     environment:
       MQTT_NORNAS_PASSWORD: ${MQTT_NORNAS_PASSWORD}
-      MQTT_FRIGATE_PASSWORD: ${MQTT_FRIGATE_PASSWORD}
       MQTT_IOT_PASSWORD: ${MQTT_IOT_PASSWORD}
       YGG_REV: ${IMAGE_TAG:-local}                    # fuerza recreacion por despliegue (conf y ACL montados como ficheros)
     volumes:
@@ -159,7 +158,6 @@ services:
       - >-
         set -e; P=/mosquitto/data/passwd;
         mosquitto_passwd -c -b "$$P" nornas "$$MQTT_NORNAS_PASSWORD";
-        mosquitto_passwd -b "$$P" frigate "$$MQTT_FRIGATE_PASSWORD";
         mosquitto_passwd -b "$$P" iot "$$MQTT_IOT_PASSWORD";
         cp /mosquitto/config/acl /mosquitto/data/acl;
         chown mosquitto:mosquitto "$$P" /mosquitto/data/acl; chmod 0600 "$$P" /mosquitto/data/acl;

@@ -9,6 +9,20 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.3] - 2026-09-11
+
+**Fenrir sale del appliance.** `midgard` queda como router y balanceador multi-WAN, y la plataforma deja de integrar el NVR. La decisión es de rendimiento y está medida, no intuida: sobre 24 h el appliance promedió **45,7 % de CPU con picos del 96,5 %**, y Frigate solo consumía **135 % de un núcleo — el 33,8 % de la máquina**, con el detector aportando ~30 de esos puntos. Es del orden de **tres cuartas partes de toda la carga** para un servicio que no es la función principal del equipo. Sin él, la media esperada baja al entorno del 12 %.
+
+Lo que **no** motivó la retirada, y conviene dejarlo escrito para no repetir el diagnóstico: la memoria nunca fue un problema (máximo 38,1 % en 24 h, sin tocar swap), y el pico de E/S del 47 % de iowait que se observó era la **tormenta de arranque** tras el reinicio de las 01:17, no régimen permanente: ya asentado, el iowait era del 0,13 %.
+
+### Eliminado
+- Job de scrape `fenrir` y `rules/fenrir-alertas.yml` (las 7 alertas del NVR).
+- Usuario `frigate` del broker, su ACL `readwrite frigate/#` y el secreto `MQTT_FRIGATE_PASSWORD`. El alta la hacía el propio Compose en cada arranque, así que el `passwd` se regenera sin él y no hay que tocarlo a mano.
+- Los `topic read frigate/#` de `nornas` y de `iot`. **Ningún flujo de Nornas los consumía**: se provisionaron para un consumidor que nunca llegó a construirse, así que retirarlos no rompe nada.
+- Referencias a Fenrir en el README de `deploy/`, en los comentarios del Compose y de `mosquitto.conf`, y el fichero de reglas de la lista explícita del CI.
+
+> Los datos del NVR —35 GB de grabaciones y `frigate.db` con 1.185 eventos— se borraron del appliance por decisión expresa. No existía copia: el respaldo al NAS de ADR-0006 nunca llegó a montarse. Queda anotado aquí porque es irreversible y porque explica por qué no hay nada que restaurar.
+
 ## [0.5.2] - 2026-09-09
 
 Hotfix sobre la 0.5.1, a partir de lo que se vio en las primeras horas de las alertas del NVR ya en marcha.
@@ -205,7 +219,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
