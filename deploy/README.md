@@ -29,7 +29,6 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
   puertos 9115 y 9469). Permitir INPUT a esos puertos solo desde las redes de Docker
   (`172.16.0.0/12`) y denegarlos desde LAN/WAN. Permitir 3000 solo desde LAN y WireGuard.
 - Nada externo para MQTT ni Node-RED: Ratatosk y Nornas los levanta este mismo Compose (ADR-0006).
-  Fenrir (`nvr-frigate`) se conecta a Ratatosk en `<HOST_LAN_IP>:1883` con el usuario `frigate`.
 - `deploy/` debe vivir en un directorio con permisos restringidos (p. ej. `/srv/yggdrasil`, 750):
   `alertmanager.yml` renderizado contiene el token y se deja en 0644 para que lo lea el contenedor.
 

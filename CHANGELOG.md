@@ -9,14 +9,45 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
-Hallazgos de la revisión completa del appliance del 2026-09-16.
+## [0.5.3] - 2026-09-11
+
+**Fenrir sale del appliance.** `midgard` queda como router y balanceador multi-WAN, y la plataforma deja de integrar el NVR. La decisión es de rendimiento y está medida, no intuida: sobre 24 h el appliance promedió **45,7 % de CPU con picos del 96,5 %**, y Frigate solo consumía **135 % de un núcleo — el 33,8 % de la máquina**, con el detector aportando ~30 de esos puntos. Es del orden de **tres cuartas partes de toda la carga** para un servicio que no es la función principal del equipo. Sin él, la media esperada baja al entorno del 12 %.
+
+Lo que **no** motivó la retirada, y conviene dejarlo escrito para no repetir el diagnóstico: la memoria nunca fue un problema (máximo 38,1 % en 24 h, sin tocar swap), y el pico de E/S del 47 % de iowait que se observó era la **tormenta de arranque** tras el reinicio de las 01:17, no régimen permanente: ya asentado, el iowait era del 0,13 %.
+
+### Eliminado
+- Job de scrape `fenrir` y `rules/fenrir-alertas.yml` (las 7 alertas del NVR).
+- Usuario `frigate` del broker, su ACL `readwrite frigate/#` y el secreto `MQTT_FRIGATE_PASSWORD`. El alta la hacía el propio Compose en cada arranque, así que el `passwd` se regenera sin él y no hay que tocarlo a mano.
+- Los `topic read frigate/#` de `nornas` y de `iot`. **Ningún flujo de Nornas los consumía**: se provisionaron para un consumidor que nunca llegó a construirse, así que retirarlos no rompe nada.
+- Referencias a Fenrir en el README de `deploy/`, en los comentarios del Compose y de `mosquitto.conf`, y el fichero de reglas de la lista explícita del CI.
+
+> Los datos del NVR —35 GB de grabaciones y `frigate.db` con 1.185 eventos— se borraron del appliance por decisión expresa. No existía copia: el respaldo al NAS de ADR-0006 nunca llegó a montarse. Queda anotado aquí porque es irreversible y porque explica por qué no hay nada que restaurar.
+
+## [0.5.2] - 2026-09-09
+
+Hotfix sobre la 0.5.1, a partir de lo que se vio en las primeras horas de las alertas del NVR ya en marcha.
+
+### Añadido
+- `CpuNvrAlta`: CPU del appliance por encima del 70 % durante 15 min. Vigila `frigate_cpu_usage_percent{pid="frigate.full_system"}`, que es la **única** serie de esa métrica en escala 0-100 del sistema entero; las demás son por proceso y relativas a **un** núcleo —el detector marca 195,7 en un i3 de 4 hilos—, así que un umbral de 70 sobre ellas estaría disparando siempre. El umbral es 70 y no el 50 que fija RNF01 del NVR porque la media real ya es del 56 % (medido: min 40,8 / media 56,4 / max 75,0 en una hora): a 50 la alerta estaría encendida a todas horas y no distinguiría «seguimos fuera de presupuesto» de «esto ha empeorado». El incumplimiento de RNF01 se sigue por la medición del gate, no por una alerta permanentemente en rojo. La anotación manda comparar con la serie del detector antes de tocar nada: si la CPU de la máquina sube y la del detector no, el NVR es la víctima y no la causa.
 
 ### Cambiado
-- **El SLO de throughput se evalúa contra el 80 % del nominal contratado con cada ISP, por WAN y por dirección.** La regla de Gate 0 siempre fue “el 80 % del nominal”; el “800 Mbps” era ese 80 % bajo la premisa de que ambos proveedores venían 1 Gbps simétrico. El ISP2 es asimétrico 1:0.5 y garantiza el 80 % sobre esa condición, así que la subida de `wan2` contrata 500 Mbps y su umbral es 400. Los cuatro umbrales (`wan1` 800↓/800↑, `wan2` 800↓/400↑) dejan de estar escritos a mano en la alerta y pasan a la recording rule `wan:slo_throughput_mbps`, de modo que un cambio de plan con el proveedor sea un commit trazable. Enmendados con nota de revisión fechada el charter (0.1.3), el glosario (0.1.1) y el PRD (0.1.1), que daban por hecho el nominal simétrico.
-- El techo de memoria de Odín (Grafana) sube de 256 a 512 MB: rozaba el 86 % del suyo (220 MiB) y un OOM kill se lleva por delante el dashboard. La suma de `mem_limit` queda en 1664 MB. No incumple RNF01, que acota la RAM **real** del stack (≤ 1.5 GB) y no la suma de techos: TA-12 midió 406 MiB de media y 554 de pico en 24 h. Aclarado en ADR-0006, la arquitectura, el baseline de configuración y el plan de pruebas, que lo enunciaban de forma ambigua.
+- `DetectorSaturado` pasa de `frigate_skipped_fps > 0` instantáneo a `avg_over_time(frigate_skipped_fps[10m]) > 0.5`, con `for: 10m`. El cambio se hizo esperando que dejara de saltar por picos —y **sigue saltando**: la media de 10 min es 0,88 en `cam_01` y 0,685 en `cam_02`, y en media hora **el 10-11 % de los frames no se analizan** en ambas cámaras. No era ruido: el detector por CPU del NVR está saturado de forma sostenida. La regla nueva es mejor igualmente, porque ahora distingue una racha de una saturación real, pero el diagnóstico no cambia y sigue en el tejado del proyecto del NVR (bajar `detect.fps` o acotar con `cpuset`).
+
+## [0.5.1] - 2026-09-09
+
+Hotfix sobre la 0.5.0. Fenrir (el NVR, `higerotech/fenrir`) llevaba desde su despliegue **sin ninguna alerta activa**: su job de scrape y sus reglas existían como especificación en aquel repositorio, pero nunca llegaron a este `prometheus.yml`. Va por hotfix y no por `develop` porque la alerta de disco protege al appliance entero, no solo al vídeo: `/srv` comparte volumen con la raíz y el grupo de volúmenes no tiene espacio libre (`VFree = 0`), así que llenarlo degrada también el enrutamiento.
+
+### Añadido
+- Job `fenrir` en `scrape_configs`: `/api/metrics` sobre `fenrir:5000` por `yggdrasil_heimdall`, a 30 s en vez de los 15 del resto (el NVR cambia despacio y el appliance ya va al 52 % de CPU sostenida). El 5000 no está publicado en ninguna interfaz y se alcanza solo por esa red, que es lo que mantiene intacta la amenaza T6 del NVR. Comprobado antes de escribirlo: el endpoint responde, manda `Content-Type: text/plain; version=0.0.4` —así que no necesita el `fallback_scrape_protocol` de Sleipnir— y publica las cinco métricas que usan las reglas.
+- `rules/fenrir-alertas.yml`: 6 alertas del NVR (caída, cámara sin frames, disco al 85 % y al 92 %, detector saturado y memoria). Copia instalada; la especificación vive en el repositorio del NVR para que los umbrales sigan trazados a sus requisitos.
+- El paso de `promtool check rules` del CI enumera los ficheros a mano: se añade el nuevo a esa lista, aunque `check config` ya lo cubra por el glob de `rule_files`.
 
 ### Corregido
-- `WanThroughputBajo` solo vigilaba la bajada (`direccion="down"`), así que una caída de la subida de cualquiera de las dos WAN pasaba inadvertida. Ahora evalúa las dos direcciones.
+- Las alertas de disco del NVR medían también la RAM. `frigate_storage_*` publica cuatro series y dos no son disco: `/tmp/cache` (tmpfs, 954 MB) y `/dev/shm` (128 MB). Sin filtrar, un `/dev/shm` al 90 % —115 MB, nada— habría anunciado «Almacenamiento del NVR al 90 %» y mandado al runbook del disco, con el problema real siendo de memoria. Se acota con `storage=~"/media/frigate/.*"`. Medido en este Prometheus: recordings 7,11 %, clips 7,11 %, tmpfs 4,05 %, shm 10,47 %. El defecto no se ve leyendo el YAML; hace falta ejecutar la expresión contra datos reales.
+- Las anotaciones de esas alertas pasan de `summary` a `resumen`. El nodo *Alertmanager → estados MQTT* de Nornas hace `aviso(titulo, an.resumen)` para toda alerta sin etiqueta `wan`, que son las seis: con `summary` la notificación habría llegado con el cuerpo vacío —ni falla ni avisa—. Queda una arista conocida: el título dirá `Heimdall: FenrirCaido`, porque el prefijo está fijo en esa función del flujo.
+
+### Observado al instalarlo
+- `DetectorSaturado` entró en `pending` en la primera evaluación, y no es ruido: `frigate_skipped_fps` marcaba 0,2 en `cam_01` con picos de 2,2 en 15 minutos. Es el canario de T2 del NVR y llega junto al 52 % de CPU sostenida sobre su presupuesto del 50 %. La decisión (bajar `detect.fps` o acotar con `cpuset`) es del proyecto del NVR, no de la plataforma.
 
 ## [0.5.0] - 2026-09-09
 
@@ -188,7 +219,10 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...v0.5.3
+[0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
+[0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/higerotech/yggdrasil/compare/v0.4.9...v0.5.0
 [0.4.9]: https://github.com/higerotech/yggdrasil/compare/v0.4.8...v0.4.9
 [0.4.8]: https://github.com/higerotech/yggdrasil/compare/v0.4.7...v0.4.8
