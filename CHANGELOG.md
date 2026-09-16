@@ -9,6 +9,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Sondas de la ruta real del hogar y alerta `HogarSinRuta`.** Las sondas por WAN fijan IP de origen, así que viajan por las tablas `wan1`/`wan2` que `wan-balancer` mantiene con default propio, y **ninguna pasa por `main`**, que es por donde salen la LAN, dnsmasq y los contenedores. El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable (dockerd: `dial udp 1.1.1.1:53: connect: network is unreachable`): **la casa estuvo 7 h sin internet, `hogar:up` valió 1 todo el rato y no se disparó ninguna alerta**. Se añaden los módulos `icmp_hogar` y `tls_hogar` (sin `source_ip_address`), los jobs `hogar_icmp`/`hogar_tls`, la recording rule `hogar:ruta_up` con el mismo quórum que `wan:up` (2 de 3), su disponibilidad a 30 días y la alerta `HogarSinRuta` (critical, `for: 2m`). Verificado en midgard reproduciendo el fallo con un `blackhole` en `main` para una IP aislada: `icmp_hogar` cayó a 0 mientras `icmp_wan1` e `icmp_wan2` seguían en 1.
+- `hogar:ruta_up` es una serie **nueva**: `hogar:up` y la disponibilidad de 30 días ya reportada en Gate 3 no cambian. RF08 define la disponibilidad del hogar como "el tiempo con al menos una WAN operativa" y `hogar:up` implementa esa definición correctamente; lo que faltaba era medir el otro camino, no corregir el existente.
+
+### Cambiado
+- Las recording rules de las WAN acotan su selector de `job=~"blackbox_icmp_.*"` a `job=~"blackbox_icmp_wan[0-9]+"` (y análogo para `wan:up`). Sin ese cierre, cualquier job de sonda futuro sin etiqueta `wan` se colaría en los `by (wan)` como un grupo `wan=""`.
+
 ## [0.5.3] - 2026-09-11
 
 **Fenrir sale del appliance.** `midgard` queda como router y balanceador multi-WAN, y la plataforma deja de integrar el NVR. La decisión es de rendimiento y está medida, no intuida: sobre 24 h el appliance promedió **45,7 % de CPU con picos del 96,5 %**, y Frigate solo consumía **135 % de un núcleo — el 33,8 % de la máquina**, con el detector aportando ~30 de esos puntos. Es del orden de **tres cuartas partes de toda la carga** para un servicio que no es la función principal del equipo. Sin él, la media esperada baja al entorno del 12 %.

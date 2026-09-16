@@ -82,3 +82,25 @@ scrape_configs:
       - targets: ["www.gstatic.com:443"]
         labels: {wan: wan2, sonda: tls}
     relabel_configs: *sonda_relabel
+
+  # --- Ruta real de la casa: sondas SIN IP de origen, salen por la tabla `main` ---
+  # El nombre del job no empieza por `blackbox_` a propósito: las recording rules de las WAN
+  # agrupan `by (wan)` sobre `job=~"blackbox_(icmp|tls)_wan[0-9]+"` y estas series no llevan
+  # etiqueta `wan`. Manteniéndolas fuera de ese prefijo no pueden colarse como un grupo wan="".
+  - job_name: hogar_icmp
+    metrics_path: /probe
+    params:
+      module: [icmp_hogar]
+    static_configs:
+      - targets: ["1.1.1.1", "8.8.8.8"]
+        labels: {sonda: icmp, camino: hogar}
+    relabel_configs: *sonda_relabel
+
+  - job_name: hogar_tls
+    metrics_path: /probe
+    params:
+      module: [tls_hogar]
+    static_configs:
+      - targets: ["www.gstatic.com:443"]
+        labels: {sonda: tls, camino: hogar}
+    relabel_configs: *sonda_relabel

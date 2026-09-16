@@ -1,6 +1,7 @@
 # Alertas del contrato (tabla "Alertas" en docs/02-design/architecture.md). Umbrales SLO de
 # Gate 0: pérdida < 1 %, p95 < 500 ms (Degradado), p95 < 200 ms (apto_llamadas), throughput
-# ≥ 80 % del nominal contratado por WAN y dirección (`wan:slo_throughput_mbps`, recording). Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
+# ≥ 80 % del nominal contratado por WAN y dirección (`wan:slo_throughput_mbps`, recording).
+# `HogarSinRuta` es la única que no mira un enlace sino la tabla `main` (la ruta de la casa). Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
 groups:
   - name: heimdall_alertas
     rules:
@@ -52,6 +53,28 @@ groups:
           servicio: heimdall
         annotations:
           resumen: "{{ $labels.wan }} bajo el SLO de {{ $labels.direccion }}: {{ $value | printf \"%.0f\" }} Mbps"
+
+      # Las sondas por WAN no pueden ver esto: fijan IP de origen y viajan por las tablas
+      # `wan1`/`wan2`, que wan-balancer mantiene con default propio. `HogarSinRuta` vigila la
+      # tabla `main`, por donde salen de verdad la LAN, dnsmasq y los contenedores.
+      #
+      # Si esta alerta se enciende con `wan:up` a 1 en las dos WAN, el problema NO es de los
+      # ISP: es la ruta por defecto de `main` o el resolutor del appliance. Eso fue lo que
+      # pasó el 2026-09-12 (7 h sin internet en casa, Heimdall todo en verde), y se resolvió
+      # con `systemctl restart dnsmasq wan-balancer`.
+      - alert: HogarSinRuta
+        expr: hogar:ruta_up == 0
+        for: 2m
+        labels:
+          severity: critical
+          servicio: heimdall
+        annotations:
+          resumen: "La casa no sale a internet: la ruta por defecto de `main` no responde"
+          descripcion: >-
+            El quórum de sondas sin IP de origen (2 de 3) falla desde hace 2 min. Comprobar
+            `wan:up` de cada WAN: si ambas valen 1, el fallo esta en la tabla `main` o en
+            dnsmasq, no en los ISP. Diagnostico: `ip route get 1.1.1.1` y
+            `systemctl status wan-balancer dnsmasq`.
 
       - alert: SleipnirSinMedicion
         expr: (time() - wan_throughput_ultima_medicion_timestamp_seconds) > 8 * 3600
