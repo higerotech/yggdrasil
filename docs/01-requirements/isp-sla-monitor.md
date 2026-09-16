@@ -4,13 +4,13 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 01-requirements
-* **Versión:** 0.1.0
+* **Versión:** 0.1.1
 * **Gate:** 0
 * **Feature/Épica ID:** F-001
 * **Nivel ASVS objetivo:** L1
 
 ## Problema y contexto
-La casa tiene dos ISPs de 1 Gbps con balanceo dual-WAN. Hoy no hay forma objetiva de saber si cada proveedor cumple su servicio: cuándo se degrada, cuánto dura una caída, qué throughput real entrega. Se necesita un servicio en el appliance que mida cada WAN de forma independiente, alerte ante degradación y acumule evidencia histórica para reclamos. Es además la primera pieza de la plataforma demo de monitoreo IoT/domótica.
+La casa tiene dos ISPs de 1 Gbps con balanceo dual-WAN (el ISP2 es asimétrico 1:0.5 — 1 Gbps de bajada, 500 Mbps de subida; ver revisión al pie). Hoy no hay forma objetiva de saber si cada proveedor cumple su servicio: cuándo se degrada, cuánto dura una caída, qué throughput real entrega. Se necesita un servicio en el appliance que mida cada WAN de forma independiente, alerte ante degradación y acumule evidencia histórica para reclamos. Es además la primera pieza de la plataforma demo de monitoreo IoT/domótica.
 
 ## Objetivos / No-objetivos
 Propósito del sondeo (confirmado por el owner el 2026-09-05): llevar registro del SLA que entrega cada proveedor, notificar las caídas del servicio y establecer la media de disponibilidad mensual de internet del hogar.
@@ -78,7 +78,7 @@ journey
 - **Acceso no autorizado al dashboard:** un dispositivo IoT comprometido en la LAN intenta leer métricas o la API de Prometheus → autenticación en Grafana y Prometheus no expuesto fuera de la red interna de Docker/localhost.
 - **Manipulación de métricas (tampering):** escritura directa a la TSDB para ocultar una caída → puertos de escritura no expuestos; contenedores sin privilegios innecesarios.
 - **Exfiltración de patrones de presencia:** métricas accesibles remotamente solo vía WireGuard.
-- **Falso positivo de throughput por techo de medición:** si la cadena USB 3.0 (VL805/UE300), la CPU del host o el servidor de prueba no alcanzan 800 Mbps, la alerta de throughput dispararía siempre → calibrar el techo medible en Gate 3 antes de activar la alerta; si el techo queda por debajo del SLO, evaluar contra el techo calibrado y documentarlo como límite de medición, no del ISP.
+- **Falso positivo de throughput por techo de medición:** si la cadena USB 3.0 (VL805/UE300), la CPU del host o el servidor de prueba no alcanzan el umbral más alto (800 Mbps), la alerta de throughput dispararía siempre → calibrar el techo medible en Gate 3 antes de activar la alerta; si el techo queda por debajo del SLO, evaluar contra el techo calibrado y documentarlo como límite de medición, no del ISP.
 
 ## Requisitos funcionales
 | ID | Requisito |
@@ -91,7 +91,7 @@ journey
 | RF06 | Dashboard comparativo con 30 días de retención |
 | RF07 | Registrar percentiles p90, p95 y p99 de latencia por WAN como series de seguimiento (recording rules, ventana 5 min) comparables entre ISP1 e ISP2 |
 | RF08 | Calcular la disponibilidad en ventana de 30 días por WAN y del hogar (al menos una WAN operativa) y exponerla en el dashboard y en el reporte mensual |
-| RF09 | Evaluar el throughput medido contra el SLO de 800 Mbps por WAN y alertar (warning) tras dos mediciones consecutivas por debajo |
+| RF09 | Evaluar el throughput medido contra el SLO por WAN **y dirección** (80 % del nominal contratado: wan1 800↓/800↑, wan2 800↓/400↑) y alertar (warning) tras dos mediciones consecutivas por debajo |
 | RNF01 | RAM total del stack ≤ 1.5 GB; CPU media < 10% |
 | RNF02 | Arranque automático tras corte de energía (restart policies) |
 | RS01 | Acceso a dashboards solo autenticado; acceso remoto solo por WireGuard |
@@ -105,7 +105,7 @@ journey
 | Latencia p95 (llamadas críticas) | < 200 ms | 5 min | Alerta info → indicador `apto_llamadas = no`; no cambia el estado del enlace | Confirmado por el owner el 2026-09-05 |
 | Latencia p90 y p99 | Sin umbral | 5 min | Solo seguimiento comparativo ISP1 vs ISP2 | Confirmado el 2026-09-05 |
 | Jitter | Sin umbral | 5 min | Solo seguimiento | — |
-| Throughput | ≥ 800 Mbps por WAN (80 % del nominal de 1 Gbps) | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición por calibrar (Gate 3) |
+| Throughput | ≥ 80 % del nominal contratado, por WAN y dirección: wan1 800↓/800↑, wan2 800↓/400↑ (ISP2 asimétrico 1:0.5) | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición calibrado ≥ 939 Mbps (Gate 3); umbral por dirección revisado el 2026-09-16 |
 | Disponibilidad mensual | Sin umbral de alerta; indicador por ISP y del hogar (≥ 1 WAN operativa) | 30 d | Reporte mensual y dashboard | Confirmado el 2026-09-05 |
 
 ### Hosts de sondeo
@@ -199,7 +199,7 @@ requirementDiagram
     }
     requirement RF09 {
       id: RF09
-      text: Evaluar throughput contra 800 Mbps y alertar tras 2 mediciones bajas
+      text: Evaluar throughput contra el 80 por ciento del nominal contratado por WAN y direccion y alertar tras 2 mediciones bajas
       risk: medium
       verifymethod: test
     }
@@ -290,8 +290,20 @@ quadrantChart
 - Reporte mensual de disponibilidad por ISP generable desde el dashboard.
 - Percentiles p90, p95 y p99 de latencia por WAN visibles en el dashboard comparativo con 30 días de historia.
 - Media de disponibilidad mensual de internet del hogar y por ISP calculada automáticamente al cierre de cada mes, sin intervención manual.
-- Throughput por WAN evaluado contra el SLO de 800 Mbps en cada medición, con el techo de medición calibrado y documentado en el dashboard.
+- Throughput por WAN **y dirección** evaluado contra su SLO (80 % del nominal contratado) en cada medición, con el techo de medición calibrado y documentado en el dashboard.
 
 ## Dependencias y riesgos
 - Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`) y de Ratatosk y Nornas, servicios de plataforma del propio Compose de Yggdrasil (ADR-0006).
-- Riesgo: el throughput medido queda acotado por la cadena USB 3.0/UE300 y por la CPU del i3-3240 al ejecutar la prueba; el SLO de 800 Mbps está cerca de ese techo, así que hay que calibrarlo (Gate 3) y documentarlo como límite de medición, no del ISP. Preferir iperf3 contra un servidor cercano sobre speedtest-cli para reducir el sesgo de CPU.
+- Riesgo: el throughput medido queda acotado por la cadena USB 3.0/UE300 y por la CPU del i3-3240 al ejecutar la prueba; el SLO más alto (800 Mbps) está cerca de ese techo, así que hay que calibrarlo (Gate 3) y documentarlo como límite de medición, no del ISP. Preferir iperf3 contra un servidor cercano sobre speedtest-cli para reducir el sesgo de CPU.
+
+## Revisiones
+
+> **Revisión 2026-09-16 — nominal contratado por dirección.** El SLO de throughput acordado en
+> Gate 0 es *el 80 % del nominal*; el “800 Mbps” era ese 80 % bajo la premisa de que ambos ISP
+> vendían 1 Gbps simétrico. El ISP2 es asimétrico 1:0.5 y garantiza el 80 % sobre esa condición,
+> así que la subida de wan2 contrata 500 Mbps y su umbral es **400**, no 800. La regla de negocio
+> no cambia; se corrige la premisa. Umbrales vigentes: **wan1 800↓/800↑, wan2 800↓/400↑**,
+> codificados en la recording rule `wan:slo_throughput_mbps` en vez de escritos a mano en la
+> alerta. La alerta pasa además a vigilar la subida, que hasta esa fecha no miraba nadie.
+> Medido en 7 d sobre midgard: wan1 964↓/941↑, wan2 942↓/475↑ — las cuatro series en objetivo.
+> Afecta a RF09 y a la tabla de umbrales SLO. Confirmado por el owner (Jeremi) el 2026-09-16.

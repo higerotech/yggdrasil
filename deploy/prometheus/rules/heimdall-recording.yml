@@ -30,6 +30,26 @@ groups:
       - record: wan:apto_llamadas
         expr: (wan:latencia_p95:5m < bool 0.2) * on (wan) (wan:perdida_pct:5m < bool 1)
 
+  - name: heimdall_slo_throughput
+    interval: 5m
+    rules:
+      # SLO de throughput = 80 % del nominal CONTRATADO con cada ISP (decisión de Gate 0).
+      # El 800 Mbps de Gate 0 sale de suponer 1 Gbps simétrico; no es el umbral, es un caso
+      # particular de la regla. El ISP2 vende 1:0.5, así que su subida contrata 500 Mbps y su
+      # umbral es 400, no 800. Codificarlo aquí evita que el contrato viva solo en la cabeza de
+      # quien opera y hace que un cambio de plan sea un commit trazable.
+      #
+      #   wan1  ISP1  1000 / 1000 Mbps  ->  800 bajada / 800 subida
+      #   wan2  ISP2  1000 /  500 Mbps  ->  800 bajada / 400 subida
+      #
+      # `* 0 +` hereda las etiquetas (wan, direccion, job, instance) de la métrica de Sleipnir,
+      # así que el umbral casa 1:1 con la serie que vigila.
+      - record: wan:slo_throughput_mbps
+        expr: |
+          (wan_throughput_mbps{wan="wan1"}                    * 0 + 800)
+          or (wan_throughput_mbps{wan="wan2", direccion="down"} * 0 + 800)
+          or (wan_throughput_mbps{wan="wan2", direccion="up"}   * 0 + 400)
+
   - name: heimdall_disponibilidad_30d
     interval: 5m
     rules:

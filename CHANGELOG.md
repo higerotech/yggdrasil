@@ -9,6 +9,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+Hallazgos de la revisión completa del appliance del 2026-09-16.
+
+### Cambiado
+- **El SLO de throughput se evalúa contra el 80 % del nominal contratado con cada ISP, por WAN y por dirección.** La regla de Gate 0 siempre fue “el 80 % del nominal”; el “800 Mbps” era ese 80 % bajo la premisa de que ambos proveedores venían 1 Gbps simétrico. El ISP2 es asimétrico 1:0.5 y garantiza el 80 % sobre esa condición, así que la subida de `wan2` contrata 500 Mbps y su umbral es 400. Los cuatro umbrales (`wan1` 800↓/800↑, `wan2` 800↓/400↑) dejan de estar escritos a mano en la alerta y pasan a la recording rule `wan:slo_throughput_mbps`, de modo que un cambio de plan con el proveedor sea un commit trazable. Enmendados con nota de revisión fechada el charter (0.1.3), el glosario (0.1.1) y el PRD (0.1.1), que daban por hecho el nominal simétrico.
+- El techo de memoria de Odín (Grafana) sube de 256 a 512 MB: rozaba el 86 % del suyo (220 MiB) y un OOM kill se lleva por delante el dashboard. La suma de `mem_limit` queda en 1664 MB. No incumple RNF01, que acota la RAM **real** del stack (≤ 1.5 GB) y no la suma de techos: TA-12 midió 406 MiB de media y 554 de pico en 24 h. Aclarado en ADR-0006, la arquitectura, el baseline de configuración y el plan de pruebas, que lo enunciaban de forma ambigua.
+
+### Corregido
+- `WanThroughputBajo` solo vigilaba la bajada (`direccion="down"`), así que una caída de la subida de cualquiera de las dos WAN pasaba inadvertida. Ahora evalúa las dos direcciones.
+
 ## [0.5.0] - 2026-09-09
 
 **Cierre del Gate 3 (Testing).** Heimdall queda verificado sobre el sistema real desplegado en midgard.

@@ -1,6 +1,6 @@
 # Alertas del contrato (tabla "Alertas" en docs/02-design/architecture.md). Umbrales SLO de
 # Gate 0: pérdida < 1 %, p95 < 500 ms (Degradado), p95 < 200 ms (apto_llamadas), throughput
-# ≥ 800 Mbps. Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
+# ≥ 80 % del nominal contratado por WAN y dirección (`wan:slo_throughput_mbps`, recording). Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
 groups:
   - name: heimdall_alertas
     rules:
@@ -39,15 +39,19 @@ groups:
           resumen: "{{ $labels.wan }} no apta para llamadas: p95 > 200 ms o pérdida > 1 %"
 
       # Dos mediciones consecutivas por debajo (cada WAN se mide cada 6 h → for: 12h).
-      # Inhibida en Alertmanager (receptor nulo) hasta calibrar el techo de medición (Gate 3).
+      # Vigila las DOS direcciones: hasta el 2026-09-16 solo miraba la bajada, así que una caída
+      # de la subida de cualquiera de las dos WAN pasaba inadvertida. El umbral no está escrito a
+      # mano: sale de `wan:slo_throughput_mbps`, que codifica el nominal contratado con cada ISP.
       - alert: WanThroughputBajo
-        expr: wan_throughput_mbps{direccion="down"} < 800 and on (wan) wan_throughput_medicion_ok == 1
+        expr: >
+          wan_throughput_mbps < on (wan, direccion) wan:slo_throughput_mbps
+          and on (wan) wan_throughput_medicion_ok == 1
         for: 12h
         labels:
           severity: warning
           servicio: heimdall
         annotations:
-          resumen: "{{ $labels.wan }} bajo el SLO de 800 Mbps: {{ $value | printf \"%.0f\" }} Mbps de bajada"
+          resumen: "{{ $labels.wan }} bajo el SLO de {{ $labels.direccion }}: {{ $value | printf \"%.0f\" }} Mbps"
 
       - alert: SleipnirSinMedicion
         expr: (time() - wan_throughput_ultima_medicion_timestamp_seconds) > 8 * 3600
