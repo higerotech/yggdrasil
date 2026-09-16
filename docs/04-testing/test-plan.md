@@ -140,7 +140,7 @@ requirementDiagram
     }
     requirement RF09 {
       id: RF09
-      text: Throughput contra 800 Mbps tras calibrar
+      text: Throughput contra el 80 por ciento del nominal contratado por WAN y direccion
       risk: medium
       verifymethod: test
     }
@@ -361,8 +361,9 @@ stateDiagram-v2
 *Eje comportamiento · fase 04 · state-transition testing. Transición inválida a comprobar: Caído nunca pasa a Saludable sin Recuperando (el flujo de Nornas lo impide).*
 
 ## Rendimiento y calibración del techo de throughput
-- **RNF01** (TA-12): la suma de `mem_limit` es 1408 MB; se mide el uso real con `docker stats` durante
-  24 h. Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
+- **RNF01** (TA-12): el criterio es la **RAM real del stack** medida con `docker stats` durante 24 h,
+  no la suma de `mem_limit` (techos de contención, no reservas), que es de 1664 MB desde el 2026-09-16.
+  Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
 - **Latencia de alertado** (TA-03/TA-04): el cronómetro arranca al inducir el fallo y termina cuando
   el push llega. Medido en Gate 3: 2 min 18–46 s para la caída y ≈ 6 min para la degradación
   (`for` + detección + lote de Gjallarhorn). **Decisión HITL (Jeremi, 2026-09-08): se aceptan los
@@ -384,7 +385,12 @@ stateDiagram-v2
 | Sleipnir `0.2.1` en producción (v0.4.5), 00:45 UTC del 2026-09-08, `OOKLA_SERVER_ID=51075,49339,56048` | 967 ↓ / 941 ↑ Mbps (máximo de Thundernet 967/779, MDS 965/938, SERVITEL 940/941) | 941 ↓ / 487 ↑ Mbps | Lecturas coherentes con la calibración en ambas WAN; `THROUGHPUT_RECEIVER=nornas` desde las 00:48 UTC (ruta `WanThroughputBajo → nornas` recargada en Gjallarhorn) |
 | CLI de Ookla, segunda muestra, 18:58 UTC (`-I wanN -f json`) | 940 ↓ / 940 ↑ Mbps, ping 7,3 ms, jitter 0,7 ms, 0 % pérdida | 936 ↓ / 487 ↑ Mbps, ping 3,2 ms, jitter 0,2 ms, 0 % pérdida | `wan1` recuperada del todo; `wan2` repite la primera muestra |
 
-- **Techo calibrado ≥ 939 Mbps**: el SLO de 800 Mbps es medible y no hace falta ajustar la regla.
+- **Techo calibrado ≥ 939 Mbps**: el SLO más alto (800 Mbps) es medible y no hace falta ajustar la regla.
+- **Umbral por WAN y dirección (2026-09-16)**: el ISP2 no es simétrico, vende 1:0.5. El SLO de Gate 0
+  es "80 % del nominal", no "800 Mbps": para la subida de wan2 el nominal es 500 y el umbral 400.
+  La regla pasa a comparar contra `wan:slo_throughput_mbps` (wan1 800/800, wan2 800/400) y a vigilar
+  también la subida, que hasta ahora no miraba nadie. Medido en 7 d: wan1 964↓/941↑, wan2 942↓/475↑
+  — las cuatro series en objetivo.
 - **`wan1` a 16 Mbps de bajada** durante la tarde de su caída (13:05 UTC) fue una degradación del ISP1,
   no del equipo: la subida por la misma interfaz daba 940 Mbps y a las 18:58 UTC la bajada volvió a 940.
   Queda como evidencia para el reclamo, junto con la caída de 13:05 a 14:25 UTC.

@@ -3,8 +3,12 @@
 # ADR-0003 (host-mode solo para las sondas). Nombres: servicio = nombre nórdico (naming.md);
 # container_name = tecnología real, para que `docker ps` sea legible por terceros.
 #
-# Presupuesto RNF01 (RAM ≤ 1.5 GB): mem_limit 64 + 128 + 512 + 128 + 256 (Heimdall) + 64 + 256
-# (Ratatosk y Nornas, servicios de plataforma, ADR-0006) = 1408 MB.
+# Presupuesto RNF01 (RAM real del stack ≤ 1.5 GB): el criterio del PRD y de TA-12 es el uso medido
+# con `docker stats`, no la suma de techos. Los `mem_limit` son límites por contenedor, no reservas,
+# y suman 64 + 128 + 512 + 128 + 512 (Heimdall) + 64 + 256 (Ratatosk y Nornas, ADR-0006) = 1664 MB.
+# Uso real medido en 24 h (TA-12): 397 MB de media, 554 MB de pico — un tercio del presupuesto.
+# Odín pasó de 256 a 512 MB el 2026-09-16: rozaba el 86 % de su techo (220 MiB) y un OOM kill
+# se lleva por delante el dashboard y la sesión de Grafana.
 # Puertos publicados, todos solo en la IP LAN (${HOST_LAN_IP}): Odín 3000, Ratatosk 1883 y el editor
 # de Nornas 1880. Las sondas
 # en host-mode escuchan en la IP de docker0 (${DOCKER_HOST_GW}) para que Mimir las scrapee sin
@@ -106,7 +110,7 @@ services:
     <<: *comun
     image: grafana/grafana:12.4.10
     container_name: yggdrasil-grafana
-    mem_limit: 256m
+    mem_limit: 512m                  # 256m dejaba a Odín al 86 % (2026-09-16); ver cabecera
     ports:
       - "${HOST_LAN_IP}:3000:3000"   # RS01: bind explícito a la IP LAN; nunca 0.0.0.0
     environment:

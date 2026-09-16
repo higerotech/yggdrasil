@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi (owner)
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.1.2
+* **Versión:** 0.1.3
 * **Sponsor:** Jeremi
 * **Owner del proyecto:** Jeremi
 * **Nombre confirmado:** Yggdrasil (slug `yggdrasil`)
@@ -58,10 +58,21 @@ mindmap
 - Detección de caída de un ISP en < 2 min con notificación al móvil.
 - Evidencia histórica exportable para reclamos al proveedor (≥ 30 días de retención).
 - Media de disponibilidad mensual de internet del hogar (≥ 1 WAN operativa) y por ISP, calculada automáticamente.
-- Cada ISP sostiene p95 < 500 ms y throughput ≥ 800 Mbps (80 % del nominal); p95 < 200 ms como referencia para llamadas críticas.
+- Cada ISP sostiene p95 < 500 ms y throughput ≥ 80 % del nominal contratado por dirección (wan1 800↓/800↑, wan2 800↓/400↑ — ver revisión al pie); p95 < 200 ms como referencia para llamadas críticas.
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
 - Contención de recursos en el appliance compartido con `nvr-frigate` (Frigate); exige coordinar presupuestos entre proyectos (ADR-0004).
 - Conflicto Docker ↔ nftables con las reglas de routing existentes.
 - Fatiga de alertas por umbrales mal calibrados.
+
+## Revisiones
+
+> **Revisión 2026-09-16 — nominal contratado por dirección.** El SLO de throughput acordado en
+> Gate 0 es *el 80 % del nominal*; el “800 Mbps” era ese 80 % bajo la premisa de que ambos ISP
+> vendían 1 Gbps simétrico. El ISP2 es asimétrico 1:0.5 y garantiza el 80 % sobre esa condición,
+> así que la subida de wan2 contrata 500 Mbps y su umbral es **400**, no 800. La regla de negocio
+> no cambia; se corrige la premisa. Umbrales vigentes: **wan1 800↓/800↑, wan2 800↓/400↑**,
+> codificados en la recording rule `wan:slo_throughput_mbps` en vez de escritos a mano en la
+> alerta. La alerta pasa además a vigilar la subida, que hasta esa fecha no miraba nadie.
+> Confirmado por el owner (Jeremi) el 2026-09-16.

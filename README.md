@@ -18,7 +18,8 @@ Documentación bajo metodología AI-DLC.
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
-críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
+críticas; throughput ≥ 80 % del nominal contratado por WAN y dirección (revisión del 2026-09-16:
+wan1 800↓/800↑, wan2 800↓/400↑, porque el ISP2 es asimétrico 1:0.5); percentiles p90, p95 y p99 por WAN;
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 `https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
