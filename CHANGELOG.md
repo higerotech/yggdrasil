@@ -15,6 +15,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ### Cambiado
 - Las recording rules de las WAN acotan su selector de `job=~"blackbox_icmp_.*"` a `job=~"blackbox_icmp_wan[0-9]+"` (y análogo para `wan:up`). Sin ese cierre, cualquier job de sonda futuro sin etiqueta `wan` se colaría en los `by (wan)` como un grupo `wan=""`.
+### Corregido
+- **`wan-balancer` no reaplicaba nunca la ruta por defecto si el estado de las WAN no cambiaba.** `apply_default` solo corría al cambiar de estado, y como `check()` sondea con `ping -I <ip de la WAN>` —que entra por `ip rule from <ip> lookup wanN` y **nunca toca la tabla `main`**— las dos WAN podían estar sanas con `main` rota, el estado se quedaba en `11` y la ruta no se reparaba jamás. Es la causa raíz de las 7 h sin internet del 2026-09-12 (06:20–13:25 UTC), que solo se arregló al reiniciar el servicio a mano porque al arrancar `up1=-1` fuerza la primera aplicación. Ahora cada vuelta verifica con `main_default_ok` que la ruta corresponde al estado y la reaplica si no; `ip route replace` es idempotente y solo se registra cuando de verdad repara algo.
+
+### Añadido
+- **`wan-watchdog`: guardián de la ruta real de la casa** (timer de systemd, cada minuto). Segunda capa, independiente del balanceador, para lo que el arreglo anterior no puede cubrir: que la ruta exista y apunte bien pero el tráfico no pase, que `wan-balancer` esté colgado (systemd lo revive si muere, no si se cuelga) o que dnsmasq deje de resolver. Sondea la ruta real con `ping` **sin** `-I`, la resolución con `dig @127.0.0.1` y cada WAN por su tabla. Si `main` falla con alguna WAN sana reinicia `wan-balancer`; si la ruta va pero el DNS no, reinicia `dnsmasq`; **si las dos WAN están caídas no toca nada**, porque es un corte aguas arriba. Guardarraíles: `flock`, reintentos antes de declarar el fallo, cooldown de 3 remedios por hora y `--dry-run`/`--estado`. El camino feliz no escribe nada en el journal.
+- **`deploy/host/`**: `wan-balancer.sh` y su unidad entran al repo —llevaban desde el principio solo en el appliance, sin versionar— junto al guardián, sus unidades, un `install-host.sh` idempotente y un README. No lo despliega Compose ni el receptor: es código del router.
+- Complementariedad con `HogarSinRuta`: el guardián remedia en ~20 s y la alerta tarda 2 min en dispararse, así que en el caso normal se arregla antes de avisar. Si la alerta llega igualmente, es que el remedio automático no funcionó — justo cuando quieres que te avisen.
 
 ## [0.5.3] - 2026-09-11
 
