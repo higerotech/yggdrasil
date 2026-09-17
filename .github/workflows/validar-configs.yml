@@ -67,7 +67,7 @@ jobs:
           docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh
 
   secretos:
     name: "Secretos: gitleaks"

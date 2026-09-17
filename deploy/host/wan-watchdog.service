@@ -1,0 +1,23 @@
+# /etc/systemd/system/wan-watchdog.service
+# Guardian de la ruta real de la casa. Lo dispara wan-watchdog.timer.
+[Unit]
+Description=Guardian de la ruta por defecto y del resolutor
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/host/README.md
+After=network-online.target wan-balancer.service dnsmasq.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/wan-watchdog.sh
+# El script ya se autolimita con flock y con su propio cooldown; este tope es el ultimo corte
+# por si un sondeo se queda colgado.
+TimeoutStartSec=120
+# Reinicia wan-balancer y dnsmasq, asi que necesita root. Todo lo demas, restringido.
+User=root
+StateDirectory=wan-watchdog
+RuntimeDirectory=wan-watchdog
+RuntimeDirectoryPreserve=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
