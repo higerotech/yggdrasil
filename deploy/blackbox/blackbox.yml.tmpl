@@ -4,6 +4,10 @@
 # Cada WAN sondea 1.1.1.1 y 8.8.8.8 por ICMP y www.gstatic.com:443 por TCP+TLS. El prober
 # http de blackbox no permite fijar la IP de origen, así que el tercer objetivo (DNS + TLS de
 # extremo a extremo) se valida con el handshake TLS en vez de esperar un HTTP 204.
+#
+# Los módulos `*_hogar` del final NO fijan IP de origen a propósito: ver el comentario que
+# los precede. Se dejan al final porque `ip_anterior()` de render.sh busca el primer
+# `source_ip_address` que sigue a `icmp_wanN:` y no debe tropezar con un módulo sin ella.
 modules:
   icmp_wan1:
     prober: icmp
@@ -36,6 +40,37 @@ modules:
       preferred_ip_protocol: ip4
       ip_protocol_fallback: false
       source_ip_address: "${WAN2_IP}"
+      tls: true
+      tls_config:
+        server_name: www.gstatic.com
+
+  # --- Ruta real de la casa (sin source_ip_address, a propósito) ---
+  #
+  # Los módulos de arriba fijan la IP de origen, así que sus paquetes entran por la regla
+  # `ip rule from <ip> lookup wanN`, una tabla que wan-balancer mantiene con default propio.
+  # Miden la salud de cada ENLACE, y eso es lo que deben medir. Pero significa que ninguna
+  # sonda pasa por la tabla `main`, que es por donde salen la LAN, dnsmasq y los contenedores.
+  #
+  # El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable (dockerd:
+  # "dial udp 1.1.1.1:53: connect: network is unreachable"). La casa estuvo 7 h sin internet
+  # y Heimdall reportó `hogar:up = 1` todo el rato, porque las dos WAN estaban perfectamente
+  # sanas vistas desde sus tablas. Estos dos módulos existen para que eso no vuelva a pasar
+  # inadvertido: salen por donde sale la casa.
+  #
+  # `tls_hogar` cubre además la resolución DNS de extremo a extremo, que es otro punto único
+  # de fallo compartido por ambas WAN y que no se ve en ninguna otra sonda.
+  icmp_hogar:
+    prober: icmp
+    timeout: 5s
+    icmp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+  tls_hogar:
+    prober: tcp
+    timeout: 5s
+    tcp:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
       tls: true
       tls_config:
         server_name: www.gstatic.com

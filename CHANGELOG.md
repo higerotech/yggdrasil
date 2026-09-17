@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Sondas de la ruta real del hogar y alerta `HogarSinRuta`.** Las sondas por WAN fijan IP de origen, así que viajan por las tablas `wan1`/`wan2` que `wan-balancer` mantiene con default propio, y **ninguna pasa por `main`**, que es por donde salen la LAN, dnsmasq y los contenedores. El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable (dockerd: `dial udp 1.1.1.1:53: connect: network is unreachable`): **la casa estuvo 7 h sin internet, `hogar:up` valió 1 todo el rato y no se disparó ninguna alerta**. Se añaden los módulos `icmp_hogar` y `tls_hogar` (sin `source_ip_address`), los jobs `hogar_icmp`/`hogar_tls`, la recording rule `hogar:ruta_up` con el mismo quórum que `wan:up` (2 de 3), su disponibilidad a 30 días y la alerta `HogarSinRuta` (critical, `for: 2m`). Verificado en midgard reproduciendo el fallo con un `blackhole` en `main` para una IP aislada: `icmp_hogar` cayó a 0 mientras `icmp_wan1` e `icmp_wan2` seguían en 1.
+- `hogar:ruta_up` es una serie **nueva**: `hogar:up` y la disponibilidad de 30 días ya reportada en Gate 3 no cambian. RF08 define la disponibilidad del hogar como "el tiempo con al menos una WAN operativa" y `hogar:up` implementa esa definición correctamente; lo que faltaba era medir el otro camino, no corregir el existente.
+
+### Cambiado
+- Las recording rules de las WAN acotan su selector de `job=~"blackbox_icmp_.*"` a `job=~"blackbox_icmp_wan[0-9]+"` (y análogo para `wan:up`). Sin ese cierre, cualquier job de sonda futuro sin etiqueta `wan` se colaría en los `by (wan)` como un grupo `wan=""`.
 ### Corregido
 - **`wan-balancer` no reaplicaba nunca la ruta por defecto si el estado de las WAN no cambiaba.** `apply_default` solo corría al cambiar de estado, y como `check()` sondea con `ping -I <ip de la WAN>` —que entra por `ip rule from <ip> lookup wanN` y **nunca toca la tabla `main`**— las dos WAN podían estar sanas con `main` rota, el estado se quedaba en `11` y la ruta no se reparaba jamás. Es la causa raíz de las 7 h sin internet del 2026-09-12 (06:20–13:25 UTC), que solo se arregló al reiniciar el servicio a mano porque al arrancar `up1=-1` fuerza la primera aplicación. Ahora cada vuelta verifica con `main_default_ok` que la ruta corresponde al estado y la reaplica si no; `ip route replace` es idempotente y solo se registra cuando de verdad repara algo.
 
