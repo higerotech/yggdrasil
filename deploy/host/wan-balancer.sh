@@ -12,7 +12,17 @@ WAN2_IF="wan2"; WAN2_GW="192.168.2.1"; WAN2_TABLE="wan2"; WAN2_W=1
 
 # Clientes anclados: IPs de LAN que siempre salen por una WAN concreta.
 # (La MAC se fija a su IP con dhcp-host en dnsmasq; aqui se enruta la IP.)
-PIN_WAN2_IPS=("192.168.10.21")   # 00:00:C0:39:5D:B3
+#
+# 2026-09-17: retirado el anclaje de 192.168.10.21 (MAC 00:00:C0:39:5D:B3, el NAS).
+# Llevaba tiempo muerto: esa MAC tiene IP fija 192.168.10.30 en el propio NAS, y el
+# pool DHCP empieza en .50, asi que NADIE tenia ni podia tener la .21. La regla
+# "from 192.168.10.21 lookup wan2" existia en el kernel sin coincidir con nada, y el
+# NAS nunca salio por wan2 como el anclaje pretendia. Decision del owner: ya no aplica.
+#
+# OJO al editar: setup_pins solo borra las reglas de las IPs que siguen en estos arrays.
+# Si quitas una IP de aqui, su regla sobrevive en el kernel hasta el proximo arranque;
+# hay que retirarla a mano con `ip rule del from <ip> table <tabla> priority 90`.
+PIN_WAN2_IPS=()
 PIN_WAN1_IPS=()
 PIN_STRICT=0   # 0: si la WAN anclada cae, el cliente vuelve al balanceo general
                # 1: si la WAN anclada cae, el cliente queda sin salida
@@ -30,6 +40,34 @@ log() { logger -t wan-balancer "$*"; }
 
 wan_ip() { ip -4 -o addr show dev "$1" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
 
+# podar_reglas_origen <familia: -4|-6> <tabla> <prioridad> [origenes_vigentes...]
+#
+# Borra las reglas "from X lookup <tabla>" de esa prioridad cuyo X NO este entre los
+# origenes vigentes. No anade nada: de eso se encarga quien la llama.
+#
+# Hace falta porque el borrado puntual de mas abajo (`ip rule del from $ip_actual`) solo
+# alcanza a la IP vigente, nunca a las ANTERIORES. Cada renovacion de DHCP con IP distinta
+# dejaba una regla huerfana viva para siempre. Observado el 2026-09-17: wan2 paso de
+# 192.168.2.8 a .7 al recuperar carrier y quedaron las dos reglas conviviendo. Inofensivo
+# mientras nadie tenga la IP vieja, pero si el ISP se la reasigna a otro equipo de esa
+# red, su trafico se enrutaria por esa WAN sin motivo.
+#
+# Solo toca reglas con selector `from <direccion>` en la prioridad indicada, asi que las
+# de fwmark (95) y los anclajes de clientes (90) quedan intactas. El filtro $3!="all"
+# excluye ademas las reglas "from all ..." por si alguna compartiera prioridad.
+podar_reglas_origen() {
+    local fam="$1" tabla="$2" prio="$3"; shift 3
+    local origen v conservar
+    while read -r origen; do
+        [[ -z "$origen" ]] && continue
+        conservar=0
+        for v in "$@"; do [[ "$origen" == "$v" ]] && { conservar=1; break; }; done
+        [[ $conservar -eq 0 ]] && ip "$fam" rule del from "$origen" table "$tabla" priority "$prio" 2>/dev/null
+    done < <(ip "$fam" rule show 2>/dev/null |
+             awk -v p="${prio}:" -v t="$tabla" '$1==p && $2=="from" && $3!="all" && $NF==t {print $3}')
+    return 0
+}
+
 setup_tables() {
     local ip1 ip2
     ip1=$(wan_ip "$WAN1_IF"); ip2=$(wan_ip "$WAN2_IF")
@@ -43,6 +81,7 @@ setup_tables() {
         ip route replace default via "$WAN1_GW" dev "$WAN1_IF" table "$WAN1_TABLE"
         ip route replace 192.168.1.0/24 dev "$WAN1_IF" table "$WAN1_TABLE"
         ip route replace 192.168.10.0/24 dev lan table "$WAN1_TABLE"
+        podar_reglas_origen -4 "$WAN1_TABLE" 100 "$ip1"
         ip rule del from "$ip1" table "$WAN1_TABLE" 2>/dev/null
         ip rule add from "$ip1" table "$WAN1_TABLE" priority 100
     fi
@@ -50,6 +89,7 @@ setup_tables() {
         ip route replace default via "$WAN2_GW" dev "$WAN2_IF" table "$WAN2_TABLE"
         ip route replace 192.168.2.0/24 dev "$WAN2_IF" table "$WAN2_TABLE"
         ip route replace 192.168.10.0/24 dev lan table "$WAN2_TABLE"
+        podar_reglas_origen -4 "$WAN2_TABLE" 101 "$ip2"
         ip rule del from "$ip2" table "$WAN2_TABLE" 2>/dev/null
         ip rule add from "$ip2" table "$WAN2_TABLE" priority 101
     fi
@@ -64,6 +104,7 @@ setup_tables_v6() {
     # debe salir por wanX (anti-spoofing del ISP). Emparejamos cada prefijo
     # global de lan con su WAN comparando los primeros 32 bits (aggregate del ISP).
     local gw6_1 gw6_2 agg1 agg2 pfx agg
+    local -a pfx_actuales
     gw6_1=$(wan_gw6 "$WAN1_IF"); gw6_2=$(wan_gw6 "$WAN2_IF")
     agg1=$(ip -6 -o addr show dev "$WAN1_IF" scope global 2>/dev/null | awk '{print $4}' | cut -d: -f1-2 | head -n1)
     agg2=$(ip -6 -o addr show dev "$WAN2_IF" scope global 2>/dev/null | awk '{print $4}' | cut -d: -f1-2 | head -n1)
@@ -71,15 +112,29 @@ setup_tables_v6() {
     [[ -n "$gw6_1" ]] && ip -6 route replace default via "$gw6_1" dev "$WAN1_IF" table "$WAN1_TABLE"
     [[ -n "$gw6_2" ]] && ip -6 route replace default via "$gw6_2" dev "$WAN2_IF" table "$WAN2_TABLE"
 
-    while read -r pfx; do
+    # Prefijos globales que lan tiene AHORA. Se calculan una vez para poder podar antes
+    # de reanadir: el prefijo delegado por el ISP cambia cada vez que renueva.
+    mapfile -t pfx_actuales < <(ip -6 -o addr show dev lan scope global 2>/dev/null |
+                                awk '{print $4}' | sed 's|::1/64|::/64|')
+
+    # Barre los prefijos que ya no estan en lan. Sin esto, cada renovacion con prefijo
+    # nuevo dejaba la regla del anterior viva para siempre, igual que en IPv4.
+    podar_reglas_origen -6 "$WAN1_TABLE" 100 "${pfx_actuales[@]}"
+    podar_reglas_origen -6 "$WAN2_TABLE" 101 "${pfx_actuales[@]}"
+
+    for pfx in "${pfx_actuales[@]}"; do
         [[ -z "$pfx" ]] && continue
         agg=$(echo "$pfx" | cut -d: -f1-2)
+        # El `del` previo NO sobra: `ip rule add` admite duplicados, asi que sin el se
+        # acumulaba una regla identica por cada vuelta del bucle (cada 5 s).
         if [[ -n "$agg1" && "$agg" == "$agg1" ]]; then
+            ip -6 rule del from "$pfx" table "$WAN1_TABLE" priority 100 2>/dev/null
             ip -6 rule add from "$pfx" table "$WAN1_TABLE" priority 100 2>/dev/null
         elif [[ -n "$agg2" && "$agg" == "$agg2" ]]; then
+            ip -6 rule del from "$pfx" table "$WAN2_TABLE" priority 101 2>/dev/null
             ip -6 rule add from "$pfx" table "$WAN2_TABLE" priority 101 2>/dev/null
         fi
-    done < <(ip -6 -o addr show dev lan scope global 2>/dev/null | awk '{print $4}' | sed 's|::1/64|::/64|')
+    done
 }
 
 check() {  # check <iface> <target>
