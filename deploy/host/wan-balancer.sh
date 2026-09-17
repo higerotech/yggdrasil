@@ -12,7 +12,17 @@ WAN2_IF="wan2"; WAN2_GW="192.168.2.1"; WAN2_TABLE="wan2"; WAN2_W=1
 
 # Clientes anclados: IPs de LAN que siempre salen por una WAN concreta.
 # (La MAC se fija a su IP con dhcp-host en dnsmasq; aqui se enruta la IP.)
-PIN_WAN2_IPS=("192.168.10.21")   # 00:00:C0:39:5D:B3
+#
+# 2026-09-17: retirado el anclaje de 192.168.10.21 (MAC 00:00:C0:39:5D:B3, el NAS).
+# Llevaba tiempo muerto: esa MAC tiene IP fija 192.168.10.30 en el propio NAS, y el
+# pool DHCP empieza en .50, asi que NADIE tenia ni podia tener la .21. La regla
+# "from 192.168.10.21 lookup wan2" existia en el kernel sin coincidir con nada, y el
+# NAS nunca salio por wan2 como el anclaje pretendia. Decision del owner: ya no aplica.
+#
+# OJO al editar: setup_pins solo borra las reglas de las IPs que siguen en estos arrays.
+# Si quitas una IP de aqui, su regla sobrevive en el kernel hasta el proximo arranque;
+# hay que retirarla a mano con `ip rule del from <ip> table <tabla> priority 90`.
+PIN_WAN2_IPS=()
 PIN_WAN1_IPS=()
 PIN_STRICT=0   # 0: si la WAN anclada cae, el cliente vuelve al balanceo general
                # 1: si la WAN anclada cae, el cliente queda sin salida
