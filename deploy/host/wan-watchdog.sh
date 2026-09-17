@@ -28,6 +28,10 @@
 #      Si `main` va pero el DNS no -> reinicia dnsmasq y reverifica.
 #      Si ambas WAN estan caidas -> NO toca nada: es un corte aguas arriba y reiniciar solo
 #      mete ruido. Lo registra y sale.
+#   5. Reconcilia las sondas de Heimdall: si la IP viva de una WAN ya no coincide con la que
+#      blackbox.yml lleva escrita, re-renderiza y recarga. Este paso corre SIEMPRE, tambien
+#      con todo sano, porque ese desfase se produce justo cuando la ruta y el DNS van bien.
+#      Es opcional: si Yggdrasil no esta desplegado aqui, se salta en silencio.
 #
 # GUARDARRAILES
 #   - flock: nunca dos ejecuciones a la vez.
@@ -70,6 +74,20 @@ DIR_ESTADO="/var/lib/wan-watchdog"
 FICHERO_ESTADO="$DIR_ESTADO/remedios"
 DIR_BLOQUEO="/run/wan-watchdog"        # RuntimeDirectory de la unidad; se crea a mano si se lanza suelto
 BLOQUEO="$DIR_BLOQUEO/lock"
+
+# --- Reconciliacion de las sondas de Heimdall (opcional) ---
+# Las sondas de blackbox llevan la IP de cada WAN FIJA en blackbox.yml, que solo se
+# regenera al desplegar. Si DHCP le cambia la IP a una WAN entre despliegues, sus sondas
+# quedan atadas a una IP que ya no existe y fallan con "bind: Cannot assign requested
+# address" hasta el siguiente despliegue. El 2026-09-17 eso dejo `WanCaida{wan=wan2}`
+# disparada 5 h 18 min siendo falso positivo, con wan2 perfectamente sana.
+#
+# Acoplamiento a proposito flojo: si estos ficheros no existen (appliance sin Yggdrasil),
+# la reconciliacion se salta en silencio y el guardian sigue haciendo su trabajo de router.
+BLACKBOX_YML="${BLACKBOX_YML:-/srv/apps/yggdrasil/deploy/blackbox/blackbox.yml}"
+RENDER_SH="${RENDER_SH:-/srv/apps/yggdrasil/deploy/scripts/render.sh}"
+RENDER_USER="${RENDER_USER:-deploy}"
+BLACKBOX_RELOAD="${BLACKBOX_RELOAD:-http://172.17.0.1:9115/-/reload}"
 
 DRY_RUN="${DRY_RUN:-0}"
 SOLO_ESTADO=0
@@ -159,6 +177,64 @@ reiniciar() {  # reiniciar <servicio...>
     systemctl restart "$@"
 }
 
+# ip_en_blackbox <interfaz>
+# Lee del blackbox.yml renderizado la IP a la que estan atadas las sondas de esa WAN.
+# Mismo metodo que ip_anterior() de render.sh: primer source_ip_address tras "icmp_<wan>:".
+ip_en_blackbox() {
+    awk -v m="icmp_$1:" '$1==m{f=1} f&&/source_ip_address/{gsub(/"/,"",$2); print $2; exit}' \
+        "$BLACKBOX_YML" 2>/dev/null
+}
+
+# reconciliar_sondas
+# Compara la IP viva de cada WAN con la que tiene escrita blackbox.yml y, si difieren,
+# re-renderiza y recarga blackbox.
+#
+# Es el unico chequeo del guardian que corre SIEMPRE, incluso con todo sano: precisamente
+# este fallo ocurre con la ruta y el DNS perfectos, asi que la salida temprana del camino
+# feliz nunca lo alcanzaria.
+#
+# No entra en bucle por construccion: tras re-renderizar las IP coinciden y no vuelve a
+# actuar. Aun asi consume cupo de remedios, para que un render que falle una y otra vez
+# acabe callandose y pidiendo intervencion en vez de reintentar cada minuto para siempre.
+reconciliar_sondas() {
+    [[ -f "$BLACKBOX_YML" && -r "$BLACKBOX_YML" ]] || return 0   # Yggdrasil no esta aqui
+    [[ -f "$RENDER_SH" ]] || return 0
+
+    local iface ip_viva ip_conf desfase=0
+    for iface in "$WAN1_IF" "$WAN2_IF"; do
+        ip_viva=$(ip -4 -o addr show dev "$iface" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
+        ip_conf=$(ip_en_blackbox "$iface")
+        [[ -z "$ip_viva" || -z "$ip_conf" ]] && continue          # WAN caida o modulo ausente
+        if [[ "$ip_viva" != "$ip_conf" ]]; then
+            crit "las sondas de $iface apuntan a $ip_conf pero su IP viva es $ip_viva"
+            desfase=1
+        fi
+    done
+    [[ $desfase -eq 0 ]] && return 0
+
+    if [[ "$DRY_RUN" == 1 ]]; then
+        log "DRY-RUN: re-renderizaria blackbox.yml con las IP vivas"
+        return 0
+    fi
+    if ! hay_cupo; then
+        crit "sondas desfasadas pero se agoto el cupo de remedios; NO se actua"
+        return 1
+    fi
+
+    anotar_remedio
+    log "re-renderizando las sondas con las IP vivas" warning
+    if sudo -u "$RENDER_USER" bash "$RENDER_SH" >/dev/null 2>&1; then
+        curl -fsS -m 10 -X POST "$BLACKBOX_RELOAD" >/dev/null 2>&1 || true
+        local resto=""
+        for iface in "$WAN1_IF" "$WAN2_IF"; do resto+="$iface=$(ip_en_blackbox "$iface") "; done
+        log "sondas reconciliadas ($resto)" warning
+    else
+        crit "fallo el re-render de las sondas ($RENDER_SH). Revisar a mano."
+        return 1
+    fi
+    return 0
+}
+
 # --- Diagnostico -------------------------------------------------------------------------
 
 ruta_ok=1; dns_ok=1; wan1_ok=1; wan2_ok=1
@@ -173,18 +249,32 @@ if [[ $SOLO_ESTADO -eq 1 ]]; then
     echo "$resumen"
     echo "ruta por defecto: $(ip -4 route show default | tr '\n' ' ')"
     echo "remedios en la ultima hora: $(remedios_recientes)/$MAX_REMEDIOS"
+    if [[ -r "$BLACKBOX_YML" ]]; then
+        for _i in "$WAN1_IF" "$WAN2_IF"; do
+            _viva=$(ip -4 -o addr show dev "$_i" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
+            _conf=$(ip_en_blackbox "$_i")
+            printf 'sondas %s: viva=%s config=%s %s\n' "$_i" "${_viva:-?}" "${_conf:-?}" \
+                "$([[ "$_viva" == "$_conf" ]] && echo OK || echo DESFASADAS)"
+        done
+    fi
     [[ $ruta_ok -eq 1 && $dns_ok -eq 1 ]] && exit 0 || exit 1
 fi
 
-# Todo bien: ni una linea en el journal, para que cuando aparezca algo signifique algo.
-if [[ $ruta_ok -eq 1 && $dns_ok -eq 1 ]]; then
-    exit 0
-fi
-
-# Solo una instancia a la vez a partir de aqui.
+# Solo una instancia a la vez a partir de aqui. El bloqueo se toma ANTES de la salida del
+# camino feliz porque reconciliar_sondas corre siempre y puede escribir ficheros.
 mkdir -p "$DIR_BLOQUEO" 2>/dev/null || true
 exec 9>"$BLOQUEO"
 flock -n 9 || { log "otra ejecucion en curso, salgo"; exit 0; }
+
+# Corre SIEMPRE, incluso con la ruta y el DNS perfectos: el desfase de IP de las sondas
+# ocurre exactamente en ese escenario, asi que la salida temprana nunca lo alcanzaria.
+salida_sondas=0
+reconciliar_sondas || salida_sondas=1
+
+# Todo bien: ni una linea en el journal, para que cuando aparezca algo signifique algo.
+if [[ $ruta_ok -eq 1 && $dns_ok -eq 1 ]]; then
+    exit "$salida_sondas"
+fi
 
 # Ambas WAN caidas: corte real aguas arriba. Reiniciar no arregla nada y ensucia el diagnostico.
 if [[ $wan1_ok -eq 0 && $wan2_ok -eq 0 ]]; then
