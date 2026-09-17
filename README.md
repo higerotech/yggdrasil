@@ -14,11 +14,13 @@ Documentación bajo metodología AI-DLC.
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
 | 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
 | 03-implementation | `deploy/` (Compose, configuraciones, Sleipnir, Nornas), baseline de configuración, triaje de CVEs, historial del repo | Gate 2 | approved — v0.3.0 (2026-09-05) |
-| 04-testing | plan de verificación (aceptación, seguridad, rendimiento) sobre el despliegue en midgard | Gate 3 | draft — abierto con v0.4.0 (2026-09-05) |
+| 04-testing | plan de verificación (aceptación, seguridad, rendimiento) sobre el despliegue en midgard | Gate 3 | approved — v0.5.0 (2026-09-09) |
+| 05-deployment | — | Gate 4 | por arrancar |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
-críticas; throughput ≥ 800 Mbps por WAN (80 % del nominal); percentiles p90, p95 y p99 por WAN;
+críticas; throughput ≥ 80 % del nominal contratado por WAN y dirección (revisión del 2026-09-16:
+wan1 800↓/800↑, wan2 800↓/400↑, porque el ISP2 es asimétrico 1:0.5); percentiles p90, p95 y p99 por WAN;
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 `https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
@@ -26,8 +28,11 @@ frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Gate 2 quedó aprob
 artefactos ejecutables de `deploy/`, las imágenes re-pineadas tras el triaje de CVEs y la documentación de
 la fase 03. La `v0.4.0` abre Gate 3: lleva a `main` el despliegue continuo (ADR-0005) y los servicios de
 plataforma Ratatosk y Nornas (ADR-0006), y su primer despliegue en midgard es la primera prueba de
-aceptación. El cierre de Gate 3, con RF01–RF09 verificados sobre el sistema real y el techo de throughput
-calibrado, cortará `0.5.0`.
+aceptación. Gate 3 quedó aprobado el 2026-09-09 y cortado como `v0.5.0`, con RF01–RF09 verificados sobre el
+sistema real, el techo de throughput calibrado en ≥ 939 Mbps y tres desviaciones aceptadas por el
+owner (latencia de alertado medida como SLO, TS-02 con evidencia indirecta y riesgo USB de `wan2`
+con vigilancia). Las `0.5.1` a `0.5.3` son hotfixes posteriores; la `0.5.4` recoge la revisión
+completa del appliance del 2026-09-16/17. Gate 4 (Deployment) está por arrancar.
 
 ## Mapa del repo
 

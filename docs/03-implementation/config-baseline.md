@@ -27,7 +27,7 @@ herramientas oficiales + cadena de suministro verificada + historial versionado*
 | Gjallarhorn (Alertmanager) | `deploy/alertmanager/alertmanager.yml.tmpl` | RF04 |
 | Odín (Grafana) | `deploy/grafana/provisioning/*`, `dashboards/heimdall-sla.json` | RF06, RS01 |
 | Nornas (puente MQTT y push) | `deploy/nornas/src/*.js` → `flows/heimdall-alertas.json` | RF04, RF05 |
-| Presupuesto y arranque | `mem_limit` (1088 MB en total), `restart: unless-stopped` | RNF01, RNF02 |
+| Presupuesto y arranque | `mem_limit` (1664 MB de techo en total; RNF01 acota la RAM real, 554 MB de pico en TA-12), `restart: unless-stopped` | RNF01, RNF02 |
 | Despliegue (ADR-0002) | `deploy/scripts/render.sh`, `deploy/scripts/deploy.sh`, `deploy/.env.example` | — |
 | Cadena de suministro | `deploy/imagenes.md`, `cadena-suministro.md` | A03 |
 
@@ -127,7 +127,7 @@ webhook viaja en cabecera y el `alertmanager.yml` renderizado queda en 0644 dent
 de despliegue con permisos restringidos (`deploy/README.md`).
 
 ## Riesgos abiertos que entran al Gate 3
-- **Techo de medición de throughput.** El SLO de 800 Mbps está cerca del límite de la cadena USB 3.0
+- **Techo de medición de throughput.** El SLO más alto (800 Mbps) está cerca del límite de la cadena USB 3.0
   y de la CPU del i3-3240; `WanThroughputBajo` nace inhibida (receptor nulo) hasta calibrarlo.
 - **Cambio de IP de las WAN.** `render.sh` debe engancharse al hook DHCP del proyecto de routing; si
   no, las sondas seguirían saliendo por la IP antigua.

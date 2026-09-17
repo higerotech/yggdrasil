@@ -9,6 +9,38 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.4] - 2026-09-17
+
+**Resultado de la revisión completa del appliance del 2026-09-16/17.** Dos puntos ciegos de
+monitorización, la causa raíz de un corte de 7 h y la corrección de una premisa errónea del SLO
+de throughput.
+
+> **Nota de versionado.** Se corta como *patch* aunque añade funcionalidad —sondas nuevas, una
+> alerta nueva y un servicio de systemd nuevo—, que por SemVer estricto sería un *minor*.
+> Decisión del owner (2026-09-17) para no gastar el `0.6.0`, que el proyecto reserva al cierre
+> de Gate 4 por el mapeo gate→minor. Queda anotado aquí para que la desviación sea deliberada
+> y no un descuido.
+
+### Añadido
+- **Sondas de la ruta real del hogar y alerta `HogarSinRuta`.** Las sondas por WAN fijan IP de origen, así que viajan por las tablas `wan1`/`wan2` que `wan-balancer` mantiene con default propio, y **ninguna pasa por `main`**, que es por donde salen la LAN, dnsmasq y los contenedores. El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable (dockerd: `dial udp 1.1.1.1:53: connect: network is unreachable`): **la casa estuvo 7 h sin internet, `hogar:up` valió 1 todo el rato y no se disparó ninguna alerta**. Se añaden los módulos `icmp_hogar` y `tls_hogar` (sin `source_ip_address`), los jobs `hogar_icmp`/`hogar_tls`, la recording rule `hogar:ruta_up` con el mismo quórum que `wan:up` (2 de 3), su disponibilidad a 30 días y la alerta `HogarSinRuta` (critical, `for: 2m`). Verificado en midgard reproduciendo el fallo con un `blackhole` en `main` para una IP aislada: `icmp_hogar` cayó a 0 mientras `icmp_wan1` e `icmp_wan2` seguían en 1.
+- `hogar:ruta_up` es una serie **nueva**: `hogar:up` y la disponibilidad de 30 días ya reportada en Gate 3 no cambian. RF08 define la disponibilidad del hogar como "el tiempo con al menos una WAN operativa" y `hogar:up` implementa esa definición correctamente; lo que faltaba era medir el otro camino, no corregir el existente.
+- **`wan-watchdog`: guardián de la ruta real de la casa** (timer de systemd, cada minuto). Segunda capa, independiente del balanceador, para lo que el arreglo de `wan-balancer` no puede cubrir: que la ruta exista y apunte bien pero el tráfico no pase, que `wan-balancer` esté colgado (systemd lo revive si muere, no si se cuelga) o que dnsmasq deje de resolver. Sondea la ruta real con `ping` **sin** `-I`, la resolución con `dig @127.0.0.1` y cada WAN por su tabla. Si `main` falla con alguna WAN sana reinicia `wan-balancer`; si la ruta va pero el DNS no, reinicia `dnsmasq`; **si las dos WAN están caídas no toca nada**, porque es un corte aguas arriba. Guardarraíles: `flock`, reintentos antes de declarar el fallo, cooldown de 3 remedios por hora y `--dry-run`/`--estado`. El camino feliz no escribe nada en el journal.
+- **`deploy/host/`**: `wan-balancer.sh` y su unidad entran al repo —llevaban desde el principio solo en el appliance, sin versionar— junto al guardián, sus unidades, un `install-host.sh` idempotente y un README. No lo despliega Compose ni el receptor: es código del router.
+- El guardián y `HogarSinRuta` son complementarios, no redundantes: el guardián remedia en ~20 s y la alerta tarda 2 min en dispararse, así que en el caso normal se arregla antes de avisar. Si la alerta llega igualmente, es que el remedio automático no funcionó — justo cuando quieres que te avisen.
+
+### Cambiado
+- **El SLO de throughput se evalúa contra el 80 % del nominal contratado con cada ISP, por WAN y por dirección.** La regla de Gate 0 siempre fue "el 80 % del nominal"; el "800 Mbps" era ese 80 % bajo la premisa de que ambos proveedores vendían 1 Gbps simétrico. El ISP2 es asimétrico 1:0.5 y garantiza el 80 % sobre esa condición, así que la subida de `wan2` contrata 500 Mbps y su umbral es 400. Los cuatro umbrales (`wan1` 800↓/800↑, `wan2` 800↓/400↑) dejan de estar escritos a mano en la alerta y pasan a la recording rule `wan:slo_throughput_mbps`, de modo que un cambio de plan con el proveedor sea un commit trazable. Enmendados con nota de revisión fechada el charter (0.1.3), el glosario (0.1.1) y el PRD (0.1.1), que daban por hecho el nominal simétrico. Medido en 7 d: wan1 964↓/941↑, wan2 942↓/475↑ — las cuatro series en objetivo.
+- El techo de memoria de Odín (Grafana) sube de 256 a 512 MB: rozaba el 86 % del suyo (220 MiB) y un OOM kill se lleva por delante el dashboard. La suma de `mem_limit` queda en 1664 MB. No incumple RNF01, que acota la RAM **real** del stack (≤ 1.5 GB) y no la suma de techos: TA-12 midió 406 MiB de media y 554 de pico en 24 h. Aclarado en ADR-0006, la arquitectura, el baseline de configuración y el plan de pruebas, que lo enunciaban de forma ambigua.
+- Las recording rules de las WAN acotan su selector de `job=~"blackbox_icmp_.*"` a `job=~"blackbox_icmp_wan[0-9]+"` (y análogo para `wan:up`). Sin ese cierre, cualquier job de sonda futuro sin etiqueta `wan` se colaría en los `by (wan)` como un grupo `wan=""`.
+- El paso de ShellCheck del CI enumera los ficheros a mano: se añaden los tres de `deploy/host/`. Es la misma trampa que la 0.5.1 anotó con `promtool check rules`.
+
+### Corregido
+- **`wan-balancer` no reaplicaba nunca la ruta por defecto si el estado de las WAN no cambiaba.** `apply_default` solo corría al cambiar de estado, y como `check()` sondea con `ping -I <ip de la WAN>` —que entra por `ip rule from <ip> lookup wanN` y **nunca toca la tabla `main`**— las dos WAN podían estar sanas con `main` rota, el estado se quedaba en `11` y la ruta no se reparaba jamás. Es la causa raíz de las 7 h sin internet del 2026-09-12, que solo se arregló al reiniciar el servicio a mano porque al arrancar `up1=-1` fuerza la primera aplicación. Ahora cada vuelta verifica con `main_default_ok` que la ruta corresponde al estado y la reaplica si no; `ip route replace` es idempotente y solo se registra cuando de verdad repara algo.
+- **`WanThroughputBajo` solo vigilaba la bajada** (`direccion="down"`), así que una caída de la subida de cualquiera de las dos WAN pasaba inadvertida. Ahora evalúa las dos direcciones.
+
+### Diagnosticado, pendiente de arreglo
+- **Una renovación de DHCP deja las sondas de esa WAN ciegas hasta el siguiente despliegue.** El 2026-09-17 wan2 cayó de verdad a las 14:48 UTC y al recuperar carrier DHCP le dio `192.168.2.7` en vez de `.8`. `wan-balancer` siguió el cambio (usa `wan_ip` dinámico) y la reincorporó al multipath a las 18:57, pero `blackbox.yml` lleva la IP fija renderizada por `render.sh`, que solo corre al desplegar: las sondas siguieron atándose a `.8` con `bind: Cannot assign requested address`. Resultado: **`WanCaida{wan=wan2}` encallada 5 h 18 min siendo falso positivo**, con wan2 sana. Resuelto en caliente con un re-render y recarga de blackbox; el arreglo de fondo —reconciliar la IP de forma continua, no solo al desplegar— queda pendiente.
+
 ## [0.5.3] - 2026-09-11
 
 **Fenrir sale del appliance.** `midgard` queda como router y balanceador multi-WAN, y la plataforma deja de integrar el NVR. La decisión es de rendimiento y está medida, no intuida: sobre 24 h el appliance promedió **45,7 % de CPU con picos del 96,5 %**, y Frigate solo consumía **135 % de un núcleo — el 33,8 % de la máquina**, con el detector aportando ~30 de esos puntos. Es del orden de **tres cuartas partes de toda la carga** para un servicio que no es la función principal del equipo. Sin él, la media esperada baja al entorno del 12 %.

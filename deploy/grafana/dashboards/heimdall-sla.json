@@ -410,7 +410,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Throughput por WAN (Mbps) · SLO ≥ 800",
+      "title": "Throughput por WAN (Mbps) · SLO = 80 % del nominal contratado",
       "datasource": {
         "type": "prometheus",
         "uid": "mimir"

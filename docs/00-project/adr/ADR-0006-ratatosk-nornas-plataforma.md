@@ -48,10 +48,14 @@ servicios de plataforma en su propio Compose, en midgard:
 ## Consecuencias
 - Positivas: RF05 y las notificaciones dejan de depender de un servicio inexistente; T3 pasa de
   "control heredado" a control propio con ACL; una credencial por cliente; provisión automática.
-- Negativas / deuda asumida: RNF01 sube de 1088 a 1408 MB (dentro de 1.5 GB); dos imágenes más en el
+- Negativas / deuda asumida: la suma de `mem_limit` sube de 1088 a 1408 MB (dentro de 1.5 GB); dos imágenes más en el
   informe de Trivy; el editor de Node-RED es una superficie nueva en la LAN (autenticada); instalar
   nodos desde la paleta queda permitido a administradores (riesgo aceptado, revisable); las versiones
   nuevas del flujo de Heimdall requieren borrar la pestaña y relanzar `nornas-init`.
+  - *Revisión 2026-09-16*: el techo de Odín sube de 256 a 512 MB y la suma de `mem_limit` queda en
+    1664 MB. No incumple RNF01: el requisito acota la **RAM real del stack** (≤ 1.5 GB), que TA-12
+    midió en 397 MB de media y 554 MB de pico durante 24 h. Los `mem_limit` son techos de contención
+    frente a fugas, no reservas, y sobredimensionarlos no consume memoria.
 - Impacto en threat model: filas nuevas para Node-RED (editor) y actualización de la fila MQTT y de
   T3; el webhook T4 deja de cruzar el host.
 - Impacto en `nvr-frigate`: puede consumir Ratatosk (`frigate/#`) y retirar su broker; hasta entonces

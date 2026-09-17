@@ -11,24 +11,57 @@ groups:
       # Un objetivo caído del todo (`> 0` lo excluye) no es pérdida del enlace: TA-05 mostró que con la
       # media simple un solo objetivo bloqueado daba 50 % y disparaba WanDegradada y WanNoAptaLlamadas.
       - record: wan:perdida_pct:5m
-        expr: 100 * (1 - avg by (wan) (avg_over_time(probe_success{job=~"blackbox_icmp_.*"}[5m]) > 0))
+        expr: 100 * (1 - avg by (wan) (avg_over_time(probe_success{job=~"blackbox_icmp_wan[0-9]+"}[5m]) > 0))
 
       - record: wan:latencia_p90:5m
-        expr: avg by (wan) (quantile_over_time(0.90, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+        expr: avg by (wan) (quantile_over_time(0.90, probe_icmp_duration_seconds{job=~"blackbox_icmp_wan[0-9]+", phase="rtt"}[5m]))
       - record: wan:latencia_p95:5m
-        expr: avg by (wan) (quantile_over_time(0.95, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+        expr: avg by (wan) (quantile_over_time(0.95, probe_icmp_duration_seconds{job=~"blackbox_icmp_wan[0-9]+", phase="rtt"}[5m]))
       - record: wan:latencia_p99:5m
-        expr: avg by (wan) (quantile_over_time(0.99, probe_icmp_duration_seconds{job=~"blackbox_icmp_.*", phase="rtt"}[5m]))
+        expr: avg by (wan) (quantile_over_time(0.99, probe_icmp_duration_seconds{job=~"blackbox_icmp_wan[0-9]+", phase="rtt"}[5m]))
 
       # Quórum RF01: la WAN está arriba si responden ≥ 2 de sus 3 objetivos (2 ICMP + 1 TLS).
       - record: wan:up
-        expr: (sum by (wan) (probe_success{job=~"blackbox_(icmp|tls)_.*"}) >= bool 2)
+        expr: (sum by (wan) (probe_success{job=~"blackbox_(icmp|tls)_wan[0-9]+"}) >= bool 2)
       - record: hogar:up
         expr: max(wan:up)
+
+      # RF08 define la disponibilidad del hogar como "el tiempo con al menos una WAN
+      # operativa" (glosario), y `hogar:up` implementa esa definición. Lo que la definición
+      # no cubre es que la casa salga de verdad: las sondas por WAN fijan IP de origen y
+      # viajan por las tablas `wan1`/`wan2`, nunca por `main`, que es por donde salen la LAN,
+      # dnsmasq y los contenedores. El 2026-09-12 `main` estuvo 7 h sin ruta utilizable con
+      # las dos WAN sanas, y `hogar:up` valió 1 durante todo el corte.
+      #
+      # `hogar:ruta_up` mide ese otro camino con el mismo quórum que `wan:up`: 2 de 3
+      # objetivos (2 ICMP + 1 TLS). Es una serie nueva; no sustituye a `hogar:up` ni altera
+      # la disponibilidad de 30 días ya reportada en Gate 3.
+      - record: hogar:ruta_up
+        expr: (sum(probe_success{job=~"hogar_(icmp|tls)"}) >= bool 2)
 
       # Apta para llamadas: p95 < 200 ms y pérdida < 1 % (indicador ortogonal al estado).
       - record: wan:apto_llamadas
         expr: (wan:latencia_p95:5m < bool 0.2) * on (wan) (wan:perdida_pct:5m < bool 1)
+
+  - name: heimdall_slo_throughput
+    interval: 5m
+    rules:
+      # SLO de throughput = 80 % del nominal CONTRATADO con cada ISP (decisión de Gate 0).
+      # El 800 Mbps de Gate 0 sale de suponer 1 Gbps simétrico; no es el umbral, es un caso
+      # particular de la regla. El ISP2 vende 1:0.5, así que su subida contrata 500 Mbps y su
+      # umbral es 400, no 800. Codificarlo aquí evita que el contrato viva solo en la cabeza de
+      # quien opera y hace que un cambio de plan sea un commit trazable.
+      #
+      #   wan1  ISP1  1000 / 1000 Mbps  ->  800 bajada / 800 subida
+      #   wan2  ISP2  1000 /  500 Mbps  ->  800 bajada / 400 subida
+      #
+      # `* 0 +` hereda las etiquetas (wan, direccion, job, instance) de la métrica de Sleipnir,
+      # así que el umbral casa 1:1 con la serie que vigila.
+      - record: wan:slo_throughput_mbps
+        expr: |
+          (wan_throughput_mbps{wan="wan1"}                    * 0 + 800)
+          or (wan_throughput_mbps{wan="wan2", direccion="down"} * 0 + 800)
+          or (wan_throughput_mbps{wan="wan2", direccion="up"}   * 0 + 400)
 
   - name: heimdall_disponibilidad_30d
     interval: 5m
@@ -37,3 +70,5 @@ groups:
         expr: avg_over_time(wan:up[30d])
       - record: hogar:disponibilidad:30d
         expr: avg_over_time(hogar:up[30d])
+      - record: hogar:ruta_disponibilidad:30d
+        expr: avg_over_time(hogar:ruta_up[30d])
