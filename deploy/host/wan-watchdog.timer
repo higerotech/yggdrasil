@@ -1,0 +1,18 @@
+# /etc/systemd/system/wan-watchdog.timer
+# Cada minuto. El camino feliz no escribe nada en el journal ni hace ningun cambio: son
+# cuatro sondeos que terminan en menos de un segundo.
+#
+# OnBootSec da margen a que la enumeracion USB de wan1/wan2 termine y a que wan-balancer
+# aplique su primera ruta. Arrancar antes daria un falso positivo en cada reinicio.
+[Unit]
+Description=Comprueba cada minuto que la casa sale a internet
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/host/README.md
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=wan-watchdog.service
+
+[Install]
+WantedBy=timers.target
