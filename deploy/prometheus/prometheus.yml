@@ -104,15 +104,3 @@ scrape_configs:
       - targets: ["www.gstatic.com:443"]
         labels: {sonda: tls, camino: hogar}
     relabel_configs: *sonda_relabel
-
-  # --- Bragi (Jellyfin), repo higerotech/bragi — ADR-0009 de Bragi ---
-  # Copia de bragi/deploy/prometheus/bragi-job.yml: la especificación y sus pruebas viven allí.
-  # bragi-metricas solo escucha en la red heimdall; el puerto 9470 no se publica.
-  - job_name: bragi
-    scrape_interval: 30s
-    metrics_path: /bragi.prom
-    # busybox httpd no envia Content-Type y Prometheus 3 rechaza el scrape sin este respaldo
-    # (mismo caso que Sleipnir).
-    fallback_scrape_protocol: PrometheusText0.0.4
-    static_configs:
-      - targets: ["bragi-metricas:9470"]
