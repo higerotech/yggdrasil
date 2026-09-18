@@ -31,8 +31,8 @@ plataforma Ratatosk y Nornas (ADR-0006), y su primer despliegue en midgard es la
 aceptación. Gate 3 quedó aprobado el 2026-09-09 y cortado como `v0.5.0`, con RF01–RF09 verificados sobre el
 sistema real, el techo de throughput calibrado en ≥ 939 Mbps y tres desviaciones aceptadas por el
 owner (latencia de alertado medida como SLO, TS-02 con evidencia indirecta y riesgo USB de `wan2`
-con vigilancia). Las `0.5.1` a `0.5.3` son hotfixes posteriores; la `0.5.4` recoge la revisión
-completa del appliance del 2026-09-16/17. Gate 4 (Deployment) está por arrancar.
+con vigilancia). Las `0.5.1` a `0.5.3` son hotfixes posteriores; la `0.5.4` y la `0.5.5` recogen la
+revisión completa del appliance del 2026-09-16/18. Gate 4 (Deployment) está por arrancar.
 
 ## Mapa del repo
 

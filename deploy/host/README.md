@@ -35,6 +35,7 @@ exista y apunte bien pero el tráfico no pase igualmente, que el propio `wan-bal
 | Ruta real | `ping` **sin** `-I` | que la casa no sale por `main` |
 | Resolución | `dig @127.0.0.1 www.gstatic.com` | dnsmasq atascado |
 | Cada WAN | `ping -I <ip>` | si el problema es del ISP, para no remediar en balde |
+| Sondas de Heimdall | IP viva vs. `blackbox.yml` | que una renovación de DHCP dejó las sondas ciegas |
 
 Decisión: `main` rota con al menos una WAN sana → reinicia `wan-balancer` y reverifica. `main` bien
 pero DNS caído → reinicia `dnsmasq` y reverifica. **Las dos WAN caídas → no toca nada**: es un corte
@@ -42,6 +43,23 @@ aguas arriba y reiniciar solo mete ruido.
 
 Guardarraíles: `flock`, reintentos antes de declarar el fallo, y un cooldown de **3 remedios por
 hora** — si se supera, registra crítico y *no* actúa, para no entrar en un bucle de reinicios.
+
+**3. Reconciliación de las sondas de Heimdall.** Las sondas de blackbox llevan la IP de cada WAN
+*fija* en `blackbox.yml`, que solo se regenera al desplegar. Si DHCP le cambia la IP a una WAN entre
+despliegues, sus sondas quedan atadas a una dirección que ya no existe y fallan con
+`bind: Cannot assign requested address` **hasta el siguiente despliegue**. El 2026-09-17 eso mantuvo
+`WanCaida{wan=wan2}` disparada **5 h 18 min siendo falso positivo**, con wan2 perfectamente sana:
+`wan-balancer` siguió el cambio de IP porque la lee en vivo, pero las sondas no.
+
+El guardián compara cada minuto la IP viva de cada WAN con la que tiene escrita `blackbox.yml` y,
+si difieren, ejecuta `render.sh` como el usuario `deploy` y recarga blackbox. **Este paso corre
+siempre, incluso con la ruta y el DNS perfectos**, porque ese desfase se produce exactamente en ese
+escenario y la salida temprana del camino feliz nunca lo alcanzaría.
+
+El acoplamiento con Yggdrasil es deliberadamente flojo: las rutas salen por variables de entorno
+(`BLACKBOX_YML`, `RENDER_SH`, `RENDER_USER`) y, si los ficheros no existen, la reconciliación se
+salta en silencio. Un appliance sin Yggdrasil sigue teniendo un guardián de router perfectamente
+funcional.
 
 ## Relación con la alerta `HogarSinRuta`
 
