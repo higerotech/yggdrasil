@@ -9,6 +9,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Bragi** reservado en `naming.md` para el servidor de medios Jellyfin, que vive en su propio repositorio (`higerotech/bragi`) por el mismo motivo que Fenrir: presupuesto de recursos y ciclo de vida propios.
+
 ## [0.5.5] - 2026-09-18
 
 **Reglas de enrutamiento y sondas que se reconcilian solas.** Continúa la revisión del appliance
