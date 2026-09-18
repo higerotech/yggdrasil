@@ -9,6 +9,24 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.5] - 2026-09-18
+
+**Reglas de enrutamiento y sondas que se reconcilian solas.** Continúa la revisión del appliance
+iniciada en la `0.5.4`, cerrando los casos restantes del mismo patrón: configuración que se aplica
+una vez y nunca vuelve a comprobarse.
+
+### Corregido
+- **`wan-balancer` dejaba reglas de origen huérfanas en cada renovación de DHCP.** `setup_tables` borraba solo la regla de la IP **vigente** antes de reañadirla, así que las de IPs anteriores sobrevivían indefinidamente. Ocurrió el 2026-09-17: wan2 pasó de `192.168.2.8` a `.7` al recuperar carrier y las dos reglas quedaron conviviendo. Inofensivo mientras nadie tenga la IP vieja, pero si el ISP se la reasigna a otro equipo de esa red su tráfico saldría por esa WAN sin motivo, y se acumula una por renovación. `podar_reglas_origen` barre las reglas `from X lookup <tabla>` de una prioridad cuyo `X` ya no esté vigente; solo mira reglas con selector `from <dirección>`, de modo que las de `fwmark` (95) y los anclajes de clientes (90) quedan intactas.
+- **IPv6 estaba peor: `setup_tables_v6` solo añadía reglas, nunca borraba.** Como `ip rule add` admite duplicados, se habría acumulado una regla idéntica **por cada vuelta del bucle, es decir cada 5 s**. Estaba dormido porque netplan lleva `dhcp6: false` y `accept-ra: false`, pero la bomba estaba puesta para el día que se active IPv6. Ahora calcula los prefijos vigentes una vez, poda los que ya no están en `lan` y borra antes de añadir.
+- **Se retira el anclaje muerto de `192.168.10.21` a wan2.** Apuntaba a la MAC del NAS, pero esa MAC tiene IP fija configurada en el propio equipo (`dhcp_enable=0`, `192.168.10.30/24`) y el pool DHCP empieza en `.50`, así que **nadie tenía ni podía tener la `.21`**. La regla existía en el kernel sin coincidir con un solo paquete y el NAS nunca salió por wan2 como el anclaje pretendía. Decisión del owner: ya no aplica.
+
+### Añadido
+- **El guardián reconcilia la IP de las sondas de Heimdall.** Las sondas de blackbox llevan la IP de cada WAN **fija** en `blackbox.yml`, que solo se regenera al desplegar. Si DHCP le cambia la IP a una WAN entre despliegues, sus sondas quedan atadas a una dirección que ya no existe y fallan con `bind: Cannot assign requested address` **hasta el siguiente despliegue**; `wan-balancer` no se entera del problema porque él lee la IP en vivo. El 2026-09-17 eso mantuvo **`WanCaida{wan=wan2}` disparada 5 h 18 min siendo falso positivo**, con wan2 perfectamente sana. `reconciliar_sondas` compara cada minuto la IP viva de cada WAN con la escrita en `blackbox.yml` y, si difieren, ejecuta `render.sh` y recarga blackbox. **Corre siempre, también con la ruta y el DNS perfectos**, porque ese desfase se produce justo en ese escenario y la salida temprana del camino feliz nunca lo alcanzaría; por eso el `flock` pasa a tomarse antes de esa salida.
+- `wan-watchdog.sh --estado` muestra ahora, por WAN, la IP viva frente a la de la configuración.
+
+### Nota de operación
+- El acoplamiento del guardián con Yggdrasil es deliberadamente flojo: las rutas salen por variables de entorno (`BLACKBOX_YML`, `RENDER_SH`, `RENDER_USER`) y, si los ficheros no existen, la reconciliación se salta en silencio. Aun así, `deploy/host/` es código de router que ahora conoce la disposición de Yggdrasil; lo correcto por ADR-0004 sería un temporizador propio del lado de Yggdrasil. Queda anotado como deuda consciente.
+
 ## [0.5.4] - 2026-09-17
 
 **Resultado de la revisión completa del appliance del 2026-09-16/17.** Dos puntos ciegos de
