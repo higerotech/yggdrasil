@@ -10,6 +10,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
 ### Añadido
+- **Observabilidad de Bragi en Heimdall** (ADR-0009 de `higerotech/bragi`): job `bragi` contra
+  `bragi-metricas:9470` por la red `heimdall`, sin puertos publicados, y `rules/bragi-alertas.yml`
+  con 8 alertas (caída en LAN y desde fuera, métricas ausentes, respaldo atrasado, transcodes,
+  CPU anómala, memoria, y transcode coincidente con una WAN degradada). La especificación y sus
+  pruebas unitarias viven en Bragi; aquí va una copia. Sin etiqueta `wan`, Nornas las entrega
+  como aviso push sin cambios.
 - **Bragi** reservado en `naming.md` para el servidor de medios Jellyfin, que vive en su propio repositorio (`higerotech/bragi`) por el mismo motivo que Fenrir: presupuesto de recursos y ciclo de vida propios.
 
 ## [0.5.5] - 2026-09-18
