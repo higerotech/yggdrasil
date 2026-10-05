@@ -1,0 +1,16 @@
+[Unit]
+Description=Yggdrasil: respaldo de datos y despliegue al NAS
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+Requires=docker.service
+After=docker.service network-online.target remote-fs.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/yggdrasil-respaldar.sh
+Nice=10
+# best-effort y no idle: con idle, otra E/S del disco alargaria el tiempo que Mimir y Odin
+# pasan congelados.
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=1800

@@ -1,0 +1,14 @@
+[Unit]
+Description=Yggdrasil: respaldo nocturno
+
+[Timer]
+# Hora de la CASA (el host va en UTC): 22:30 = 02:30 UTC. Queda entre el test SMART corto
+# (02:00 UTC) y el largo de los sabados (03:00 UTC), y antes de las tareas pesadas de Bragi
+# (01:00-06:00 hora de la casa) y de su respaldo (05:30).
+OnCalendar=*-*-* 22:30 America/Caracas
+RandomizedDelaySec=10min
+# Sin UPS: si un apagon se come la ventana, el respaldo corre al volver.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

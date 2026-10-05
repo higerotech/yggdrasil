@@ -75,6 +75,13 @@ install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-arranque.service" /etc/systemd/sys
 systemctl daemon-reload
 systemctl enable yggdrasil-arranque.service >/dev/null 2>&1 && echo "   yggdrasil-arranque.service habilitada"
 
+echo "== 5c. Respaldo nocturno al NAS (/mnt/nas/respaldos/yggdrasil, 14 días)"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-respaldar.sh" /usr/local/sbin/yggdrasil-respaldar.sh
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-respaldo.service" /etc/systemd/system/yggdrasil-respaldo.service
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-respaldo.timer" /etc/systemd/system/yggdrasil-respaldo.timer
+systemctl daemon-reload
+systemctl enable --now yggdrasil-respaldo.timer >/dev/null 2>&1 && echo "   yggdrasil-respaldo.timer habilitado"
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

@@ -109,3 +109,38 @@ el arranque los servicios de un solo uso `sync-host` y `sync-net`, que necesitan
 
 Comprobación: `systemctl is-enabled yggdrasil-arranque` y, tras un reinicio,
 `systemctl status yggdrasil-arranque` más `docker compose -p yggdrasil ps`.
+
+## Respaldo nocturno
+
+`bootstrap-midgard.sh` instala `yggdrasil-respaldar.sh` y `yggdrasil-respaldo.timer`. Cada noche,
+a las 22:30 hora de la casa (02:30 UTC, `Persistent=true` por los apagones), deja en el NAS
+`/mnt/nas/respaldos/yggdrasil/yggdrasil-<UTC>.tar.gz`, con su `.sha256`, y conserva los **14** más
+recientes. El volumen ronda los 225 MB.
+
+| Contenido del archivo | Origen |
+|---|---|
+| `volumenes/<volumen>.tar` | los seis volúmenes `yggdrasil_*` |
+| `despliegue.tar` | `/srv/apps/yggdrasil/deploy`, **con `.env` y la configuración renderizada** |
+| `yggdrasil.json` | etiqueta desplegada según el receptor |
+| `host/host.tar` | nftables, sysctl, netplan, `apps.yml` y las unidades y scripts de WAN y Yggdrasil |
+
+Mimir y Odin se congelan con `docker pause` unos 5 s mientras se copian a disco local, para que la
+TSDB y la SQLite queden consistentes. Ratatosk y Nornas se copian en caliente: congelarlos marca su
+healthcheck como `unhealthy` durante varios minutos. La copia en el NAS se verifica contra la suma, y
+la retención no borra nada si la subida del día no está verificada. El último éxito queda en
+`/var/lib/yggdrasil-respaldo/ultimo-exito` (epoch).
+
+El archivo lleva secretos. El NAS fuerza el propietario de todo lo que se escribe, así que la
+protección es el modo (directorio 700, ficheros 600) y que el export `respaldos` solo admite a
+midgard.
+
+Comprobación: `systemctl list-timers yggdrasil-respaldo.timer` y
+`journalctl -u yggdrasil-respaldo -n 20`. A mano: `sudo systemctl start yggdrasil-respaldo`.
+
+Restauración, con el stack parado (`docker compose -p yggdrasil stop`):
+
+```bash
+tar -xzf yggdrasil-<UTC>.tar.gz          # deja r/
+tar -C /var/lib/docker/volumes/yggdrasil_mimir-datos/_data --numeric-owner -xpf r/volumenes/mimir-datos.tar
+# ...igual con cada volumen; despliegue.tar va en /srv/apps/yggdrasil
+```
