@@ -10,6 +10,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
 ### Añadido
+- **Nornas publica las alertas en ntfy.** La salida push del flujo era un nodo `debug` también en
+  producción: ninguna alerta de Heimdall llegaba a un teléfono. Ahora publica en el tema de
+  `NTFY_URL` (vacía = sin push) por la API JSON de ntfy, que conserva las tildes de los títulos.
+  Prioridad según la severidad (`critical` 4, `warning` 3) y la recuperación en 2.
+- **Pruebas del flujo de Nornas** (`deploy/nornas/tests/`, `node --test` en el CI): avisos únicos,
+  resoluciones, contrato MQTT de `WanCaida` y formato de ntfy, sin filtrar el tema.
+
 - **Avisos por ntfy del respaldo nocturno.** Push inmediato si el respaldo falla (`OnFailure=`) y
   un vigía a las 08:00 hora de la casa que avisa si el último éxito tiene más de 26 h, para cubrir
   un temporizador que no se dispara. Va directo del host a ntfy, con el mismo tema que los avisos
@@ -28,6 +35,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   pruebas unitarias viven en Bragi; aquí va una copia. Sin etiqueta `wan`, Nornas las entrega
   como aviso push sin cambios.
 - **Bragi** reservado en `naming.md` para el servidor de medios Jellyfin, que vive en su propio repositorio (`higerotech/bragi`) por el mismo motivo que Fenrir: presupuesto de recursos y ciclo de vida propios.
+
+### Cambiado
+- **Un push por episodio de alerta.** Gjallarhorn reenvía el grupo entero en cada cambio y cada
+  4 h, y Nornas avisaba de todas las alertas firing de cada lote. Ahora recuerda la huella de lo
+  ya avisado y la olvida al resolverse (o a los 7 días, como recordatorio). Las alertas sin WAN,
+  como las de Bragi, avisan también de su resolución.
 
 ## [0.5.5] - 2026-09-18
 

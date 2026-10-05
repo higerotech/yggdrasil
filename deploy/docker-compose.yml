@@ -190,6 +190,7 @@ services:
       NORNAS_CREDENTIAL_SECRET: ${NORNAS_CREDENTIAL_SECRET}
       NORNAS_WEBHOOK_TOKEN: ${NORNAS_WEBHOOK_TOKEN}   # lo lee el nodo de autorización del flujo
       YGG_WANS: ${YGG_WANS:-wan1,wan2}                # WANs que el flujo considera para el estado del hogar
+      NTFY_URL: ${NTFY_URL:-}                         # tema de ntfy para los push; vacío = push desactivado
       YGG_REV: ${IMAGE_TAG:-local}                    # fuerza recreacion por despliegue (settings.js montado como fichero)
     volumes:
       - nornas-datos:/data

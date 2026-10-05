@@ -55,6 +55,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/settings.js
           docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/init/importar-flujo.mjs
+      - name: Pruebas del flujo de Nornas (avisos únicos y ntfy)
+        run: docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --test /n/tests/flujo.test.mjs
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null

@@ -4,12 +4,12 @@
     "type": "tab",
     "label": "Heimdall · alertas SLA",
     "disabled": false,
-    "info": "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. Pendiente manual: conectar la salida 2 (push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo (estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y relanzar nornas-init.",
+    "info": "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. La salida 2 (push) publica en ntfy con NTFY_URL (vacía = push desactivado), un aviso por episodio (huellas en el contexto avisados). El estado por WAN vive en el contexto de flujo (estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y relanzar nornas-init.",
     "env": [
       {
         "name": "HEIMDALL_FLOW_REV",
         "type": "str",
-        "value": "ea030e7aaf82"
+        "value": "177b265a5481"
       }
     ]
   },
@@ -49,7 +49,7 @@
     "type": "comment",
     "z": "heimdall.tab",
     "name": "Gjallarhorn (Alertmanager) → webhook → estados MQTT en Ratatosk",
-    "info": "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. Pendiente manual: conectar la salida 2 (push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo (estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y relanzar nornas-init.",
+    "info": "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. La salida 2 (push) publica en ntfy con NTFY_URL (vacía = push desactivado), un aviso por episodio (huellas en el contexto avisados). El estado por WAN vive en el contexto de flujo (estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y relanzar nornas-init.",
     "x": 330,
     "y": 40,
     "wires": []
@@ -110,7 +110,7 @@
     "type": "function",
     "z": "heimdall.tab",
     "name": "Alertmanager → estados MQTT",
-    "func": "// Nodo function \"Alertmanager → estados MQTT\". Traduce el webhook de Gjallarhorn a los eventos\n// MQTT del contrato de Yggdrasil (docs/02-design/architecture.md):\n//   midgard/wan/<id>/estado          saludable|degradado|caido|recuperando   (retained)\n//   midgard/wan/<id>/apto_llamadas   si|no                                   (retained)\n//   midgard/hogar/internet/estado    ok|degradado|caido                      (retained)\n//   midgard/wan/<id>/alerta          JSON {alerta, severidad, desde, detalle} (no retained)\n// Salidas: 1 = MQTT (Ratatosk), 2 = notificación push, 3 = respuesta HTTP al webhook.\nconst RECUPERACION_MS = 5 * 60 * 1000;   // Recuperando -> Saludable tras 5 min estable\n// WANs de la plataforma: una WAN de la que no se ha sabido nada cuenta como saludable, para que\n// la caida de una sola no deje al hogar en \"caido\" (YGG_WANS en el entorno del contenedor).\nconst WANS = (env.get(\"YGG_WANS\") || \"wan1,wan2\").split(\",\").map(s => s.trim()).filter(Boolean);\nconst alertas = (msg.payload && msg.payload.alerts) || [];\nconst estados = flow.get(\"estado_wan\") || {};\nconst apto = flow.get(\"apto_wan\") || {};          // ultimo valor conocido de apto_llamadas por WAN\nconst degradada = flow.get(\"degradada_wan\") || {};  // WanDegradada firing por WAN (para salir de Recuperando)\nconst timers = context.get(\"timers\") || {};\nconst mqtt = [];\nconst push = [];\n\nfunction calcHogar(e) {\n    const v = WANS.map(w => e[w] || \"saludable\");\n    if (v.every(x => x === \"caido\")) return \"caido\";\n    if (v.some(x => x === \"saludable\")) return \"ok\";\n    return \"degradado\";\n}\nfunction m(topic, payload, retain) {\n    return { topic, payload: typeof payload === \"string\" ? payload : JSON.stringify(payload), qos: 1, retain: !!retain };\n}\nfunction fijar(wan, estado) { estados[wan] = estado; mqtt.push(m(`midgard/wan/${wan}/estado`, estado, true)); }\nfunction aviso(titulo, texto) { push.push({ topic: titulo, payload: texto }); }\n\nfor (const a of alertas) {\n    const l = a.labels || {}, an = a.annotations || {};\n    const wan = l.wan, nombre = l.alertname, firing = a.status === \"firing\";\n    if (!nombre) continue;\n    if (!wan) {                                   // p. ej. SondaCaida: solo aviso\n        if (firing) aviso(`Heimdall: ${nombre}`, an.resumen || \"\");\n        continue;\n    }\n    if (firing) mqtt.push(m(`midgard/wan/${wan}/alerta`, { alerta: nombre, severidad: l.severity || \"\", desde: a.startsAt, detalle: an.resumen || \"\" }, false));\n    switch (nombre) {\n        case \"WanCaida\":\n            if (timers[wan]) { clearTimeout(timers[wan]); delete timers[wan]; }\n            if (firing) {\n                fijar(wan, \"caido\");\n                mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, \"no\", true));   // caida => no apta\n                aviso(`Heimdall: ${wan} CAÍDA`, an.descripcion || an.resumen || \"\");\n            } else {\n                fijar(wan, \"recuperando\");\n                timers[wan] = setTimeout(() => {\n                    const e = flow.get(\"estado_wan\") || {};\n                    const t = context.get(\"timers\") || {};\n                    delete t[wan]; context.set(\"timers\", t);\n                    if (e[wan] !== \"recuperando\") return;\n                    // Si la degradacion sigue activa al terminar la recuperacion, el enlace queda Degradado\n                    const final = ((flow.get(\"degradada_wan\") || {})[wan]) ? \"degradado\" : \"saludable\";\n                    e[wan] = final; flow.set(\"estado_wan\", e);\n                    const ap = (flow.get(\"apto_wan\") || {})[wan];\n                    node.send([[m(`midgard/wan/${wan}/estado`, final, true),\n                                m(`midgard/wan/${wan}/apto_llamadas`, ap === false ? \"no\" : \"si\", true),\n                                m(\"midgard/hogar/internet/estado\", calcHogar(e), true)], null, null]);\n                }, RECUPERACION_MS);\n                aviso(`Heimdall: ${wan} recuperando`, \"Las sondas responden; si sigue estable 5 min pasa a saludable.\");\n            }\n            break;\n        case \"WanDegradada\":\n            degradada[wan] = firing;\n            if (estados[wan] === \"caido\" || estados[wan] === \"recuperando\") break;\n            fijar(wan, firing ? \"degradado\" : \"saludable\");\n            if (firing) aviso(`Heimdall: ${wan} degradada`, an.resumen || \"\");\n            break;\n        case \"WanNoAptaLlamadas\":\n            apto[wan] = !firing;\n            mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, firing ? \"no\" : \"si\", true));\n            break;\n        case \"WanThroughputBajo\":\n        case \"SleipnirSinMedicion\":\n            if (firing) aviso(`Heimdall: ${nombre} en ${wan}`, an.resumen || \"\");\n            break;\n        default:\n            break;\n    }\n}\nflow.set(\"estado_wan\", estados);\nflow.set(\"apto_wan\", apto);\nflow.set(\"degradada_wan\", degradada);\ncontext.set(\"timers\", timers);\nmqtt.push(m(\"midgard/hogar/internet/estado\", calcHogar(estados), true));\nmsg.statusCode = 200;\nmsg.payload = { ok: true, alertas: alertas.length };\nreturn [mqtt, push, msg];\n",
+    "func": "// Nodo function \"Alertmanager → estados MQTT\". Traduce el webhook de Gjallarhorn a los eventos\n// MQTT del contrato de Yggdrasil (docs/02-design/architecture.md):\n//   midgard/wan/<id>/estado          saludable|degradado|caido|recuperando   (retained)\n//   midgard/wan/<id>/apto_llamadas   si|no                                   (retained)\n//   midgard/hogar/internet/estado    ok|degradado|caido                      (retained)\n//   midgard/wan/<id>/alerta          JSON {alerta, severidad, desde, detalle} (no retained)\n// Salidas: 1 = MQTT (Ratatosk), 2 = notificación push, 3 = respuesta HTTP al webhook.\n// Push: un aviso por episodio. Gjallarhorn reenvía el grupo entero en cada cambio del grupo y cada\n// repeat_interval (4 h); sin recordar qué se avisó ya, cada reenvío sería un push repetido.\nconst RECUPERACION_MS = 5 * 60 * 1000;   // Recuperando -> Saludable tras 5 min estable\nconst OLVIDO_MS = 7 * 24 * 3600 * 1000;  // una huella sin resolución en 7 d se olvida: recordatorio semanal\nconst PRIORIDAD = { critical: 4, warning: 3, info: 2 };   // prioridades de ntfy (1..5)\n// WANs de la plataforma: una WAN de la que no se ha sabido nada cuenta como saludable, para que\n// la caida de una sola no deje al hogar en \"caido\" (YGG_WANS en el entorno del contenedor).\nconst WANS = (env.get(\"YGG_WANS\") || \"wan1,wan2\").split(\",\").map(s => s.trim()).filter(Boolean);\nconst alertas = (msg.payload && msg.payload.alerts) || [];\nconst estados = flow.get(\"estado_wan\") || {};\nconst apto = flow.get(\"apto_wan\") || {};          // ultimo valor conocido de apto_llamadas por WAN\nconst degradada = flow.get(\"degradada_wan\") || {};  // WanDegradada firing por WAN (para salir de Recuperando)\nconst timers = context.get(\"timers\") || {};\nconst avisados = flow.get(\"avisados\") || {};      // huella -> instante del push, mientras siga firing\nconst ahora = Date.now();\nfor (const fp of Object.keys(avisados)) if (ahora - avisados[fp] > OLVIDO_MS) delete avisados[fp];\nconst mqtt = [];\nconst push = [];\n\nfunction calcHogar(e) {\n    const v = WANS.map(w => e[w] || \"saludable\");\n    if (v.every(x => x === \"caido\")) return \"caido\";\n    if (v.some(x => x === \"saludable\")) return \"ok\";\n    return \"degradado\";\n}\nfunction m(topic, payload, retain) {\n    return { topic, payload: typeof payload === \"string\" ? payload : JSON.stringify(payload), qos: 1, retain: !!retain };\n}\nfunction fijar(wan, estado) { estados[wan] = estado; mqtt.push(m(`midgard/wan/${wan}/estado`, estado, true)); }\nfunction aviso(titulo, texto, prioridad, etiquetas) {\n    push.push({ topic: titulo, payload: texto, prioridad: prioridad || 3, etiquetas: etiquetas || [] });\n}\n\nfor (const a of alertas) {\n    const l = a.labels || {}, an = a.annotations || {};\n    const wan = l.wan, nombre = l.alertname, firing = a.status === \"firing\";\n    if (!nombre) continue;\n    const prio = PRIORIDAD[l.severity] || 3;\n    // nueva = primera vez que se ve firing; resuelta = se había avisado y ahora se resuelve\n    const fp = a.fingerprint || JSON.stringify(l);\n    const nueva = firing && !avisados[fp];\n    const resuelta = !firing && !!avisados[fp];\n    if (firing) { if (nueva) avisados[fp] = ahora; } else delete avisados[fp];\n    if (!wan) {                                   // p. ej. SondaCaida o las de Bragi: aviso y resolución\n        if (nueva) aviso(`Heimdall: ${nombre}`, an.resumen || \"\", prio, [\"warning\"]);\n        if (resuelta) aviso(`Heimdall: ${nombre} resuelta`, an.resumen || \"\", 2, [\"white_check_mark\"]);\n        continue;\n    }\n    if (firing) mqtt.push(m(`midgard/wan/${wan}/alerta`, { alerta: nombre, severidad: l.severity || \"\", desde: a.startsAt, detalle: an.resumen || \"\" }, false));\n    switch (nombre) {\n        case \"WanCaida\":\n            if (timers[wan]) { clearTimeout(timers[wan]); delete timers[wan]; }\n            if (firing) {\n                fijar(wan, \"caido\");\n                mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, \"no\", true));   // caida => no apta\n                if (nueva) aviso(`Heimdall: ${wan} CAÍDA`, an.descripcion || an.resumen || \"\", prio, [\"rotating_light\"]);\n            } else {\n                fijar(wan, \"recuperando\");\n                timers[wan] = setTimeout(() => {\n                    const e = flow.get(\"estado_wan\") || {};\n                    const t = context.get(\"timers\") || {};\n                    delete t[wan]; context.set(\"timers\", t);\n                    if (e[wan] !== \"recuperando\") return;\n                    // Si la degradacion sigue activa al terminar la recuperacion, el enlace queda Degradado\n                    const final = ((flow.get(\"degradada_wan\") || {})[wan]) ? \"degradado\" : \"saludable\";\n                    e[wan] = final; flow.set(\"estado_wan\", e);\n                    const ap = (flow.get(\"apto_wan\") || {})[wan];\n                    node.send([[m(`midgard/wan/${wan}/estado`, final, true),\n                                m(`midgard/wan/${wan}/apto_llamadas`, ap === false ? \"no\" : \"si\", true),\n                                m(\"midgard/hogar/internet/estado\", calcHogar(e), true)], null, null]);\n                }, RECUPERACION_MS);\n                // Sin exigir \"resuelta\": tras reiniciar Nornas no recuerda la caída y el aviso importa igual\n                aviso(`Heimdall: ${wan} recuperando`, \"Las sondas responden; si sigue estable 5 min pasa a saludable.\",\n                      2, [\"white_check_mark\"]);\n            }\n            break;\n        case \"WanDegradada\":\n            degradada[wan] = firing;\n            if (estados[wan] === \"caido\" || estados[wan] === \"recuperando\") break;\n            fijar(wan, firing ? \"degradado\" : \"saludable\");\n            if (nueva) aviso(`Heimdall: ${wan} degradada`, an.resumen || \"\", prio, [\"warning\"]);\n            break;\n        case \"WanNoAptaLlamadas\":\n            apto[wan] = !firing;\n            mqtt.push(m(`midgard/wan/${wan}/apto_llamadas`, firing ? \"no\" : \"si\", true));\n            break;\n        case \"WanThroughputBajo\":\n        case \"SleipnirSinMedicion\":\n            if (nueva) aviso(`Heimdall: ${nombre} en ${wan}`, an.resumen || \"\", prio, [\"warning\"]);\n            break;\n        default:\n            break;\n    }\n}\nflow.set(\"estado_wan\", estados);\nflow.set(\"apto_wan\", apto);\nflow.set(\"degradada_wan\", degradada);\nflow.set(\"avisados\", avisados);\ncontext.set(\"timers\", timers);\nmqtt.push(m(\"midgard/hogar/internet/estado\", calcHogar(estados), true));\nmsg.statusCode = 200;\nmsg.payload = { ok: true, alertas: alertas.length };\nreturn [mqtt, push, msg];\n",
     "outputs": 3,
     "timeout": 0,
     "noerr": 0,
@@ -124,7 +124,8 @@
         "h.mqtt"
       ],
       [
-        "h.push"
+        "h.push",
+        "h.ntfy"
       ],
       [
         "h.res200"
@@ -153,7 +154,7 @@
     "id": "h.push",
     "type": "debug",
     "z": "heimdall.tab",
-    "name": "Notificación push (conectar aquí Telegram, ntfy o similar)",
+    "name": "Notificación push (copia en el panel de depuración)",
     "active": true,
     "tosidebar": true,
     "console": false,
@@ -165,6 +166,68 @@
     "x": 1090,
     "y": 120,
     "wires": []
+  },
+  {
+    "id": "h.ntfy",
+    "type": "function",
+    "z": "heimdall.tab",
+    "name": "Formatear ntfy (NTFY_URL)",
+    "func": "// Nodo function \"Formatear ntfy\": convierte un aviso de la salida push de \"traducir\" en una\n// publicación JSON de ntfy, que el nodo http request siguiente envía.\n//   entrada:  { topic: título, payload: texto, prioridad: 1..5, etiquetas: [...] }\n//   NTFY_URL: URL completa del tema (https://ntfy.sh/<tema>), del entorno del contenedor.\n// Se publica en JSON contra la raíz del servidor y no con cabeceras Title/Tags: las cabeceras HTTP\n// no admiten bien UTF-8 y los títulos llevan tildes (\"CAÍDA\").\n// El tema ES la credencial (quien lo conozca lee los avisos): no se registra nunca, ni en el\n// estado del nodo ni en avisos.\nconst url = env.get(\"NTFY_URL\") || \"\";\nif (!url) {\n    node.status({ fill: \"grey\", shape: \"ring\", text: \"sin NTFY_URL: push desactivado\" });\n    return null;\n}\nconst partes = url.match(/^(https?:\\/\\/[^/]+)\\/([^/?#]+)\\/?$/);\nif (!partes) {\n    node.status({ fill: \"red\", shape: \"dot\", text: \"NTFY_URL no tiene la forma https://servidor/tema\" });\n    return null;\n}\nmsg.url = partes[1] + \"/\";\nmsg.method = \"POST\";\nmsg.headers = { \"Content-Type\": \"application/json\" };\nmsg.payload = JSON.stringify({\n    topic: partes[2],\n    title: msg.topic || \"Heimdall\",\n    message: msg.payload || msg.topic || \"\",\n    priority: msg.prioridad || 3,\n    tags: msg.etiquetas || [],\n});\nnode.status({ fill: \"blue\", shape: \"dot\", text: \"enviando: \" + (msg.topic || \"\") });\nreturn msg;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1090,
+    "y": 240,
+    "wires": [
+      [
+        "h.ntfy.req"
+      ]
+    ]
+  },
+  {
+    "id": "h.ntfy.req",
+    "type": "http request",
+    "z": "heimdall.tab",
+    "name": "POST ntfy",
+    "method": "use",
+    "ret": "txt",
+    "paytoqs": "ignore",
+    "url": "",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 1310,
+    "y": 240,
+    "wires": [
+      [
+        "h.ntfy.res"
+      ]
+    ]
+  },
+  {
+    "id": "h.ntfy.res",
+    "type": "function",
+    "z": "heimdall.tab",
+    "name": "Respuesta de ntfy",
+    "func": "// Nodo function \"Respuesta de ntfy\": deja constancia de si ntfy aceptó el aviso. Un fallo va a\n// node.warn, que llega al log del contenedor (docker logs yggdrasil-node-red). Solo se registra el\n// código y el título, nunca la URL: lleva el tema, que es la credencial.\n// Con un error de red, http request pone en statusCode el código del error (p. ej. \"ENOTFOUND\").\nconst codigo = msg.statusCode;\nif (typeof codigo === \"number\" && codigo >= 200 && codigo < 300) {\n    node.status({ fill: \"green\", shape: \"dot\", text: `ntfy ${codigo}: ${msg.topic || \"\"}` });\n} else {\n    node.status({ fill: \"red\", shape: \"dot\", text: `ntfy ${codigo || \"sin respuesta\"}` });\n    node.warn(`ntfy rechazó el aviso \"${msg.topic || \"\"}\": ${codigo || \"sin respuesta\"}`);\n}\nreturn null;\n",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1500,
+    "y": 240,
+    "wires": [
+      []
+    ]
   },
   {
     "id": "h.res200",
