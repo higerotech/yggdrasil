@@ -14,9 +14,9 @@ TAB = "heimdall.tab"
 INFO = (
     "Flujo Heimdall → Nornas. Lo importa automáticamente nornas-init en el primer arranque del Compose "
     "de Yggdrasil e inyecta las credenciales MQTT del usuario 'nornas' (Ratatosk, ACL midgard/#). "
-    "NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. Pendiente manual: conectar la salida 2 "
-    "(push) al mecanismo de notificación de la casa. El estado por WAN vive en el contexto de flujo "
-    "(estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y "
+    "NORNAS_WEBHOOK_TOKEN llega por el entorno del contenedor. La salida 2 (push) publica en ntfy con "
+    "NTFY_URL (vacía = push desactivado), un aviso por episodio (huellas en el contexto avisados). "
+    "El estado por WAN vive en el contexto de flujo (estado_wan). Para volver a importar una versión nueva del flujo, borrar la pestaña Heimdall y "
     "relanzar nornas-init."
 )
 
@@ -28,7 +28,7 @@ def fn(id_, name, src, outputs, x, y, wires):
 
 
 # Revision del flujo = hash de las fuentes; nornas-init reimporta la pestaña cuando cambia.
-REV = hashlib.sha256(b"".join((AQUI / "src" / f).read_bytes() for f in sorted(("autorizar.js", "traducir.js")))).hexdigest()[:12]
+REV = hashlib.sha256(b"".join((AQUI / "src" / f).read_bytes() for f in sorted(("autorizar.js", "traducir.js", "ntfy.js", "ntfy-respuesta.js")))).hexdigest()[:12]
 
 flow = [
     {"id": TAB, "type": "tab", "label": "Heimdall · alertas SLA", "disabled": False, "info": INFO,
@@ -46,13 +46,18 @@ flow = [
      "upload": False, "swaggerDoc": "", "x": 150, "y": 120, "wires": [["h.auth"]]},
     fn("h.auth", "Autorizar (Bearer NORNAS_WEBHOOK_TOKEN)", "autorizar.js", 2, 420, 120, [["h.map"], ["h.res401"]]),
     {"id": "h.res401", "type": "http response", "z": TAB, "name": "401", "statusCode": "401", "headers": {}, "x": 690, "y": 200, "wires": []},
-    fn("h.map", "Alertmanager → estados MQTT", "traducir.js", 3, 720, 120, [["h.mqtt"], ["h.push"], ["h.res200"]]),
+    fn("h.map", "Alertmanager → estados MQTT", "traducir.js", 3, 720, 120, [["h.mqtt"], ["h.push", "h.ntfy"], ["h.res200"]]),
     {"id": "h.mqtt", "type": "mqtt out", "z": TAB, "name": "Ratatosk midgard/#", "topic": "", "qos": "", "retain": "",
      "respTopic": "", "contentType": "", "userProps": "", "correl": "", "expiry": "", "broker": "ratatosk.broker",
      "x": 1010, "y": 60, "wires": []},
-    {"id": "h.push", "type": "debug", "z": TAB, "name": "Notificación push (conectar aquí Telegram, ntfy o similar)", "active": True,
+    {"id": "h.push", "type": "debug", "z": TAB, "name": "Notificación push (copia en el panel de depuración)", "active": True,
      "tosidebar": True, "console": False, "tostatus": False, "complete": "true", "targetType": "full", "statusVal": "",
      "statusType": "auto", "x": 1090, "y": 120, "wires": []},
+    fn("h.ntfy", "Formatear ntfy (NTFY_URL)", "ntfy.js", 1, 1090, 240, [["h.ntfy.req"]]),
+    {"id": "h.ntfy.req", "type": "http request", "z": TAB, "name": "POST ntfy", "method": "use", "ret": "txt",
+     "paytoqs": "ignore", "url": "", "tls": "", "persist": False, "proxy": "", "insecureHTTPParser": False,
+     "authType": "", "senderr": False, "headers": [], "x": 1310, "y": 240, "wires": [["h.ntfy.res"]]},
+    fn("h.ntfy.res", "Respuesta de ntfy", "ntfy-respuesta.js", 1, 1500, 240, [[]]),
     {"id": "h.res200", "type": "http response", "z": TAB, "name": "200", "statusCode": "200", "headers": {}, "x": 1010, "y": 180, "wires": []},
 ]
 

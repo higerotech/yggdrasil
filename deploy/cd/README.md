@@ -92,7 +92,7 @@ publicado, o `docker compose build` para construir en local).
 
 ## Pendientes conocidos
 - Ratatosk y Nornas son servicios del propio Compose desde ADR-0006; el bootstrap completa en `.env`
-  las credenciales MQTT y del editor si faltan. Conectar la salida push del flujo sigue siendo manual.
+  las credenciales MQTT y del editor si faltan. La salida push publica en ntfy si `NTFY_URL` está en el `.env`; vacía, no manda push.
 - El resultado de `sync-host`/`sync-net` no forma parte del healthcheck del receptor; revisar sus
   logs en el primer despliegue.
 
