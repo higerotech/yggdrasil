@@ -1,0 +1,10 @@
+[Unit]
+Description=Yggdrasil: aviso por ntfy de un respaldo fallido
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/yggdrasil-respaldo-aviso.sh fallo
+TimeoutStartSec=120

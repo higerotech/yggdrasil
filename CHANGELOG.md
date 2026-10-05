@@ -17,6 +17,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Pruebas del flujo de Nornas** (`deploy/nornas/tests/`, `node --test` en el CI): avisos únicos,
   resoluciones, contrato MQTT de `WanCaida` y formato de ntfy, sin filtrar el tema.
 
+- **Avisos por ntfy del respaldo nocturno.** Push inmediato si el respaldo falla (`OnFailure=`) y
+  un vigía a las 08:00 hora de la casa que avisa si el último éxito tiene más de 26 h, para cubrir
+  un temporizador que no se dispara. Va directo del host a ntfy, con el mismo tema que los avisos
+  SMART (`/etc/yggdrasil-aviso.env` enlaza a `/etc/smartd-aviso.env`): la salida push de Nornas
+  sigue sin conectar en producción, y el aviso no debe depender del stack que respalda.
 - **Respaldo nocturno al NAS.** Hasta ahora Yggdrasil no tenía respaldo, y vive en un HDD con
   sectores pendientes y errores incorregibles. `yggdrasil-respaldo.timer` (22:30 hora de la casa,
   `Persistent=true`) archiva los seis volúmenes, el despliegue con su `.env` y la configuración
