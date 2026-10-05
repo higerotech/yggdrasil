@@ -4,6 +4,8 @@ Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README
 Requires=docker.service
 After=docker.service network-online.target remote-fs.target
 Wants=network-online.target
+# Push inmediato por ntfy si el script falla (yggdrasil-respaldo-aviso.sh fallo).
+OnFailure=yggdrasil-respaldo-fallo.service
 
 [Service]
 Type=oneshot

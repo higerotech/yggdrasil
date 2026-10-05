@@ -137,6 +137,28 @@ midgard.
 Comprobación: `systemctl list-timers yggdrasil-respaldo.timer` y
 `journalctl -u yggdrasil-respaldo -n 20`. A mano: `sudo systemctl start yggdrasil-respaldo`.
 
+### Avisos por ntfy
+
+`yggdrasil-respaldo-aviso.sh` manda dos avisos al tema de ntfy de la casa:
+
+| Aviso | Cuándo | Qué lo dispara |
+|---|---|---|
+| **Respaldo Yggdrasil FALLO** | en el momento | `OnFailure=yggdrasil-respaldo-fallo.service` del respaldo |
+| **Respaldo Yggdrasil atrasado** | 08:00 hora de la casa | `yggdrasil-respaldo-vigia.timer`, si el último éxito tiene más de 26 h |
+
+El vigía cubre lo que `OnFailure` no ve: un temporizador que no llega a dispararse o un respaldo
+que nunca termina. Si anoche falló, por la mañana llegan los dos: el segundo es el recordatorio.
+
+Van **directos del host a ntfy**, como `smartd-ntfy`, y no por Gjallarhorn → Nornas: la salida push
+de Nornas sigue sin conectar, y el aviso de un respaldo no debe depender del stack que respalda.
+
+El tema de ntfy **es** la credencial: quien lo conozca lee los avisos. Se lee de
+`/etc/yggdrasil-aviso.env` (`AVISO_URL=...`), que en midgard es un enlace a `/etc/smartd-aviso.env`,
+así que al rotar el tema solo hay que tocar un fichero. `bootstrap-midgard.sh` crea el enlace si
+existe el de smartd.
+
+Comprobación del canal: `sudo /usr/local/sbin/yggdrasil-respaldo-aviso.sh prueba`.
+
 Restauración, con el stack parado (`docker compose -p yggdrasil stop`):
 
 ```bash
