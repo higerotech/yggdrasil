@@ -10,6 +10,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
 ### Añadido
+- **Respaldo nocturno al NAS.** Hasta ahora Yggdrasil no tenía respaldo, y vive en un HDD con
+  sectores pendientes y errores incorregibles. `yggdrasil-respaldo.timer` (22:30 hora de la casa,
+  `Persistent=true`) archiva los seis volúmenes, el despliegue con su `.env` y la configuración
+  del router en `/mnt/nas/respaldos/yggdrasil`, comprueba la suma en el NAS y conserva 14 días.
+  Mimir y Odin se congelan unos 5 s para copiar una TSDB y una SQLite consistentes. Lo instala
+  `bootstrap-midgard.sh` (paso 5c).
 - **Observabilidad de Bragi en Heimdall** (ADR-0009 de `higerotech/bragi`): job `bragi` contra
   `bragi-metricas:9470` por la red `heimdall`, sin puertos publicados, y `rules/bragi-alertas.yml`
   con 8 alertas (caída en LAN y desde fuera, métricas ausentes, respaldo atrasado, transcodes,
