@@ -166,3 +166,30 @@ tar -xzf yggdrasil-<UTC>.tar.gz          # deja r/
 tar -C /var/lib/docker/volumes/yggdrasil_mimir-datos/_data --numeric-owner -xpf r/volumenes/mimir-datos.tar
 # ...igual con cada volumen; despliegue.tar va en /srv/apps/yggdrasil
 ```
+
+## Vigía de servicios
+
+`yggdrasil-vigia-servicios.timer` ejecuta cada minuto `yggdrasil-vigia-servicios.sh`, que avisa
+por ntfy cuando un servicio sale de línea y cuando vuelve.
+
+| Qué vigila | Caído si |
+|---|---|
+| Servicios **permanentes** del Compose (`restart` distinto de `no`), leídos de `docker-compose.yml` | el contenedor no existe, no está en marcha o su healthcheck da `unhealthy` |
+| Unidades del host: `docker`, `wan-balancer`, `dnsmasq`, `cd-receiver` y los temporizadores del guardián y del respaldo | `systemctl is-active` distinto de `active` |
+
+Un servicio nuevo del Compose entra solo; las tareas de un solo uso (`nornas-init`, `sync-*`)
+quedan fuera. `paused` cuenta como en marcha, porque el respaldo congela Mimir y Odín unos
+segundos. Las unidades que no existan en la máquina se saltan.
+
+Contra el ruido: avisa tras **2 comprobaciones seguidas** en fallo (unos 2 min), no comprueba nada
+en los **10 min** posteriores al arranque (Odín tarda ~400 s en el HDD), con Docker caído solo avisa
+de Docker, junta todo en **un push por pasada** y recuerda cada **6 h** lo que siga caído. Si el push
+falla, por ejemplo sin internet, se reintenta en la siguiente pasada.
+
+Va directo del host a ntfy, con el mismo tema que los avisos del respaldo
+(`/etc/yggdrasil-aviso.env`), porque entre los vigilados están Mimir, Gjallarhorn y Nornas: si cae
+la cadena de alertas, una alerta que dependa de ella no la entrega nadie.
+
+Ajustes por entorno de la unidad: `VIGIA_UNIDADES`, `VIGIA_UMBRAL`, `VIGIA_GRACIA_S`,
+`VIGIA_RECORDAR_H`. Estado en `/var/lib/yggdrasil-vigia` (un fichero por servicio en fallo).
+Pruebas: `bash deploy/cd/tests/prueba-vigia-servicios.sh` (dobles de docker, systemctl y curl).

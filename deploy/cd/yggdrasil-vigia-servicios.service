@@ -1,0 +1,18 @@
+[Unit]
+Description=Yggdrasil: avisa por ntfy si un servicio sale de linea
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/yggdrasil-vigia-servicios.sh
+TimeoutStartSec=90
+# Necesita root: lee el Compose (deploy/ es 750 con .env) y consulta docker y systemd.
+# ProtectSystem=full y no strict: deja /var y /srv escribibles para el estado y para el CLI de
+# docker. El 2026-10-06 un strict sin ReadWritePaths dejo al guardian sin poder escribir y sin
+# que nadie lo notara.
+StateDirectory=yggdrasil-vigia
+ProtectSystem=full
+PrivateTmp=yes
+NoNewPrivileges=yes
