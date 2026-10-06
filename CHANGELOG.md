@@ -42,6 +42,19 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   ya avisado y la olvida al resolverse (o a los 7 días, como recordatorio). Las alertas sin WAN,
   como las de Bragi, avisan también de su resolución.
 
+### Corregido
+- **La reconciliación de sondas del guardián nunca funcionó en midgard.** `wan-watchdog.service`
+  lleva `ProtectSystem=strict` sin `ReadWritePaths`, así que `/srv` era de solo lectura y
+  `render.sh` no podía reescribir `blackbox.yml`. La primera vez que hizo falta, el 2026-10-06 tras
+  un cambio de IP de wan2, el render falló, se agotó el cupo de remedios y `WanCaida{wan=wan2}`
+  siguió disparada siendo falsa hasta arreglarlo a mano. La unidad abre ahora solo `blackbox/` y
+  `alertmanager/`; el guardián llama a `render.sh --sin-recarga` (la recarga ya la hace él) y
+  registra el motivo si el render falla, que antes iba a `/dev/null`.
+- **Prueba de regresión en el CI**: `deploy/host/tests/prueba-sandbox-guardian.sh` ejecuta el
+  render con las directivas de sandbox leídas de la propia unidad, con un control negativo que
+  exige que falle sin `ReadWritePaths`. Ninguna prueba lo veía porque el CI ejecutaba `render.sh`
+  fuera de systemd.
+
 ## [0.5.5] - 2026-09-18
 
 **Reglas de enrutamiento y sondas que se reconcilian solas.** Continúa la revisión del appliance

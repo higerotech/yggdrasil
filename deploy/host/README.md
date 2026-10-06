@@ -56,6 +56,13 @@ si difieren, ejecuta `render.sh` como el usuario `deploy` y recarga blackbox. **
 siempre, incluso con la ruta y el DNS perfectos**, porque ese desfase se produce exactamente en ese
 escenario y la salida temprana del camino feliz nunca lo alcanzaría.
 
+`wan-watchdog.service` corre con `ProtectSystem=strict`, así que **solo puede escribir lo que
+declara `ReadWritePaths`**: los directorios `blackbox/` y `alertmanager/` del despliegue, que son
+los que reescribe `render.sh`. Hasta el 2026-10-06 la unidad no los declaraba y la reconciliación
+fallaba con `Read-only file system` la primera vez que hizo falta. Si `render.sh` empieza a
+escribir en otro sitio, o se cambian `BLACKBOX_YML` o `RENDER_SH`, hay que ampliar esa línea;
+la prueba `tests/prueba-sandbox-guardian.sh` del CI lo detecta.
+
 El acoplamiento con Yggdrasil es deliberadamente flojo: las rutas salen por variables de entorno
 (`BLACKBOX_YML`, `RENDER_SH`, `RENDER_USER`) y, si los ficheros no existen, la reconciliación se
 salta en silencio. Un appliance sin Yggdrasil sigue teniendo un guardián de router perfectamente
