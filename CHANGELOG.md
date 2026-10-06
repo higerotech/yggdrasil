@@ -47,6 +47,17 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   4 h, y Nornas avisaba de todas las alertas firing de cada lote. Ahora recuerda la huella de lo
   ya avisado y la olvida al resolverse (o a los 7 días, como recordatorio). Las alertas sin WAN,
   como las de Bragi, avisan también de su resolución.
+- **Salud de cada WAN por mayoría de destinos TCP, igual en el balanceador, el guardián y
+  Heimdall.** `wan-balancer` y `wan-watchdog` comprobaban un único ping por WAN (1.1.1.1 /
+  1.0.0.1), y `wan:up` contaba 2 ICMP + 1 TLS. El 2026-10-06 el ISP2 dejó de llegar a 1.0.0.1
+  (wan2 salió entera del multipath mientras Heimdall la veía sana) y, además, tenía un agujero
+  negro de MTU y TCP roto hacia parte de internet mientras los ping pasaban. Ahora los tres
+  deciden con la mayoría de tres comprobaciones HTTPS reales (www.gstatic.com, 1.1.1.1:443 y
+  8.8.8.8:443): una WAN con ping y sin TCP queda fuera. Las sondas ICMP siguen midiendo pérdida y
+  latencia. Las sondas TLS por WAN ya no fijan `server_name`: cada destino se verifica con su
+  certificado (los de 1.1.1.1 y 8.8.8.8 llevan la IP como SAN). Pruebas: `promtool test rules`
+  de `wan:up` con el caso del 2026-10-06 y `deploy/host/tests/prueba-quorum.sh`, que además
+  exige que los tres usen los mismos destinos.
 
 ### Corregido
 - **La reconciliación de sondas del guardián nunca funcionó en midgard.** `wan-watchdog.service`
@@ -60,6 +71,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   render con las directivas de sandbox leídas de la propia unidad, con un control negativo que
   exige que falle sin `ReadWritePaths`. Ninguna prueba lo veía porque el CI ejecutaba `render.sh`
   fuera de systemd.
+
+### Nota de operación
+- **Recorte de MSS en `/etc/nftables.conf` de midgard** (fuera de este repo, 2026-10-06): la regla
+  de clamp estaba al final de `chain forward`, detrás de los `accept`, y no se aplicaba nunca.
+  Ahora va en cadenas `mangle` propias para la casa y para el host, con MSS fijo de 1440 en wan2
+  por el agujero negro de MTU del ISP2. Detalle y comprobación en `deploy/host/README.md`.
 
 ## [0.5.5] - 2026-09-18
 

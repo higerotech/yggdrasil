@@ -70,7 +70,7 @@ scrape_configs:
     params:
       module: [tls_wan1]
     static_configs:
-      - targets: ["www.gstatic.com:443"]
+      - targets: ["www.gstatic.com:443", "1.1.1.1:443", "8.8.8.8:443"]
         labels: {wan: wan1, sonda: tls}
     relabel_configs: *sonda_relabel
 
@@ -79,7 +79,7 @@ scrape_configs:
     params:
       module: [tls_wan2]
     static_configs:
-      - targets: ["www.gstatic.com:443"]
+      - targets: ["www.gstatic.com:443", "1.1.1.1:443", "8.8.8.8:443"]
         labels: {wan: wan2, sonda: tls}
     relabel_configs: *sonda_relabel
 

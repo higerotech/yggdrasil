@@ -27,8 +27,16 @@ PIN_WAN1_IPS=()
 PIN_STRICT=0   # 0: si la WAN anclada cae, el cliente vuelve al balanceo general
                # 1: si la WAN anclada cae, el cliente queda sin salida
 
-CHECK_IP1="1.1.1.1"      # objetivo de salud para wan1
-CHECK_IP2="1.0.0.1"      # objetivo de salud para wan2
+# Salud de cada WAN = MAYORIA de tres comprobaciones HTTPS reales, los MISMOS destinos que
+# Heimdall (wan:up: 2 de 3 sondas TCP+TLS), para que balanceador y monitor no discrepen.
+# Historia (2026-10-06): hasta entonces era un unico ping por WAN (1.1.1.1 / 1.0.0.1). Ese dia
+# el ISP2 dejo de llegar a 1.0.0.1 y wan2 salio entera del multipath mientras Heimdall la veia
+# sana; ademas tenia un agujero negro de MTU y TCP roto hacia parte de internet mientras los
+# ping (paquetes pequenos) pasaban. Decision del owner: mayoria, pero de destinos TCP, que es lo
+# que usa la casa. Una WAN con ping y sin TCP queda fuera.
+CHECK_ICMP=()
+CHECK_TLS=("https://www.gstatic.com/generate_204" "https://1.1.1.1/cdn-cgi/trace" "https://8.8.8.8/")
+CHECK_TIMEOUT=3          # segundos por destino (se sondean en paralelo)
 INTERVAL=5               # segundos entre chequeos
 FAIL_N=3                 # fallos consecutivos para marcar caída
 OK_N=3                   # éxitos consecutivos para restaurar
@@ -137,14 +145,37 @@ setup_tables_v6() {
     done
 }
 
-check() {  # check <iface> <target>
+declare -A ultima_falla=()   # por interfaz: destinos que fallaban en el chequeo anterior
+
+check() {  # check <iface>: 0 si responde la MAYORIA de los destinos de salud
     # Atar a la IP de origen (no a la interfaz): así el lookup de ruta
     # pasa por la regla "from <ip>" -> tabla wanX, que siempre tiene default.
     # Atar a interfaz falla cuando aun no hay default en la tabla main.
-    local ip
+    local ip d i ok=0 falla=""
+    local -a destinos=() pids=()
     ip=$(wan_ip "$1")
     [[ -n "$ip" ]] || return 1
-    ping -c1 -W2 -n -I "$ip" "$2" >/dev/null 2>&1
+    # En paralelo: con destinos caidos, en serie el bucle de INTERVAL s se alargaria
+    for d in "${CHECK_ICMP[@]}"; do
+        ping -c1 -W"$CHECK_TIMEOUT" -n -I "$ip" "$d" >/dev/null 2>&1 & pids+=($!); destinos+=("$d")
+    done
+    for d in "${CHECK_TLS[@]}"; do
+        curl -fsS -o /dev/null -m "$CHECK_TIMEOUT" --interface "$ip" "$d" >/dev/null 2>&1 & pids+=($!); destinos+=("$d")
+    done
+    for i in "${!pids[@]}"; do
+        if wait "${pids[$i]}"; then ok=$((ok + 1)); else falla+="${destinos[$i]} "; fi
+    done
+    # Solo se registra cuando cambia el conjunto de destinos que fallan: un fallo parcial del
+    # ISP queda en el journal aunque la WAN siga dentro del multipath.
+    if [[ "$falla" != "${ultima_falla[$1]:-}" ]]; then
+        if [[ -n "$falla" ]]; then
+            log "$1: responden $ok/${#destinos[@]} destinos; fallan: ${falla% }"
+        else
+            log "$1: responden todos los destinos de salud"
+        fi
+        ultima_falla[$1]="$falla"
+    fi
+    (( ok * 2 > ${#destinos[@]} ))
 }
 
 apply_default() {  # apply_default <up1> <up2>
@@ -213,6 +244,9 @@ setup_pins() {  # setup_pins <up1> <up2>
     done
 }
 
+# Las pruebas (tests/prueba-quorum.sh) cargan las funciones sin entrar en el bucle.
+[[ "${WAN_BALANCER_SIN_BUCLE:-0}" == 1 ]] && return 0
+
 log "iniciando wan-balancer"
 setup_tables
 last_state=""
@@ -222,12 +256,12 @@ while true; do
     setup_tables
     setup_tables_v6
 
-    if check "$WAN1_IF" "$CHECK_IP1"; then
+    if check "$WAN1_IF"; then
         ok1=$((ok1+1)); fail1=0
     else
         fail1=$((fail1+1)); ok1=0
     fi
-    if check "$WAN2_IF" "$CHECK_IP2"; then
+    if check "$WAN2_IF"; then
         ok2=$((ok2+1)); fail2=0
     else
         fail2=$((fail2+1)); ok2=0
