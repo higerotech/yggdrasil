@@ -47,6 +47,7 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/wan-up.test.yml
       - name: amtool check-config
         run: docker run --rm -v "$PWD/deploy/alertmanager:/cfg:ro" --entrypoint amtool "$AM" check-config /cfg/alertmanager.yml
       - name: blackbox --config.check
@@ -69,7 +70,7 @@ jobs:
           docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh /mnt/host/tests/prueba-quorum.sh
 
   guardian:
     name: "Guardián: render.sh dentro del sandbox de wan-watchdog"
@@ -79,6 +80,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Render con las directivas de sandbox de la unidad (y control negativo)
         run: sudo bash deploy/host/tests/prueba-sandbox-guardian.sh
+      - name: Quórum TCP de cada WAN en balanceador y guardián (ip, ping y curl simulados)
+        run: bash deploy/host/tests/prueba-quorum.sh
       - name: Vigía de servicios (docker, systemctl y curl simulados)
         run: bash deploy/cd/tests/prueba-vigia-servicios.sh
 

@@ -68,6 +68,38 @@ El acoplamiento con Yggdrasil es deliberadamente flojo: las rutas salen por vari
 salta en silencio. Un appliance sin Yggdrasil sigue teniendo un guardián de router perfectamente
 funcional.
 
+## Salud de cada WAN: mayoría de destinos TCP
+
+`wan-balancer` (cada 5 s), `wan-watchdog` y Heimdall (`wan:up`) deciden igual si una WAN está
+sana: **responden al menos 2 de 3 comprobaciones HTTPS reales** hechas desde la IP de esa WAN
+(`https://www.gstatic.com/generate_204`, `https://1.1.1.1/cdn-cgi/trace` y `https://8.8.8.8/`),
+en paralelo y con 3 s de tope cada una. Los ping ya no votan.
+
+Por qué TCP y no ping: el 2026-10-06 wan2 respondía a los ping (paquetes pequeños) mientras TCP
+estaba roto hacia parte de internet y los paquetes de 1500 B se perdían sin aviso. Con un único
+destino por WAN (era 1.0.0.1 para wan2) bastaba con que el ISP perdiera ese prefijo para sacar
+la WAN entera del multipath; con mayoría de ping, una WAN sin TCP habría seguido dentro.
+
+Cuando cambia el conjunto de destinos que fallan, `wan-balancer` lo registra
+(`wan2: responden 2/3 destinos; fallan: ...`): un fallo parcial del ISP queda en el journal
+aunque la WAN siga dentro. `tests/prueba-quorum.sh` prueba el criterio y exige que los tres
+componentes usen los mismos destinos.
+
+## Recorte de MSS (en `/etc/nftables.conf`, fuera de este repo)
+
+El firewall vive en `/etc/nftables.conf` (proyecto de routing, con copia de trabajo idéntica en
+`~/nftables-connmark.conf`). El 2026-10-06 se corrigió allí el recorte de MSS:
+
+- La regla antigua estaba al **final** de `chain forward`, detrás de los `accept`: no se aplicaba
+  nunca. Ahora va en cadenas propias con prioridad `mangle`, que corren antes del filtro:
+  `mss_reenvio` (tráfico de la casa) y `mss_salida` (tráfico del propio host).
+- wan2: **MSS fijo de 1440**. El camino del ISP2 descarta los paquetes de 1500 B sin devolver
+  "fragmentation needed" (1480 pasan), y `rt mtu` no sirve porque toma el MTU de la interfaz.
+  wan1 sigue con `rt mtu`.
+
+Comprobación: `nft list chain inet router mss_reenvio` (los contadores suben) y un SYN capturado
+en wan2 con `mss 1440`. Si el ISP2 cambia, volver a medir con `ping -M do -s <n> -I <ip de wan2>`.
+
 ## Relación con la alerta `HogarSinRuta`
 
 Son complementarios y el orden importa. El guardián corre cada minuto y remedia en ~20 s;
