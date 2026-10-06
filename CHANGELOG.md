@@ -35,6 +35,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   pruebas unitarias viven en Bragi; aquí va una copia. Sin etiqueta `wan`, Nornas las entrega
   como aviso push sin cambios.
 - **Bragi** reservado en `naming.md` para el servidor de medios Jellyfin, que vive en su propio repositorio (`higerotech/bragi`) por el mismo motivo que Fenrir: presupuesto de recursos y ciclo de vida propios.
+- **Vigía de servicios.** `yggdrasil-vigia-servicios.timer` comprueba cada minuto los servicios
+  permanentes del Compose (sacados del propio `docker-compose.yml`) y las unidades del host de las
+  que depende el proyecto, y avisa por ntfy cuando uno sale de línea y cuando vuelve: dos fallos
+  seguidos, un push por pasada, recordatorio cada 6 h, nada en los 10 min tras arrancar y solo
+  Docker si cae Docker. Va directo del host a ntfy porque entre los vigilados está la propia
+  cadena de alertas (Mimir, Gjallarhorn, Nornas). 21 pruebas con dobles en el CI.
 
 ### Cambiado
 - **Un push por episodio de alerta.** Gjallarhorn reenvía el grupo entero en cada cambio y cada

@@ -95,6 +95,14 @@ if [ ! -e /etc/yggdrasil-aviso.env ]; then
   fi
 fi
 
+echo "== 5d. Vigía de servicios (aviso por ntfy si un servicio sale de línea)"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-vigia-servicios.sh" /usr/local/sbin/yggdrasil-vigia-servicios.sh
+for u in yggdrasil-vigia-servicios.service yggdrasil-vigia-servicios.timer; do
+  install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"
+done
+systemctl daemon-reload
+systemctl enable --now yggdrasil-vigia-servicios.timer >/dev/null 2>&1 && echo "   yggdrasil-vigia-servicios.timer habilitado"
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"
