@@ -223,13 +223,18 @@ reconciliar_sondas() {
 
     anotar_remedio
     log "re-renderizando las sondas con las IP vivas" warning
-    if sudo -u "$RENDER_USER" bash "$RENDER_SH" >/dev/null 2>&1; then
+    # --sin-recarga: la recarga la hace el guardian justo debajo, y el usuario del render no
+    # tiene por que tener acceso a Docker. La salida de render.sh solo lleva IPs y nombres de
+    # receptor, asi que se registra si falla: el 2026-10-06 se tiraba a /dev/null y el motivo
+    # ("Read-only file system") hubo que reproducirlo a mano.
+    local salida
+    if salida=$(sudo -u "$RENDER_USER" bash "$RENDER_SH" --sin-recarga 2>&1); then
         curl -fsS -m 10 -X POST "$BLACKBOX_RELOAD" >/dev/null 2>&1 || true
         local resto=""
         for iface in "$WAN1_IF" "$WAN2_IF"; do resto+="$iface=$(ip_en_blackbox "$iface") "; done
         log "sondas reconciliadas ($resto)" warning
     else
-        crit "fallo el re-render de las sondas ($RENDER_SH). Revisar a mano."
+        crit "fallo el re-render de las sondas ($RENDER_SH): $(tail -n 2 <<<"$salida" | tr '\n' ' ')"
         return 1
     fi
     return 0
