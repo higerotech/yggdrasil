@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.7] - 2026-10-06
+
+**Configuraciones renderizadas que siempre llegan al contenedor.** Hotfix del despliegue de la
+`0.5.6`, que dio una `WanCaida` falsa de wan1 porque blackbox seguía leyendo una configuración
+vieja.
+
 ### Corregido
 - **blackbox y alertmanager montan su directorio de configuración, no el fichero.** Con
   `blackbox.yml` montado suelto, cualquier reemplazo atómico (`sed -i`, un editor, `git`) crea un
@@ -355,7 +361,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...v0.5.4
