@@ -9,6 +9,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Corregido
+- **blackbox y alertmanager montan su directorio de configuración, no el fichero.** Con
+  `blackbox.yml` montado suelto, cualquier reemplazo atómico (`sed -i`, un editor, `git`) crea un
+  inodo nuevo que el contenedor no ve, y las recargas siguen leyendo la versión vieja. El
+  2026-10-06 un `sed -i` hecho en una prueba del guardián dejó a blackbox con la configuración de
+  antes de la 0.5.6: ni las reconciliaciones del guardián ni el despliegue le llegaban, y la regla
+  nueva de `wan:up` dio una `WanCaida{wan=wan1}` falsa durante 7 min. Es el mismo fallo que se
+  corrigió para Prometheus en la 0.4.2. `deploy/tests/prueba-montaje-config.sh` (CI) lo reproduce
+  con blackbox real y un control negativo con el fichero montado suelto.
+
 ## [0.5.6] - 2026-10-06
 
 **Respaldo, avisos y una salud de WAN que mira TCP.** Recoge la revisión del 2026-10-05/06:
