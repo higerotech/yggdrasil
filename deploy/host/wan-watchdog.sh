@@ -56,8 +56,10 @@ set -uo pipefail
 # --- Configuracion (debe cuadrar con wan-balancer.sh) -------------------------------------
 WAN1_IF="wan1"; WAN2_IF="wan2"
 OBJETIVOS_RUTA=("1.1.1.1" "8.8.8.8")   # se prueban por `main`; basta que responda uno
-OBJETIVO_WAN1="1.1.1.1"                # mismos que usa wan-balancer para cada enlace
-OBJETIVO_WAN2="1.0.0.1"
+# Salud de cada WAN: mayoria de los MISMOS destinos que wan-balancer y Heimdall (wan:up)
+CHECK_ICMP=()
+CHECK_TLS=("https://www.gstatic.com/generate_204" "https://1.1.1.1/cdn-cgi/trace" "https://8.8.8.8/")
+TIMEOUT_TLS=3
 NOMBRE_DNS="www.gstatic.com"           # el mismo que sondea Heimdall
 RESOLUTOR="127.0.0.1"
 
@@ -115,11 +117,19 @@ sondear_ruta() {
 }
 
 # Por la tabla de la WAN: atado a su IP de origen, igual que hace wan-balancer.
-sondear_wan() {  # sondear_wan <interfaz> <objetivo>
-    local ip
+sondear_wan() {  # sondear_wan <interfaz>: 0 si responde la MAYORIA (mismo criterio que wan-balancer)
+    local ip d p ok=0 n=0
+    local -a pids=()
     ip=$(ip -4 -o addr show dev "$1" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1)
     [[ -z "$ip" ]] && return 1
-    ping -c1 -W"$TIMEOUT_PING" -n -I "$ip" "$2" >/dev/null 2>&1
+    for d in "${CHECK_ICMP[@]}"; do
+        ping -c1 -W"$TIMEOUT_PING" -n -I "$ip" "$d" >/dev/null 2>&1 & pids+=($!)
+    done
+    for d in "${CHECK_TLS[@]}"; do
+        curl -fsS -o /dev/null -m "$TIMEOUT_TLS" --interface "$ip" "$d" >/dev/null 2>&1 & pids+=($!)
+    done
+    for p in "${pids[@]}"; do n=$((n + 1)); wait "$p" && ok=$((ok + 1)); done
+    (( ok * 2 > n ))
 }
 
 sondear_dns() {
@@ -223,25 +233,33 @@ reconciliar_sondas() {
 
     anotar_remedio
     log "re-renderizando las sondas con las IP vivas" warning
-    if sudo -u "$RENDER_USER" bash "$RENDER_SH" >/dev/null 2>&1; then
+    # --sin-recarga: la recarga la hace el guardian justo debajo, y el usuario del render no
+    # tiene por que tener acceso a Docker. La salida de render.sh solo lleva IPs y nombres de
+    # receptor, asi que se registra si falla: el 2026-10-06 se tiraba a /dev/null y el motivo
+    # ("Read-only file system") hubo que reproducirlo a mano.
+    local salida
+    if salida=$(sudo -u "$RENDER_USER" bash "$RENDER_SH" --sin-recarga 2>&1); then
         curl -fsS -m 10 -X POST "$BLACKBOX_RELOAD" >/dev/null 2>&1 || true
         local resto=""
         for iface in "$WAN1_IF" "$WAN2_IF"; do resto+="$iface=$(ip_en_blackbox "$iface") "; done
         log "sondas reconciliadas ($resto)" warning
     else
-        crit "fallo el re-render de las sondas ($RENDER_SH). Revisar a mano."
+        crit "fallo el re-render de las sondas ($RENDER_SH): $(tail -n 2 <<<"$salida" | tr '\n' ' ')"
         return 1
     fi
     return 0
 }
+
+# Las pruebas (tests/prueba-quorum.sh) cargan las funciones sin diagnosticar ni remediar.
+[[ "${WAN_WATCHDOG_SIN_PRINCIPAL:-0}" == 1 ]] && return 0
 
 # --- Diagnostico -------------------------------------------------------------------------
 
 ruta_ok=1; dns_ok=1; wan1_ok=1; wan2_ok=1
 confirmar_fallo sondear_ruta                       && ruta_ok=0
 confirmar_fallo sondear_dns                        && dns_ok=0
-sondear_wan "$WAN1_IF" "$OBJETIVO_WAN1"            || wan1_ok=0
-sondear_wan "$WAN2_IF" "$OBJETIVO_WAN2"            || wan2_ok=0
+sondear_wan "$WAN1_IF"                             || wan1_ok=0
+sondear_wan "$WAN2_IF"                             || wan2_ok=0
 
 resumen="ruta_main=$ruta_ok dns=$dns_ok wan1=$wan1_ok wan2=$wan2_ok"
 

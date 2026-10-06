@@ -75,6 +75,34 @@ install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-arranque.service" /etc/systemd/sys
 systemctl daemon-reload
 systemctl enable yggdrasil-arranque.service >/dev/null 2>&1 && echo "   yggdrasil-arranque.service habilitada"
 
+echo "== 5c. Respaldo nocturno al NAS (/mnt/nas/respaldos/yggdrasil, 14 días)"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-respaldar.sh" /usr/local/sbin/yggdrasil-respaldar.sh
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-respaldo.service" /etc/systemd/system/yggdrasil-respaldo.service
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-respaldo.timer" /etc/systemd/system/yggdrasil-respaldo.timer
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-respaldo-aviso.sh" /usr/local/sbin/yggdrasil-respaldo-aviso.sh
+for u in yggdrasil-respaldo-fallo.service yggdrasil-respaldo-vigia.service yggdrasil-respaldo-vigia.timer; do
+  install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"
+done
+systemctl daemon-reload
+systemctl enable --now yggdrasil-respaldo.timer >/dev/null 2>&1 && echo "   yggdrasil-respaldo.timer habilitado"
+systemctl enable --now yggdrasil-respaldo-vigia.timer >/dev/null 2>&1 && echo "   yggdrasil-respaldo-vigia.timer habilitado"
+# El tema de ntfy es la credencial y no va al repo: se enlaza al de smartd para no duplicarlo.
+if [ ! -e /etc/yggdrasil-aviso.env ]; then
+  if [ -f /etc/smartd-aviso.env ]; then
+    ln -s /etc/smartd-aviso.env /etc/yggdrasil-aviso.env && echo "   avisos: /etc/yggdrasil-aviso.env -> /etc/smartd-aviso.env"
+  else
+    echo "   FALTA /etc/yggdrasil-aviso.env (root, 600) con AVISO_URL=<tema de ntfy>; sin él no hay avisos"
+  fi
+fi
+
+echo "== 5d. Vigía de servicios (aviso por ntfy si un servicio sale de línea)"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-vigia-servicios.sh" /usr/local/sbin/yggdrasil-vigia-servicios.sh
+for u in yggdrasil-vigia-servicios.service yggdrasil-vigia-servicios.timer; do
+  install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"
+done
+systemctl daemon-reload
+systemctl enable --now yggdrasil-vigia-servicios.timer >/dev/null 2>&1 && echo "   yggdrasil-vigia-servicios.timer habilitado"
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

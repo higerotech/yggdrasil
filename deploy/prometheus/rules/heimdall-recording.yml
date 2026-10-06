@@ -20,9 +20,13 @@ groups:
       - record: wan:latencia_p99:5m
         expr: avg by (wan) (quantile_over_time(0.99, probe_icmp_duration_seconds{job=~"blackbox_icmp_wan[0-9]+", phase="rtt"}[5m]))
 
-      # Quórum RF01: la WAN está arriba si responden ≥ 2 de sus 3 objetivos (2 ICMP + 1 TLS).
+      # Quórum RF01: la WAN está arriba si responden ≥ 2 de sus 3 sondas TCP+TLS (www.gstatic.com,
+      # 1.1.1.1 y 8.8.8.8 por el puerto 443). Hasta 2026-10-06 eran 2 ICMP + 1 TLS: ese día wan2
+      # respondía a los ping pero TCP estaba roto, y con dos votos ICMP seguía "arriba". Las
+      # sondas ICMP siguen midiendo pérdida y latencia. wan-balancer y wan-watchdog usan los
+      # mismos tres destinos y la misma mayoría (deploy/host/tests/prueba-quorum.sh lo comprueba).
       - record: wan:up
-        expr: (sum by (wan) (probe_success{job=~"blackbox_(icmp|tls)_wan[0-9]+"}) >= bool 2)
+        expr: (sum by (wan) (probe_success{job=~"blackbox_tls_wan[0-9]+"}) >= bool 2)
       - record: hogar:up
         expr: max(wan:up)
 

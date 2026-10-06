@@ -9,6 +9,82 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.6] - 2026-10-06
+
+**Respaldo, avisos y una salud de WAN que mira TCP.** Recoge la revisión del 2026-10-05/06:
+Yggdrasil no tenía respaldo, ninguna alerta llegaba a un teléfono y el incidente de wan2 del
+2026-10-06 destapó tres fallos de criterio (sondas que no se reconciliaban, un único destino de
+salud por WAN y ping que votaba con TCP roto).
+
+### Añadido
+- **Nornas publica las alertas en ntfy.** La salida push del flujo era un nodo `debug` también en
+  producción: ninguna alerta de Heimdall llegaba a un teléfono. Ahora publica en el tema de
+  `NTFY_URL` (vacía = sin push) por la API JSON de ntfy, que conserva las tildes de los títulos.
+  Prioridad según la severidad (`critical` 4, `warning` 3) y la recuperación en 2.
+- **Pruebas del flujo de Nornas** (`deploy/nornas/tests/`, `node --test` en el CI): avisos únicos,
+  resoluciones, contrato MQTT de `WanCaida` y formato de ntfy, sin filtrar el tema.
+
+- **Avisos por ntfy del respaldo nocturno.** Push inmediato si el respaldo falla (`OnFailure=`) y
+  un vigía a las 08:00 hora de la casa que avisa si el último éxito tiene más de 26 h, para cubrir
+  un temporizador que no se dispara. Va directo del host a ntfy, con el mismo tema que los avisos
+  SMART (`/etc/yggdrasil-aviso.env` enlaza a `/etc/smartd-aviso.env`): la salida push de Nornas
+  sigue sin conectar en producción, y el aviso no debe depender del stack que respalda.
+- **Respaldo nocturno al NAS.** Hasta ahora Yggdrasil no tenía respaldo, y vive en un HDD con
+  sectores pendientes y errores incorregibles. `yggdrasil-respaldo.timer` (22:30 hora de la casa,
+  `Persistent=true`) archiva los seis volúmenes, el despliegue con su `.env` y la configuración
+  del router en `/mnt/nas/respaldos/yggdrasil`, comprueba la suma en el NAS y conserva 14 días.
+  Mimir y Odin se congelan unos 5 s para copiar una TSDB y una SQLite consistentes. Lo instala
+  `bootstrap-midgard.sh` (paso 5c).
+- **Observabilidad de Bragi en Heimdall** (ADR-0009 de `higerotech/bragi`): job `bragi` contra
+  `bragi-metricas:9470` por la red `heimdall`, sin puertos publicados, y `rules/bragi-alertas.yml`
+  con 8 alertas (caída en LAN y desde fuera, métricas ausentes, respaldo atrasado, transcodes,
+  CPU anómala, memoria, y transcode coincidente con una WAN degradada). La especificación y sus
+  pruebas unitarias viven en Bragi; aquí va una copia. Sin etiqueta `wan`, Nornas las entrega
+  como aviso push sin cambios.
+- **Bragi** reservado en `naming.md` para el servidor de medios Jellyfin, que vive en su propio repositorio (`higerotech/bragi`) por el mismo motivo que Fenrir: presupuesto de recursos y ciclo de vida propios.
+- **Vigía de servicios.** `yggdrasil-vigia-servicios.timer` comprueba cada minuto los servicios
+  permanentes del Compose (sacados del propio `docker-compose.yml`) y las unidades del host de las
+  que depende el proyecto, y avisa por ntfy cuando uno sale de línea y cuando vuelve: dos fallos
+  seguidos, un push por pasada, recordatorio cada 6 h, nada en los 10 min tras arrancar y solo
+  Docker si cae Docker. Va directo del host a ntfy porque entre los vigilados está la propia
+  cadena de alertas (Mimir, Gjallarhorn, Nornas). 21 pruebas con dobles en el CI.
+
+### Cambiado
+- **Un push por episodio de alerta.** Gjallarhorn reenvía el grupo entero en cada cambio y cada
+  4 h, y Nornas avisaba de todas las alertas firing de cada lote. Ahora recuerda la huella de lo
+  ya avisado y la olvida al resolverse (o a los 7 días, como recordatorio). Las alertas sin WAN,
+  como las de Bragi, avisan también de su resolución.
+- **Salud de cada WAN por mayoría de destinos TCP, igual en el balanceador, el guardián y
+  Heimdall.** `wan-balancer` y `wan-watchdog` comprobaban un único ping por WAN (1.1.1.1 /
+  1.0.0.1), y `wan:up` contaba 2 ICMP + 1 TLS. El 2026-10-06 el ISP2 dejó de llegar a 1.0.0.1
+  (wan2 salió entera del multipath mientras Heimdall la veía sana) y, además, tenía un agujero
+  negro de MTU y TCP roto hacia parte de internet mientras los ping pasaban. Ahora los tres
+  deciden con la mayoría de tres comprobaciones HTTPS reales (www.gstatic.com, 1.1.1.1:443 y
+  8.8.8.8:443): una WAN con ping y sin TCP queda fuera. Las sondas ICMP siguen midiendo pérdida y
+  latencia. Las sondas TLS por WAN ya no fijan `server_name`: cada destino se verifica con su
+  certificado (los de 1.1.1.1 y 8.8.8.8 llevan la IP como SAN). Pruebas: `promtool test rules`
+  de `wan:up` con el caso del 2026-10-06 y `deploy/host/tests/prueba-quorum.sh`, que además
+  exige que los tres usen los mismos destinos.
+
+### Corregido
+- **La reconciliación de sondas del guardián nunca funcionó en midgard.** `wan-watchdog.service`
+  lleva `ProtectSystem=strict` sin `ReadWritePaths`, así que `/srv` era de solo lectura y
+  `render.sh` no podía reescribir `blackbox.yml`. La primera vez que hizo falta, el 2026-10-06 tras
+  un cambio de IP de wan2, el render falló, se agotó el cupo de remedios y `WanCaida{wan=wan2}`
+  siguió disparada siendo falsa hasta arreglarlo a mano. La unidad abre ahora solo `blackbox/` y
+  `alertmanager/`; el guardián llama a `render.sh --sin-recarga` (la recarga ya la hace él) y
+  registra el motivo si el render falla, que antes iba a `/dev/null`.
+- **Prueba de regresión en el CI**: `deploy/host/tests/prueba-sandbox-guardian.sh` ejecuta el
+  render con las directivas de sandbox leídas de la propia unidad, con un control negativo que
+  exige que falle sin `ReadWritePaths`. Ninguna prueba lo veía porque el CI ejecutaba `render.sh`
+  fuera de systemd.
+
+### Nota de operación
+- **Recorte de MSS en `/etc/nftables.conf` de midgard** (fuera de este repo, 2026-10-06): la regla
+  de clamp estaba al final de `chain forward`, detrás de los `accept`, y no se aplicaba nunca.
+  Ahora va en cadenas `mangle` propias para la casa y para el host, con MSS fijo de 1440 en wan2
+  por el agujero negro de MTU del ISP2. Detalle y comprobación en `deploy/host/README.md`.
+
 ## [0.5.5] - 2026-09-18
 
 **Reglas de enrutamiento y sondas que se reconcilian solas.** Continúa la revisión del appliance
@@ -269,7 +345,10 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1

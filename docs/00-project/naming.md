@@ -41,5 +41,6 @@ Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wa
 | **Thor** | Métricas del host / node_exporter (la fuerza de la máquina) |
 | **Freyja** | Sensores IoT / Home Assistant si llegara |
 | **Valhalla** | Archivo frío / respaldos de largo plazo |
+| **Bragi** | Servidor de medios Jellyfin (el bardo que cuenta las historias); proyecto independiente `higerotech/bragi`, con topes de CPU propios. Como Fenrir, Yggdrasil solo integrará su salud y su impacto en las WAN en una feature futura |
 
 Nota feliz: el ecosistema Grafana ya usa nombres nórdicos (Loki, Mimir), así que futuras adopciones encajan en el tema sin fricción.

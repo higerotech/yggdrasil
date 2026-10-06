@@ -1,0 +1,11 @@
+[Unit]
+Description=Yggdrasil: vigia matutino del respaldo
+
+[Timer]
+# 08:00 hora de la casa: el respaldo de las 22:30 tiene ~9,5 h. Si anoche fallo o no corrio, el
+# ultimo exito tiene ~33,5 h y supera el limite de 26 h: un aviso por la mañana, a hora de leerlo.
+OnCalendar=*-*-* 08:00 America/Caracas
+Persistent=true
+
+[Install]
+WantedBy=timers.target

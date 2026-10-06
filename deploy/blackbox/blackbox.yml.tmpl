@@ -1,9 +1,11 @@
 # Plantilla de Huginn y Muninn (blackbox_exporter). scripts/render.sh sustituye ${WAN1_IP} y
 # ${WAN2_IP} por las IPv4 actuales de wan1/wan2 y escribe blackbox.yml (gitignored).
 #
-# Cada WAN sondea 1.1.1.1 y 8.8.8.8 por ICMP y www.gstatic.com:443 por TCP+TLS. El prober
-# http de blackbox no permite fijar la IP de origen, así que el tercer objetivo (DNS + TLS de
-# extremo a extremo) se valida con el handshake TLS en vez de esperar un HTTP 204.
+# Cada WAN sondea 1.1.1.1 y 8.8.8.8 por ICMP (pérdida y latencia) y www.gstatic.com:443,
+# 1.1.1.1:443 y 8.8.8.8:443 por TCP+TLS (disponibilidad: `wan:up` = 2 de esas 3). El prober
+# http de blackbox no permite fijar la IP de origen, así que se valida el handshake TLS en vez
+# de esperar un HTTP 204. Desde 2026-10-06 la disponibilidad la deciden las sondas TCP: ese día
+# wan2 respondía a los ping pero TCP estaba roto (agujero negro de MTU y destinos sin ruta).
 #
 # Los módulos `*_hogar` del final NO fijan IP de origen a propósito: ver el comentario que
 # los precede. Se dejan al final porque `ip_anterior()` de render.sh busca el primer
@@ -31,8 +33,8 @@ modules:
       ip_protocol_fallback: false
       source_ip_address: "${WAN1_IP}"
       tls: true
-      tls_config:
-        server_name: www.gstatic.com
+      # Sin server_name: cada destino (www.gstatic.com, 1.1.1.1, 8.8.8.8) se verifica con su
+      # propio certificado; los de 1.1.1.1 y 8.8.8.8 llevan la IP como SAN.
   tls_wan2:
     prober: tcp
     timeout: 5s
@@ -41,8 +43,6 @@ modules:
       ip_protocol_fallback: false
       source_ip_address: "${WAN2_IP}"
       tls: true
-      tls_config:
-        server_name: www.gstatic.com
 
   # --- Ruta real de la casa (sin source_ip_address, a propósito) ---
   #

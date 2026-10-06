@@ -18,6 +18,12 @@ StateDirectory=wan-watchdog
 RuntimeDirectory=wan-watchdog
 RuntimeDirectoryPreserve=yes
 ProtectSystem=strict
+# La reconciliacion de sondas ejecuta render.sh, que reescribe estos dos ficheros. Sin esta
+# linea /srv es de solo lectura y el render falla: paso el 2026-10-06 y la WanCaida falsa de
+# wan2 siguio disparada hasta arreglarlo a mano. El "-" deja arrancar la unidad en un appliance
+# sin Yggdrasil. Si se cambia BLACKBOX_YML o RENDER_SH, hay que cambiar esto tambien;
+# deploy/host/tests/prueba-sandbox-guardian.sh lo comprueba en el CI.
+ReadWritePaths=-/srv/apps/yggdrasil/deploy/blackbox -/srv/apps/yggdrasil/deploy/alertmanager
 ProtectHome=yes
 PrivateTmp=yes
 NoNewPrivileges=yes

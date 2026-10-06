@@ -1,0 +1,62 @@
+# Pruebas de `wan:up` (quórum de sondas TCP+TLS). Ejecutar:
+#   promtool test rules deploy/prometheus/tests/wan-up.test.yml
+rule_files:
+  - ../rules/heimdall-recording.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: el caso del 2026-10-06 — los ping responden pero TCP no
+    interval: 15s
+    input_series:
+      # wan1: ping perfecto, solo 1 de 3 sondas TLS responde -> CAÍDA
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="1.1.1.1", wan="wan1"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="8.8.8.8", wan="wan1"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_tls_wan1", target="www.gstatic.com:443", wan="wan1"}'
+        values: '0x8'
+      - series: 'probe_success{job="blackbox_tls_wan1", target="1.1.1.1:443", wan="wan1"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_tls_wan1", target="8.8.8.8:443", wan="wan1"}'
+        values: '0x8'
+      # wan2: sin ping, pero 2 de 3 sondas TLS responden -> ARRIBA
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="1.1.1.1", wan="wan2"}'
+        values: '0x8'
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="8.8.8.8", wan="wan2"}'
+        values: '0x8'
+      - series: 'probe_success{job="blackbox_tls_wan2", target="www.gstatic.com:443", wan="wan2"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_tls_wan2", target="1.1.1.1:443", wan="wan2"}'
+        values: '0x8'
+      - series: 'probe_success{job="blackbox_tls_wan2", target="8.8.8.8:443", wan="wan2"}'
+        values: '1x8'
+    promql_expr_test:
+      - expr: wan:up
+        eval_time: 1m
+        exp_samples:
+          - labels: 'wan:up{wan="wan1"}'
+            value: 0
+          - labels: 'wan:up{wan="wan2"}'
+            value: 1
+      - expr: hogar:up
+        eval_time: 1m
+        exp_samples:
+          - labels: 'hogar:up'
+            value: 1
+
+  - name: las tres sondas TLS responden
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="blackbox_tls_wan1", target="www.gstatic.com:443", wan="wan1"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_tls_wan1", target="1.1.1.1:443", wan="wan1"}'
+        values: '1x8'
+      - series: 'probe_success{job="blackbox_tls_wan1", target="8.8.8.8:443", wan="wan1"}'
+        values: '1x8'
+    promql_expr_test:
+      - expr: wan:up
+        eval_time: 1m
+        exp_samples:
+          - labels: 'wan:up{wan="wan1"}'
+            value: 1

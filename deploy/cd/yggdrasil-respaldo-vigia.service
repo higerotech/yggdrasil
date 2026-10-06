@@ -1,0 +1,13 @@
+[Unit]
+Description=Yggdrasil: comprueba que el respaldo nocturno no esta atrasado
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+After=network-online.target
+# Tras un apagon los dos temporizadores Persistent disparan a la vez al arrancar: que el vigia
+# espere al respaldo, o avisaria de un atraso que se esta resolviendo en ese momento.
+After=yggdrasil-respaldo.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/yggdrasil-respaldo-aviso.sh vigilar
+TimeoutStartSec=120

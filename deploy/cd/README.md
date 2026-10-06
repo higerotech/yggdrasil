@@ -92,7 +92,7 @@ publicado, o `docker compose build` para construir en local).
 
 ## Pendientes conocidos
 - Ratatosk y Nornas son servicios del propio Compose desde ADR-0006; el bootstrap completa en `.env`
-  las credenciales MQTT y del editor si faltan. Conectar la salida push del flujo sigue siendo manual.
+  las credenciales MQTT y del editor si faltan. La salida push publica en ntfy si `NTFY_URL` está en el `.env`; vacía, no manda push.
 - El resultado de `sync-host`/`sync-net` no forma parte del healthcheck del receptor; revisar sus
   logs en el primer despliegue.
 
@@ -109,3 +109,87 @@ el arranque los servicios de un solo uso `sync-host` y `sync-net`, que necesitan
 
 Comprobación: `systemctl is-enabled yggdrasil-arranque` y, tras un reinicio,
 `systemctl status yggdrasil-arranque` más `docker compose -p yggdrasil ps`.
+
+## Respaldo nocturno
+
+`bootstrap-midgard.sh` instala `yggdrasil-respaldar.sh` y `yggdrasil-respaldo.timer`. Cada noche,
+a las 22:30 hora de la casa (02:30 UTC, `Persistent=true` por los apagones), deja en el NAS
+`/mnt/nas/respaldos/yggdrasil/yggdrasil-<UTC>.tar.gz`, con su `.sha256`, y conserva los **14** más
+recientes. El volumen ronda los 225 MB.
+
+| Contenido del archivo | Origen |
+|---|---|
+| `volumenes/<volumen>.tar` | los seis volúmenes `yggdrasil_*` |
+| `despliegue.tar` | `/srv/apps/yggdrasil/deploy`, **con `.env` y la configuración renderizada** |
+| `yggdrasil.json` | etiqueta desplegada según el receptor |
+| `host/host.tar` | nftables, sysctl, netplan, `apps.yml` y las unidades y scripts de WAN y Yggdrasil |
+
+Mimir y Odin se congelan con `docker pause` unos 5 s mientras se copian a disco local, para que la
+TSDB y la SQLite queden consistentes. Ratatosk y Nornas se copian en caliente: congelarlos marca su
+healthcheck como `unhealthy` durante varios minutos. La copia en el NAS se verifica contra la suma, y
+la retención no borra nada si la subida del día no está verificada. El último éxito queda en
+`/var/lib/yggdrasil-respaldo/ultimo-exito` (epoch).
+
+El archivo lleva secretos. El NAS fuerza el propietario de todo lo que se escribe, así que la
+protección es el modo (directorio 700, ficheros 600) y que el export `respaldos` solo admite a
+midgard.
+
+Comprobación: `systemctl list-timers yggdrasil-respaldo.timer` y
+`journalctl -u yggdrasil-respaldo -n 20`. A mano: `sudo systemctl start yggdrasil-respaldo`.
+
+### Avisos por ntfy
+
+`yggdrasil-respaldo-aviso.sh` manda dos avisos al tema de ntfy de la casa:
+
+| Aviso | Cuándo | Qué lo dispara |
+|---|---|---|
+| **Respaldo Yggdrasil FALLO** | en el momento | `OnFailure=yggdrasil-respaldo-fallo.service` del respaldo |
+| **Respaldo Yggdrasil atrasado** | 08:00 hora de la casa | `yggdrasil-respaldo-vigia.timer`, si el último éxito tiene más de 26 h |
+
+El vigía cubre lo que `OnFailure` no ve: un temporizador que no llega a dispararse o un respaldo
+que nunca termina. Si anoche falló, por la mañana llegan los dos: el segundo es el recordatorio.
+
+Van **directos del host a ntfy**, como `smartd-ntfy`, y no por Gjallarhorn → Nornas: la salida push
+de Nornas sigue sin conectar, y el aviso de un respaldo no debe depender del stack que respalda.
+
+El tema de ntfy **es** la credencial: quien lo conozca lee los avisos. Se lee de
+`/etc/yggdrasil-aviso.env` (`AVISO_URL=...`), que en midgard es un enlace a `/etc/smartd-aviso.env`,
+así que al rotar el tema solo hay que tocar un fichero. `bootstrap-midgard.sh` crea el enlace si
+existe el de smartd.
+
+Comprobación del canal: `sudo /usr/local/sbin/yggdrasil-respaldo-aviso.sh prueba`.
+
+Restauración, con el stack parado (`docker compose -p yggdrasil stop`):
+
+```bash
+tar -xzf yggdrasil-<UTC>.tar.gz          # deja r/
+tar -C /var/lib/docker/volumes/yggdrasil_mimir-datos/_data --numeric-owner -xpf r/volumenes/mimir-datos.tar
+# ...igual con cada volumen; despliegue.tar va en /srv/apps/yggdrasil
+```
+
+## Vigía de servicios
+
+`yggdrasil-vigia-servicios.timer` ejecuta cada minuto `yggdrasil-vigia-servicios.sh`, que avisa
+por ntfy cuando un servicio sale de línea y cuando vuelve.
+
+| Qué vigila | Caído si |
+|---|---|
+| Servicios **permanentes** del Compose (`restart` distinto de `no`), leídos de `docker-compose.yml` | el contenedor no existe, no está en marcha o su healthcheck da `unhealthy` |
+| Unidades del host: `docker`, `wan-balancer`, `dnsmasq`, `cd-receiver` y los temporizadores del guardián y del respaldo | `systemctl is-active` distinto de `active` |
+
+Un servicio nuevo del Compose entra solo; las tareas de un solo uso (`nornas-init`, `sync-*`)
+quedan fuera. `paused` cuenta como en marcha, porque el respaldo congela Mimir y Odín unos
+segundos. Las unidades que no existan en la máquina se saltan.
+
+Contra el ruido: avisa tras **2 comprobaciones seguidas** en fallo (unos 2 min), no comprueba nada
+en los **10 min** posteriores al arranque (Odín tarda ~400 s en el HDD), con Docker caído solo avisa
+de Docker, junta todo en **un push por pasada** y recuerda cada **6 h** lo que siga caído. Si el push
+falla, por ejemplo sin internet, se reintenta en la siguiente pasada.
+
+Va directo del host a ntfy, con el mismo tema que los avisos del respaldo
+(`/etc/yggdrasil-aviso.env`), porque entre los vigilados están Mimir, Gjallarhorn y Nornas: si cae
+la cadena de alertas, una alerta que dependa de ella no la entrega nadie.
+
+Ajustes por entorno de la unidad: `VIGIA_UNIDADES`, `VIGIA_UMBRAL`, `VIGIA_GRACIA_S`,
+`VIGIA_RECORDAR_H`. Estado en `/var/lib/yggdrasil-vigia` (un fichero por servicio en fallo).
+Pruebas: `bash deploy/cd/tests/prueba-vigia-servicios.sh` (dobles de docker, systemctl y curl).
