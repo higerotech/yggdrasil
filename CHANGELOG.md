@@ -9,6 +9,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.6] - 2026-10-06
+
+**Respaldo, avisos y una salud de WAN que mira TCP.** Recoge la revisión del 2026-10-05/06:
+Yggdrasil no tenía respaldo, ninguna alerta llegaba a un teléfono y el incidente de wan2 del
+2026-10-06 destapó tres fallos de criterio (sondas que no se reconciliaban, un único destino de
+salud por WAN y ping que votaba con TCP roto).
+
 ### Añadido
 - **Nornas publica las alertas en ntfy.** La salida push del flujo era un nodo `debug` también en
   producción: ninguna alerta de Heimdall llegaba a un teléfono. Ahora publica en el tema de
@@ -338,7 +345,10 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
+[0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5
+[0.5.4]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/higerotech/yggdrasil/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/higerotech/yggdrasil/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/higerotech/yggdrasil/compare/v0.5.0...v0.5.1
