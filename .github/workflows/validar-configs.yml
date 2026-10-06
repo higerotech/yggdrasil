@@ -63,6 +63,8 @@ jobs:
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
+      - name: Configs renderizadas montadas como directorio (blackbox real, con control negativo)
+        run: bash deploy/tests/prueba-montaje-config.sh
       - name: Construir Sleipnir y sync
         working-directory: deploy
         run: |
@@ -70,7 +72,7 @@ jobs:
           docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh /mnt/host/tests/prueba-quorum.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh /mnt/host/tests/prueba-quorum.sh /mnt/tests/prueba-montaje-config.sh
 
   guardian:
     name: "Guardián: render.sh dentro del sandbox de wan-watchdog"

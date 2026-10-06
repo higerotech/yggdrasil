@@ -9,6 +9,22 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.7] - 2026-10-06
+
+**Configuraciones renderizadas que siempre llegan al contenedor.** Hotfix del despliegue de la
+`0.5.6`, que dio una `WanCaida` falsa de wan1 porque blackbox seguía leyendo una configuración
+vieja.
+
+### Corregido
+- **blackbox y alertmanager montan su directorio de configuración, no el fichero.** Con
+  `blackbox.yml` montado suelto, cualquier reemplazo atómico (`sed -i`, un editor, `git`) crea un
+  inodo nuevo que el contenedor no ve, y las recargas siguen leyendo la versión vieja. El
+  2026-10-06 un `sed -i` hecho en una prueba del guardián dejó a blackbox con la configuración de
+  antes de la 0.5.6: ni las reconciliaciones del guardián ni el despliegue le llegaban, y la regla
+  nueva de `wan:up` dio una `WanCaida{wan=wan1}` falsa durante 7 min. Es el mismo fallo que se
+  corrigió para Prometheus en la 0.4.2. `deploy/tests/prueba-montaje-config.sh` (CI) lo reproduce
+  con blackbox real y un control negativo con el fichero montado suelto.
+
 ## [0.5.6] - 2026-10-06
 
 **Respaldo, avisos y una salud de WAN que mira TCP.** Recoge la revisión del 2026-10-05/06:
@@ -345,7 +361,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/higerotech/yggdrasil/compare/v0.5.3...v0.5.4

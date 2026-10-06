@@ -37,7 +37,11 @@ services:
     read_only: true
     mem_limit: 64m
     volumes:
-      - ./blackbox/blackbox.yml:/etc/blackbox/blackbox.yml:ro   # renderizado por scripts/render.sh
+      # Directorio, no fichero (2026-10-06): blackbox.yml lo regeneran render.sh y el guardián
+      # entre despliegues. Con el fichero montado suelto, cualquier reemplazo atómico (sed -i, un
+      # editor, git) crea un inodo nuevo que el contenedor no ve: las recargas siguen leyendo la
+      # versión vieja. Así se quedó con la configuración anterior y dio una WanCaida falsa.
+      - ./blackbox:/etc/blackbox:ro   # blackbox.yml renderizado por scripts/render.sh
     command:
       - --config.file=/etc/blackbox/blackbox.yml
       - --web.listen-address=${DOCKER_HOST_GW:-172.17.0.1}:9115
@@ -97,7 +101,7 @@ services:
     read_only: true
     mem_limit: 128m
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro   # renderizado
+      - ./alertmanager:/etc/alertmanager:ro   # directorio, no fichero: ver huginn-muninn
       - gjallarhorn-datos:/alertmanager
     command:
       - --config.file=/etc/alertmanager/alertmanager.yml
