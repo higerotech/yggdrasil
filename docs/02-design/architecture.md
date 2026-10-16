@@ -22,6 +22,7 @@ C4Container
     Person(jeremi, "Administrador del hogar")
     System_Ext(isp1, "ISP 1 (wan1)", "Enlace 1 Gbps")
     System_Ext(isp2, "ISP 2 (wan2)", "Enlace 1 Gbps")
+    System_Ext(tablet, "Hlidskjalf", "Tablet Android en la pared, WebView kiosco", "Tablero de solo lectura (ADR-0007)")
     System_Boundary(yggdrasil, "Yggdrasil — Docker Compose") {
         Container_Boundary(heimdall, "Heimdall — Monitor SLA") {
             Container(blackbox, "Huginn y Muninn", "blackbox_exporter, network_mode host", "ICMP/HTTP con source IP por WAN, modulos icmp_wan1 e icmp_wan2", $tags="principle")
@@ -42,6 +43,9 @@ C4Container
     Rel(am, nodered, "Notifica por webhook", "HTTP JSON + Bearer, red interna")
     Rel(nodered, mqtt, "Publica estado en", "MQTT 1883 auth, retained")
     Rel(jeremi, grafana, "Consulta", "HTTPS LAN / WireGuard")
+    Rel(tablet, nodered, "Pide página y resumen", "HTTP 1880 LAN + Bearer de lectura")
+    Rel(nodered, prom, "Consulta para el tablero", "PromQL/HTTP, red interna")
+    Rel(nodered, am, "Lee alertas activas", "HTTP, red interna")
     UpdateElementStyle(grafana, $borderColor="#b30000")
     UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
@@ -55,6 +59,7 @@ Notas de diseño clave:
 - **Throughput** (RF02, RF09): iperf3 (preferido por su menor coste de CPU en el i3-3240) o speedtest cada 6 h alternando WAN, con `--source` de la interfaz correspondiente; resultado a textfile collector. El techo medible lo impone la cadena VL805/UE300 y se calibra en Gate 3; se documenta en el dashboard junto al SLO de cada WAN y dirección.
 - **Ruta real del hogar** (revisión 2026-09-16): las sondas por WAN fijan `source_ip_address`, así que sus paquetes entran por la regla `ip rule from <ip> lookup wanN` y viajan por una tabla que `wan-balancer` mantiene con default propio. Miden la salud de cada **enlace**, que es su cometido, pero ninguna pasa por la tabla `main`, que es por donde salen la LAN, dnsmasq y los contenedores. El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable y la casa estuvo 7 h sin internet mientras `hogar:up` valía 1 y no se disparó ninguna alerta. Los módulos `icmp_hogar` y `tls_hogar` (sin IP de origen) cubren ese camino y alimentan `hogar:ruta_up` y la alerta `HogarSinRuta`. `tls_hogar` cubre además la resolución DNS de extremo a extremo, punto único de fallo compartido por ambas WAN que no se ve en ninguna otra sonda.
 - **Servicios de plataforma** (ADR-0006): Ratatosk y Nornas los despliega el propio Compose de Yggdrasil, no un stack externo. Ratatosk exige credencial por cliente (`nornas`, `frigate`, `iot`) con ACL por tópico; Nornas lleva editor autenticado y recibe el webhook por la red interna. Con ellos la suma de `mem_limit` queda en 1664 MB (1408 antes de subir el techo de Odín el 2026-09-16). RNF01 no acota esa suma sino la RAM real del stack (≤ 1.5 GB), medida en TA-12: 397 MB de media y 554 MB de pico.
+- **Tablero de pared** (ADR-0007): Nornas sirve también Hlidskjalf, una página estática y un resumen JSON (`/hlidskjalf/resumen`) que arma con una consulta instantánea a Mimir y las alertas activas de Gjallarhorn, ambas por la red interna; una tablet Android en modo kiosco lo pinta. El resumen exige un token de solo lectura propio. Thor publica para él el estado de los contenedores y unidades y el último respaldo.
 - **Estado → MQTT** (RF05): Node-RED transforma el webhook de Alertmanager en `midgard/wan/<id>/estado`, `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado` (retained) y en notificación push; la domótica queda desacoplada del stack de métricas.
 
 ## Flujos críticos (comportamiento)

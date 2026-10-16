@@ -10,6 +10,25 @@ function exigir(nombre) {
   return v;
 }
 
+const crypto = require("node:crypto");
+
+// Herramientas para los nodos function del tablero Hlidskjalf: el sandbox de las functions no
+// trae fetch ni crypto, y functionExternalModules sigue desactivado. Se exponen dos funciones
+// concretas, no los módulos enteros.
+const herramientas = {
+  // GET a la red interna con tiempo máximo: una consulta colgada no debe dejar colgado el tablero.
+  consultarJson: async (url, ms = 5000) => {
+    const r = await fetch(url, { signal: AbortSignal.timeout(ms), headers: { Accept: "application/json" } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r.json();
+  },
+  // Comparación de secretos en tiempo constante.
+  secretoIgual: (a, b) => {
+    const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+    return x.length === y.length && crypto.timingSafeEqual(x, y);
+  },
+};
+
 module.exports = {
   flowFile: "flows.json",
   flowFilePretty: true,
@@ -38,6 +57,7 @@ module.exports = {
   },
   functionExternalModules: false,
   functionTimeout: 0,
+  functionGlobalContext: herramientas,
   debugMaxLength: 1000,
   mqttReconnectTime: 15000,
   editorTheme: {

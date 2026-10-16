@@ -29,7 +29,8 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 | **Odín** | Grafana | Desde su trono ve todos los mundos → dashboards |
 | **Nornas** | Node-RED | Tejen el destino a partir de los hilos → automatización sobre eventos |
 | **Ratatosk** | Mosquitto (MQTT) | La ardilla mensajera que recorre Yggdrasil → bus de eventos |
-| **Thor** | Métricas del host (recolector + httpd de busybox) | La fuerza de la máquina → salud del disco, espacio del NAS y qué WAN lleva el balanceador en la ruta (2026-10-16) |
+| **Thor** | Métricas del host (recolector + httpd de busybox) | La fuerza de la máquina → salud del disco, espacio del NAS, qué WAN lleva el balanceador en la ruta (2026-10-16), estado de los servicios y último respaldo |
+| **Hlidskjalf** | Tablero de pared (página servida por Nornas + app Android kiosco en una tablet) | Hliðskjálf, el trono desde el que Odín ve todos los mundos → el estado de midgard de un vistazo (ADR-0007, 2026-10-16) |
 
 ## Espacio de tópicos MQTT
 Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wan/wan1/estado`), reservado `asgard/...` para el tier nube.

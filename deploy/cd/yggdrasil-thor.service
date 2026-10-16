@@ -1,5 +1,5 @@
 [Unit]
-Description=Yggdrasil: Thor, metricas del host (SMART, espacio del NAS, WAN en la ruta)
+Description=Yggdrasil: Thor, metricas del host (SMART, NAS, WAN en la ruta, servicios, respaldo)
 Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
 After=network-online.target remote-fs.target
 
