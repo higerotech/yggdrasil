@@ -95,6 +95,33 @@ test("una huella de más de 7 días se olvida y vuelve a avisar", () => {
     assert.equal(pushes(t.ejecutar(webhook(alerta("BragiCaido", "firing")))).length, 1);
 });
 
+test("discrepancia con el balanceador: push al empezar y al resolverse, sin tocar el estado MQTT", () => {
+    const t = nodo("traducir.js");
+    const d = alerta("WanSanaFueraDeRuta", "firing", { wan: "wan2" });
+    const s1 = t.ejecutar(webhook(d));
+    assert.equal(pushes(s1).length, 1);
+    assert.equal(pushes(s1)[0].topic, "Heimdall: WanSanaFueraDeRuta en wan2");
+    assert.ok(!s1[0].some((m) => m.topic === "midgard/wan/wan2/estado" && m.payload !== "saludable"),
+        "no cambia el estado de la WAN");
+    assert.equal(pushes(t.ejecutar(webhook(d))).length, 0);
+    const s3 = t.ejecutar(webhook(alerta("WanSanaFueraDeRuta", "resolved", { wan: "wan2" })));
+    assert.equal(pushes(s3)[0].topic, "Heimdall: WanSanaFueraDeRuta en wan2 resuelta");
+    assert.equal(pushes(s3)[0].prioridad, 2);
+});
+
+test("WanCaidaEnRuta critica: prioridad 4", () => {
+    const t = nodo("traducir.js");
+    const p = pushes(t.ejecutar(webhook(alerta("WanCaidaEnRuta", "firing", { wan: "wan1", severity: "critical" }))));
+    assert.equal(p.length, 1);
+    assert.equal(p[0].prioridad, 4);
+});
+
+test("alertas de Thor sin WAN (disco, NAS): aviso y resolucion", () => {
+    const t = nodo("traducir.js");
+    assert.equal(pushes(t.ejecutar(webhook(alerta("DiscoEmpeora", "firing")))).length, 1);
+    assert.equal(pushes(t.ejecutar(webhook(alerta("DiscoEmpeora", "resolved"))))[0].topic, "Heimdall: DiscoEmpeora resuelta");
+});
+
 const URL_PRUEBA = "https://ntfy.example/tema-de-prueba-123";
 
 test("ntfy: sin NTFY_URL no envía nada", () => {

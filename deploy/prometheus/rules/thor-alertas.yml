@@ -1,0 +1,114 @@
+# Alertas sobre las métricas del host que publica Thor (deploy/cd/yggdrasil-thor.sh): coherencia
+# entre Heimdall y la ruta real del balanceador, salud del disco de midgard y espacio del NAS de
+# respaldos. Sin etiqueta `wan` salvo las dos de discrepancia; Nornas las entrega por ntfy.
+groups:
+  - name: thor_alertas
+    rules:
+      # --- Heimdall frente a wan-balancer (RCA del 2026-10-06, acción 6) -----------------------
+      # Los dos deciden con el mismo criterio (mayoría de 3 destinos TCP), así que una discrepancia
+      # sostenida no es de criterio: es una IP desfasada, un balanceador colgado o un fallo de una
+      # de las dos mediciones. 10 min absorben la histéresis del balanceador y el `for` de WanCaida.
+      - alert: WanSanaFueraDeRuta
+        expr: wan:up == 1 and on (wan) yggdrasil_wan_en_ruta == 0
+        for: 10m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "{{ $labels.wan }} sana según Heimdall pero fuera de la ruta del balanceador"
+          descripcion: >-
+            Se está perdiendo la capacidad de {{ $labels.wan }}. Revisar
+            `journalctl -t wan-balancer` y `ip route show default`.
+
+      - alert: WanCaidaEnRuta
+        # `hogar:up == 1`: con las dos WAN caídas el balanceador conserva la última ruta a propósito.
+        expr: wan:up == 0 and on (wan) yggdrasil_wan_en_ruta == 1 and on () hogar:up == 1
+        for: 10m
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "{{ $labels.wan }} caída según Heimdall pero el balanceador la mantiene en la ruta"
+          descripcion: >-
+            Parte de las conexiones de la casa salen por un enlace roto. Revisar
+            `journalctl -t wan-balancer` y `systemctl status wan-balancer`.
+
+      # --- Disco de midgard -------------------------------------------------------------------
+      # Atributos que anuncian la muerte del disco: reasignados (5), errores no corregidos (187),
+      # pendientes (197) e incorregibles (198). Cualquier subida en 24 h avisa; la alerta se
+      # resuelve sola 24 h después si no vuelven a subir. El 188 (Command_Timeout) se publica pero
+      # no avisa: en los Seagate el RAW empaqueta tres contadores de 16 bits (en midgard vale
+      # 68721442848) y una subida del contador alto se leería como "subió 4294967296".
+      - alert: DiscoEmpeora
+        # Diferencia exacta con el mínimo de 24 h (delta() extrapola y daba "subió 8.35").
+        expr: >-
+          yggdrasil_smart_atributo{id=~"5|187|197|198"}
+            - min_over_time(yggdrasil_smart_atributo{id=~"5|187|197|198"}[24h]) > 0
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "Disco {{ $labels.disco }}: {{ $labels.nombre }} subió {{ $value }} en 24 h"
+          descripcion: >-
+            El disco de midgard se degrada. Los respaldos diarios están en el NAS; planificar el
+            cambio de disco. Detalle: `sudo smartctl -A /dev/{{ $labels.disco }}`.
+
+      - alert: DiscoErroresDeCable
+        expr: >-
+          yggdrasil_smart_atributo{id="199"}
+            - min_over_time(yggdrasil_smart_atributo{id="199"}[24h]) > 0
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "Disco {{ $labels.disco }}: {{ $value }} errores CRC nuevos del cable SATA en 24 h"
+
+      - alert: DiscoSmartFalla
+        expr: yggdrasil_smart_salud == 0 or yggdrasil_smart_lectura_ok == 0
+        for: 30m
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "Disco {{ $labels.disco }}: SMART no pasa o no se puede leer"
+
+      # --- NAS de respaldos -------------------------------------------------------------------
+      - alert: NasSeLlena
+        # Tendencia de 7 días: lo que importa es si se llena antes de poder actuar, no el %.
+        expr: predict_linear(yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos"}[7d], 14 * 86400) < 0
+        for: 1h
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "El NAS de respaldos se llenará en menos de 14 días al ritmo de la última semana"
+
+      - alert: NasEspacioCritico
+        expr: >-
+          yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos"}
+            / yggdrasil_fs_tamano_bytes{punto="/mnt/nas/respaldos"} < 0.03
+        for: 30m
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "NAS de respaldos con menos del 3 % libre"
+
+      - alert: NasNoMontado
+        expr: yggdrasil_fs_montado{punto="/mnt/nas/respaldos"} == 0
+        for: 30m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "El NAS de respaldos no está montado o no responde: el respaldo nocturno fallará"
+
+      # --- Thor mismo --------------------------------------------------------------------------
+      - alert: ThorSinMetricas
+        expr: up{job="thor"} == 0 or (time() - yggdrasil_thor_timestamp_seconds) > 300
+        for: 5m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "Mimir no recibe métricas frescas del host (Thor): disco, NAS y discrepancias sin vigilancia"
