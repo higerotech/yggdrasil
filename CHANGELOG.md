@@ -9,6 +9,44 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.8] - 2026-10-16
+
+**Métricas del host y paneles de 30 días que vuelven a tener datos.** Recoge la revisión de
+Heimdall del 2026-10-16: Thor vigila el disco, el NAS y la ruta del balanceador, y las reglas de
+SLO y disponibilidad vuelven a producir series.
+
+### Añadido
+- **Thor: métricas del host en Heimdall.** `yggdrasil-thor.timer` publica cada minuto el SMART del
+  disco de midgard, el espacio de `/` y del NAS de respaldos y qué WAN tiene `wan-balancer` en la
+  ruta; el servicio `thor` (httpd de la imagen de Sleipnir, solo en la red `heimdall`) lo sirve a
+  Mimir. Nueve alertas en `rules/thor-alertas.yml`, entregadas por Nornas a ntfy:
+  - **discrepancia con el balanceador** (acción 6 del RCA del 2026-10-06): `WanSanaFueraDeRuta`
+    y `WanCaidaEnRuta`, 10 min, sin disparar cuando caen las dos WAN;
+  - **disco**: `DiscoEmpeora` (sube un atributo de fallo en 24 h; los pendientes pasaron de 8 a
+    16 entre el 5 y el 16 de octubre), `DiscoErroresDeCable` y `DiscoSmartFalla`;
+  - **NAS** (96 % el 2026-10-16): `NasSeLlena` (tendencia de 7 días, lleno en < 14),
+    `NasEspacioCritico` (< 3 %) y `NasNoMontado`;
+  - `ThorSinMetricas`.
+  Thor sustituye la reserva de `naming.md` para métricas del host. Pruebas: `prueba-thor.sh`
+  (recolector con dobles) y `promtool test rules` de las nueve alertas.
+
+### Cambiado
+- **Nornas avisa de las discrepancias con el balanceador**: las alertas con etiqueta `wan` solo
+  generaban push si el traductor las conocía por nombre.
+
+### Corregido
+- **Las reglas de 5 min dejaban sus series vacías.** Prometheus guarda la muestra de cada
+  evaluación con la hora del hueco alineado del grupo y, si la evaluación arranca un instante
+  antes, usa el anterior: con `interval: 5m` cada muestra nacía con más de 5 min de antigüedad,
+  fuera del `lookback-delta`, y toda consulta instantánea salía vacía. Visto en midgard el
+  2026-10-16 (la evaluación de las 15:59:20 se guardó como 15:54:21): los paneles «Disponibilidad
+  30 días» de Odín sin datos y **`WanThroughputBajo` ciega**, porque comparaba contra un
+  `wan:slo_throughput_mbps` vacío y su `for: 12h` se reiniciaba sin llegar nunca; esa semana la
+  subida de wan2 bajó a 102 Mbps con un SLO de 400. El 2026-10-05 funcionaba: la alineación
+  cambió con algún reinicio. Los grupos `heimdall_slo_throughput` y `heimdall_disponibilidad_30d`
+  pasan a `interval: 1m`, y `deploy/prometheus/tests/intervalos.py` exige en el CI que dos
+  intervalos de cualquier grupo quepan en el lookback.
+
 ## [0.5.7] - 2026-10-06
 
 **Configuraciones renderizadas que siempre llegan al contenedor.** Hotfix del despliegue de la
@@ -361,7 +399,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...HEAD
+[0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5

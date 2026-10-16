@@ -1,0 +1,162 @@
+# Pruebas de las alertas de Thor. Ejecutar:
+#   promtool test rules deploy/prometheus/tests/thor-alertas.test.yml
+rule_files:
+  - ../rules/thor-alertas.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: discrepancias entre Heimdall y la ruta del balanceador
+    interval: 1m
+    input_series:
+      # wan1 sana y en la ruta: nada
+      - series: 'wan:up{wan="wan1"}'
+        values: '1x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan1"}'
+        values: '1x20'
+      # wan2 sana pero fuera de la ruta
+      - series: 'wan:up{wan="wan2"}'
+        values: '1x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan2"}'
+        values: '0x20'
+      - series: 'hogar:up'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: WanSanaFueraDeRuta
+        exp_alerts: []          # aún dentro del for de 10 min
+      - eval_time: 12m
+        alertname: WanSanaFueraDeRuta
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, wan: wan2}
+            exp_annotations:
+              resumen: "wan2 sana según Heimdall pero fuera de la ruta del balanceador"
+              descripcion: "Se está perdiendo la capacidad de wan2. Revisar `journalctl -t wan-balancer` y `ip route show default`."
+      - eval_time: 12m
+        alertname: WanCaidaEnRuta
+        exp_alerts: []
+
+  - name: una WAN caída que el balanceador mantiene en la ruta
+    interval: 1m
+    input_series:
+      - series: 'wan:up{wan="wan1"}'
+        values: '1x20'
+      - series: 'wan:up{wan="wan2"}'
+        values: '0x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan1"}'
+        values: '1x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan2"}'
+        values: '1x20'
+      - series: 'hogar:up'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: WanCaidaEnRuta
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: thor, wan: wan2}
+            exp_annotations:
+              resumen: "wan2 caída según Heimdall pero el balanceador la mantiene en la ruta"
+              descripcion: "Parte de las conexiones de la casa salen por un enlace roto. Revisar `journalctl -t wan-balancer` y `systemctl status wan-balancer`."
+
+  - name: con las dos WAN caídas el balanceador conserva la ruta a propósito
+    interval: 1m
+    input_series:
+      - series: 'wan:up{wan="wan1"}'
+        values: '0x20'
+      - series: 'wan:up{wan="wan2"}'
+        values: '0x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan1"}'
+        values: '1x20'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan2"}'
+        values: '0x20'
+      - series: 'hogar:up'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: WanCaidaEnRuta
+        exp_alerts: []
+
+  - name: el disco empeora y el cable da errores
+    interval: 1h
+    input_series:
+      # pendientes: 8 durante un día y luego 16 (lo visto entre el 5 y el 16 de octubre)
+      - series: 'yggdrasil_smart_atributo{disco="sda", id="197", nombre="Current_Pending_Sector"}'
+        values: '8x24 16x30'
+      # incorregibles estables: no avisan
+      - series: 'yggdrasil_smart_atributo{disco="sda", id="198", nombre="Offline_Uncorrectable"}'
+        values: '16x54'
+      # horas encendido suben siempre: no deben contar
+      - series: 'yggdrasil_smart_atributo{disco="sda", id="9", nombre="Power_On_Hours"}'
+        values: '37000+1x54'
+      - series: 'yggdrasil_smart_atributo{disco="sda", id="199", nombre="UDMA_CRC_Error_Count"}'
+        values: '229963x24 229970x30'
+    alert_rule_test:
+      - eval_time: 20h
+        alertname: DiscoEmpeora
+        exp_alerts: []
+      - eval_time: 26h
+        alertname: DiscoEmpeora
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, disco: sda, id: "197", nombre: Current_Pending_Sector}
+            exp_annotations:
+              resumen: "Disco sda: Current_Pending_Sector subió 8 en 24 h"
+              descripcion: "El disco de midgard se degrada. Los respaldos diarios están en el NAS; planificar el cambio de disco. Detalle: `sudo smartctl -A /dev/sda`."
+      - eval_time: 26h
+        alertname: DiscoErroresDeCable
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, disco: sda, id: "199", nombre: UDMA_CRC_Error_Count}
+            exp_annotations:
+              resumen: "Disco sda: 7 errores CRC nuevos del cable SATA en 24 h"
+      - eval_time: 50h           # 24 h sin nuevas subidas: se resuelve sola
+        alertname: DiscoEmpeora
+        exp_alerts: []
+
+  - name: el NAS se llena
+    interval: 1h
+    input_series:
+      # 3,6 TB; libre baja de 200 GB a ~130 GB en una semana (10 GB al día): lleno en ~13 días
+      - series: 'yggdrasil_fs_tamano_bytes{punto="/mnt/nas/respaldos"}'
+        values: '3600000000000x200'
+      - series: 'yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos"}'
+        values: '200000000000-416666667x200'
+      - series: 'yggdrasil_fs_montado{punto="/mnt/nas/respaldos"}'
+        values: '1x200'
+    alert_rule_test:
+      - eval_time: 170h
+        alertname: NasSeLlena
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, punto: /mnt/nas/respaldos}
+            exp_annotations:
+              resumen: "El NAS de respaldos se llenará en menos de 14 días al ritmo de la última semana"
+      - eval_time: 170h
+        alertname: NasEspacioCritico
+        exp_alerts: []         # aún ~3,6 % libre
+
+  - name: el NAS no responde
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_fs_montado{punto="/mnt/nas/respaldos"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: NasNoMontado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, punto: /mnt/nas/respaldos}
+            exp_annotations:
+              resumen: "El NAS de respaldos no está montado o no responde: el respaldo nocturno fallará"
+
+  - name: Thor deja de publicar
+    interval: 1m
+    input_series:
+      - series: 'up{job="thor", instance="thor:9471"}'
+        values: '1x20'
+      # el recolector se paró en el minuto 2: la marca de tiempo deja de avanzar
+      - series: 'yggdrasil_thor_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '0 60 120 120x17'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: ThorSinMetricas
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Mimir no recibe métricas frescas del host (Thor): disco, NAS y discrepancias sin vigilancia"

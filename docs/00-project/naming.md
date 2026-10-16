@@ -29,6 +29,7 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 | **Odín** | Grafana | Desde su trono ve todos los mundos → dashboards |
 | **Nornas** | Node-RED | Tejen el destino a partir de los hilos → automatización sobre eventos |
 | **Ratatosk** | Mosquitto (MQTT) | La ardilla mensajera que recorre Yggdrasil → bus de eventos |
+| **Thor** | Métricas del host (recolector + httpd de busybox) | La fuerza de la máquina → salud del disco, espacio del NAS y qué WAN lleva el balanceador en la ruta (2026-10-16) |
 
 ## Espacio de tópicos MQTT
 Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wan/wan1/estado`), reservado `asgard/...` para el tier nube.
@@ -38,7 +39,6 @@ Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wa
 |---|---|
 | **Fenrir** | Frigate NVR (el lobo vigilante); se implementa en el proyecto independiente `nvr-frigate` y Yggdrasil solo integrará sus métricas y eventos en una feature futura (ADR-0004) |
 | **Loki** | Agregación de logs (coincide con Grafana Loki) |
-| **Thor** | Métricas del host / node_exporter (la fuerza de la máquina) |
 | **Freyja** | Sensores IoT / Home Assistant si llegara |
 | **Valhalla** | Archivo frío / respaldos de largo plazo |
 | **Bragi** | Servidor de medios Jellyfin (el bardo que cuenta las historias); proyecto independiente `higerotech/bragi`, con topes de CPU propios. Como Fenrir, Yggdrasil solo integrará su salud y su impacto en las WAN en una feature futura |

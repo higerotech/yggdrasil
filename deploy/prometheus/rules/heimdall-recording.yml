@@ -48,7 +48,13 @@ groups:
         expr: (wan:latencia_p95:5m < bool 0.2) * on (wan) (wan:perdida_pct:5m < bool 1)
 
   - name: heimdall_slo_throughput
-    interval: 5m
+    # 1m y no 5m (2026-10-16): Prometheus guarda la muestra de cada evaluacion con la hora del
+    # hueco alineado del grupo, y si la evaluacion arranca un instante antes de ese hueco usa el
+    # ANTERIOR. Con 5m cada muestra nacia con >5 min de antiguedad, fuera del lookback-delta
+    # (5m): las consultas instantaneas salian vacias, los paneles de 30 dias de Odin sin datos
+    # y WanThroughputBajo ciega. Con 1m la muestra mas nueva tiene como mucho ~2 min.
+    # deploy/prometheus/tests/intervalos.py exige intervalos <= 1m en el CI.
+    interval: 1m
     rules:
       # SLO de throughput = 80 % del nominal CONTRATADO con cada ISP (decisión de Gate 0).
       # El 800 Mbps de Gate 0 sale de suponer 1 Gbps simétrico; no es el umbral, es un caso
@@ -68,7 +74,8 @@ groups:
           or (wan_throughput_mbps{wan="wan2", direccion="up"}   * 0 + 400)
 
   - name: heimdall_disponibilidad_30d
-    interval: 5m
+    # 1m: ver heimdall_slo_throughput.
+    interval: 1m
     rules:
       - record: wan:disponibilidad:30d
         expr: avg_over_time(wan:up[30d])
