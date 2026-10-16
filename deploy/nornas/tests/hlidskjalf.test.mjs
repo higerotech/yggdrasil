@@ -12,6 +12,8 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), "utf8");
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+// Edades en segundos: entre montar los datos y ejecutar el nodo puede pasar un segundo.
+const casi = (real, esperado, msj) => assert.ok(Math.abs(real - esperado) <= 2, `${msj}: ${real} frente a ${esperado}`);
 
 process.env.NORNAS_CREDENTIAL_SECRET ||= "prueba";
 process.env.NORNAS_ADMIN_PASSWORD ||= "prueba";
@@ -150,14 +152,14 @@ test("resumen: WAN, host, servicios y alertas ordenadas por gravedad", async () 
     assert.equal(w1.up, 1);
     assert.equal(w1.latencia_p95_ms, 12.3);
     assert.equal(w1.bajada_mbps, 912.4);
-    assert.equal(w1.medicion_hace_s, 3600);
+    casi(w1.medicion_hace_s, 3600, "medicion_hace_s");
     assert.equal(w2.up, 0);
     assert.equal(w2.en_ruta, 1);
     assert.equal(w2.subida_mbps, 102);
     assert.equal(w2.slo_subida_mbps, 400);
     assert.equal(w2.bajada_mbps, null);
     assert.deepEqual(r.hogar, { up: 1, disponibilidad_30d: 0.9997 });
-    assert.equal(r.host.thor_hace_s, 30);
+    casi(r.host.thor_hace_s, 30, "thor_hace_s");
     assert.equal(r.host.discos[0].pendientes, 16);
     assert.ok(!("Raw_Read_Error_Rate" in r.host.discos[0]), "solo los atributos que enseña el tablero");
     assert.deepEqual(r.host.fs.map((f) => f.punto), ["/", "/mnt/nas/respaldos"]);
