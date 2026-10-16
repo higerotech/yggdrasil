@@ -34,7 +34,8 @@ owner (latencia de alertado medida como SLO, TS-02 con evidencia indirecta y rie
 con vigilancia). Las `0.5.1` a `0.5.3` son hotfixes posteriores; la `0.5.4` y la `0.5.5` recogen la
 revisión completa del appliance del 2026-09-16/18, y la `0.5.6` el respaldo nocturno, los avisos por
 ntfy, el vigía de servicios y la salud de WAN por TCP tras el incidente de wan2 del 2026-10-06;
-la `0.5.7` es su hotfix de montajes. Gate 4 (Deployment) está por arrancar.
+la `0.5.7` es su hotfix de montajes, y la `0.5.8` añade Thor (métricas del host: disco, NAS y
+discrepancia con el balanceador) y corrige las reglas de SLO. Gate 4 (Deployment) está por arrancar.
 
 ## Mapa del repo
 
