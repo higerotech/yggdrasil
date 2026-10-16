@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.8] - 2026-10-16
+
+**Métricas del host y paneles de 30 días que vuelven a tener datos.** Recoge la revisión de
+Heimdall del 2026-10-16: Thor vigila el disco, el NAS y la ruta del balanceador, y las reglas de
+SLO y disponibilidad vuelven a producir series.
+
 ### Añadido
 - **Thor: métricas del host en Heimdall.** `yggdrasil-thor.timer` publica cada minuto el SMART del
   disco de midgard, el espacio de `/` y del NAS de respaldos y qué WAN tiene `wan-balancer` en la
@@ -393,7 +399,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...HEAD
+[0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/higerotech/yggdrasil/compare/v0.5.4...v0.5.5
