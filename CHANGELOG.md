@@ -9,6 +9,19 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Corregido
+- **Las reglas de 5 min dejaban sus series vacías.** Prometheus guarda la muestra de cada
+  evaluación con la hora del hueco alineado del grupo y, si la evaluación arranca un instante
+  antes, usa el anterior: con `interval: 5m` cada muestra nacía con más de 5 min de antigüedad,
+  fuera del `lookback-delta`, y toda consulta instantánea salía vacía. Visto en midgard el
+  2026-10-16 (la evaluación de las 15:59:20 se guardó como 15:54:21): los paneles «Disponibilidad
+  30 días» de Odín sin datos y **`WanThroughputBajo` ciega**, porque comparaba contra un
+  `wan:slo_throughput_mbps` vacío y su `for: 12h` se reiniciaba sin llegar nunca; esa semana la
+  subida de wan2 bajó a 102 Mbps con un SLO de 400. El 2026-10-05 funcionaba: la alineación
+  cambió con algún reinicio. Los grupos `heimdall_slo_throughput` y `heimdall_disponibilidad_30d`
+  pasan a `interval: 1m`, y `deploy/prometheus/tests/intervalos.py` exige en el CI que dos
+  intervalos de cualquier grupo quepan en el lookback.
+
 ## [0.5.7] - 2026-10-06
 
 **Configuraciones renderizadas que siempre llegan al contenedor.** Hotfix del despliegue de la
