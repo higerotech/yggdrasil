@@ -1,0 +1,9 @@
+[Unit]
+Description=Yggdrasil: Thor recoge metricas del host cada minuto
+
+[Timer]
+OnCalendar=*-*-* *:*:40
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

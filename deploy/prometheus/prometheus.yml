@@ -108,6 +108,15 @@ scrape_configs:
   # --- Bragi (Jellyfin), repo higerotech/bragi — ADR-0009 de Bragi ---
   # Copia de bragi/deploy/prometheus/bragi-job.yml: la especificación y sus pruebas viven allí.
   # bragi-metricas solo escucha en la red heimdall; el puerto 9470 no se publica.
+  # --- Thor: métricas del host (SMART, espacio del NAS, WAN en la ruta del balanceador) ---
+  - job_name: thor
+    scrape_interval: 60s
+    metrics_path: /host.prom
+    # busybox httpd no envía Content-Type (mismo caso que Sleipnir y Bragi)
+    fallback_scrape_protocol: PrometheusText0.0.4
+    static_configs:
+      - targets: ["thor:9471"]
+
   - job_name: bragi
     scrape_interval: 30s
     metrics_path: /bragi.prom

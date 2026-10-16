@@ -1,0 +1,20 @@
+[Unit]
+Description=Yggdrasil: Thor, metricas del host (SMART, espacio del NAS, WAN en la ruta)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+After=network-online.target remote-fs.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/yggdrasil-thor.sh
+TimeoutStartSec=90
+Nice=10
+# Necesita root: smartctl lee el disco. ProtectSystem=full y no strict: con strict, /mnt quedaria
+# de solo lectura y el automount del NAS es justo lo que se mide. StateDirectory y CacheDirectory
+# crean /var/lib/yggdrasil-thor (servido por HTTP) y /var/cache/yggdrasil-thor (smartctl).
+StateDirectory=yggdrasil-thor
+StateDirectoryMode=0755
+CacheDirectory=yggdrasil-thor
+CacheDirectoryMode=0700
+ProtectSystem=full
+PrivateTmp=yes
+NoNewPrivileges=yes

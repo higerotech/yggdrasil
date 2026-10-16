@@ -103,6 +103,17 @@ done
 systemctl daemon-reload
 systemctl enable --now yggdrasil-vigia-servicios.timer >/dev/null 2>&1 && echo "   yggdrasil-vigia-servicios.timer habilitado"
 
+echo "== 5e. Thor: métricas del host (SMART, espacio del NAS, WAN en la ruta) para Mimir"
+command -v smartctl >/dev/null || echo "   FALTA smartmontools: sin él Thor no publica el SMART del disco"
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-thor.sh" /usr/local/sbin/yggdrasil-thor.sh
+for u in yggdrasil-thor.service yggdrasil-thor.timer; do
+  install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"
+done
+systemctl daemon-reload
+# Primera recolección antes de que el contenedor `thor` monte el directorio
+systemctl start yggdrasil-thor.service || echo "   AVISO: la primera recolección de Thor falló"
+systemctl enable --now yggdrasil-thor.timer >/dev/null 2>&1 && echo "   yggdrasil-thor.timer habilitado"
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

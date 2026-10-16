@@ -95,6 +95,13 @@ for (const a of alertas) {
         case "SleipnirSinMedicion":
             if (nueva) aviso(`Heimdall: ${nombre} en ${wan}`, an.resumen || "", prio, ["warning"]);
             break;
+        // Discrepancia entre Heimdall y la ruta del balanceador (Thor): no cambian el estado MQTT
+        // de la WAN, que es el de Heimdall; avisan al empezar y al resolverse.
+        case "WanSanaFueraDeRuta":
+        case "WanCaidaEnRuta":
+            if (nueva) aviso(`Heimdall: ${nombre} en ${wan}`, an.resumen || "", prio, ["warning"]);
+            if (resuelta) aviso(`Heimdall: ${nombre} en ${wan} resuelta`, an.resumen || "", 2, ["white_check_mark"]);
+            break;
         default:
             break;
     }

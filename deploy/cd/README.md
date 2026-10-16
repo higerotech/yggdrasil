@@ -193,3 +193,40 @@ la cadena de alertas, una alerta que dependa de ella no la entrega nadie.
 Ajustes por entorno de la unidad: `VIGIA_UNIDADES`, `VIGIA_UMBRAL`, `VIGIA_GRACIA_S`,
 `VIGIA_RECORDAR_H`. Estado en `/var/lib/yggdrasil-vigia` (un fichero por servicio en fallo).
 Pruebas: `bash deploy/cd/tests/prueba-vigia-servicios.sh` (dobles de docker, systemctl y curl).
+
+## Thor: métricas del host
+
+`yggdrasil-thor.timer` ejecuta cada minuto `yggdrasil-thor.sh`, que escribe
+`/var/lib/yggdrasil-thor/host.prom` con lo que solo existe fuera de los contenedores. El servicio
+`thor` del Compose (httpd de busybox de la imagen de Sleipnir, solo en la red `heimdall`) lo
+sirve a Mimir, job `thor`.
+
+| Métrica | Qué es |
+|---|---|
+| `yggdrasil_smart_atributo{disco,id,nombre}` | RAW de los atributos 5, 9, 187, 188, 193, 194, 197, 198 y 199 (`smartctl` cada 10 min) |
+| `yggdrasil_smart_salud`, `yggdrasil_smart_lectura_ok` | `smartctl -H` da PASSED; la lectura funcionó |
+| `yggdrasil_fs_montado`, `_tamano_bytes`, `_libre_bytes{punto}` | `/` y `/mnt/nas/respaldos`; `df` con timeout por si el NFS se cuelga |
+| `yggdrasil_wan_en_ruta{wan}` | 1 si `wan-balancer` tiene esa WAN en la ruta por defecto |
+| `yggdrasil_thor_timestamp_seconds` | última recolección |
+
+Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
+
+| Alerta | Cuándo |
+|---|---|
+| `WanSanaFueraDeRuta` | Heimdall ve la WAN sana y el balanceador la tiene fuera, 10 min |
+| `WanCaidaEnRuta` | Heimdall la ve caída y el balanceador la mantiene, 10 min (salvo con las dos caídas) |
+| `DiscoEmpeora` | sube en 24 h un atributo de los que anuncian fallo (5, 187, 197, 198); el 188 se publica pero no avisa: en Seagate su RAW empaqueta tres contadores |
+| `DiscoErroresDeCable` | suben en 24 h los errores CRC del cable SATA (199) |
+| `DiscoSmartFalla` | `smartctl -H` no pasa o no se puede leer, 30 min |
+| `NasSeLlena` | al ritmo de los últimos 7 días, el NAS se llena en menos de 14 |
+| `NasEspacioCritico` | menos del 3 % libre, 30 min |
+| `NasNoMontado` | el NAS no está montado o no responde, 30 min: el respaldo fallará |
+| `ThorSinMetricas` | Mimir no recibe métricas frescas de Thor, 5 min |
+
+La salida de `smartctl` lleva el número de serie del disco: se guarda en
+`/var/cache/yggdrasil-thor` (0700), fuera del directorio que se sirve. El recolector escribe con `mv`
+atómico y el contenedor monta el **directorio**, no el fichero (ver la 0.5.7).
+
+Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom` o, en Mimir,
+`up{job="thor"}`. Pruebas: `bash deploy/cd/tests/prueba-thor.sh` y
+`promtool test rules deploy/prometheus/tests/thor-alertas.test.yml`.

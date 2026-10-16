@@ -9,6 +9,25 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Thor: métricas del host en Heimdall.** `yggdrasil-thor.timer` publica cada minuto el SMART del
+  disco de midgard, el espacio de `/` y del NAS de respaldos y qué WAN tiene `wan-balancer` en la
+  ruta; el servicio `thor` (httpd de la imagen de Sleipnir, solo en la red `heimdall`) lo sirve a
+  Mimir. Nueve alertas en `rules/thor-alertas.yml`, entregadas por Nornas a ntfy:
+  - **discrepancia con el balanceador** (acción 6 del RCA del 2026-10-06): `WanSanaFueraDeRuta`
+    y `WanCaidaEnRuta`, 10 min, sin disparar cuando caen las dos WAN;
+  - **disco**: `DiscoEmpeora` (sube un atributo de fallo en 24 h; los pendientes pasaron de 8 a
+    16 entre el 5 y el 16 de octubre), `DiscoErroresDeCable` y `DiscoSmartFalla`;
+  - **NAS** (96 % el 2026-10-16): `NasSeLlena` (tendencia de 7 días, lleno en < 14),
+    `NasEspacioCritico` (< 3 %) y `NasNoMontado`;
+  - `ThorSinMetricas`.
+  Thor sustituye la reserva de `naming.md` para métricas del host. Pruebas: `prueba-thor.sh`
+  (recolector con dobles) y `promtool test rules` de las nueve alertas.
+
+### Cambiado
+- **Nornas avisa de las discrepancias con el balanceador**: las alertas con etiqueta `wan` solo
+  generaban push si el traductor las conocía por nombre.
+
 ### Corregido
 - **Las reglas de 5 min dejaban sus series vacías.** Prometheus guarda la muestra de cada
   evaluación con la hora del hueco alineado del grupo y, si la evaluación arranca un instante

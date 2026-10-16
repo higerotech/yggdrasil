@@ -71,6 +71,31 @@ services:
     volumes:
       - sleipnir-datos:/var/lib/sleipnir
 
+  # Thor — métricas del host que solo existen fuera de los contenedores (SMART del disco, espacio
+  # del NAS, WAN en la ruta del balanceador). Las escribe yggdrasil-thor.timer en el host; aquí
+  # solo se sirven con el httpd de busybox de la imagen de Sleipnir (misma imagen, ya pineada y
+  # escaneada). Solo en la red heimdall, sin puertos publicados. Se monta el DIRECTORIO: el
+  # recolector escribe con mv atómico (ver huginn-muninn).
+  thor:
+    <<: *comun
+    build: ./sleipnir
+    image: ghcr.io/higerotech/yggdrasil-sleipnir:${IMAGE_TAG:-local}
+    container_name: yggdrasil-host-metrics
+    entrypoint: ["httpd", "-f", "-p", "9471", "-h", "/srv/thor"]
+    user: "65532:65532"
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 16m
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:9471/host.prom"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    volumes:
+      - /var/lib/yggdrasil-thor:/srv/thor:ro
+    networks: [heimdall]
+
   # Mimir — Prometheus: TSDB 30 d, recording rules y alertas del contrato
   mimir:
     <<: *comun
