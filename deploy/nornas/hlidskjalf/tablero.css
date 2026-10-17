@@ -11,6 +11,7 @@
     --aviso: #d29922;
     --critico: #f85149;
     --nodato: #6e7681;
+    --info: #58a6ff;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -31,6 +32,7 @@ h3 { margin: 0 0 8px; font-size: 15px; color: var(--tenue); text-transform: uppe
 .aviso { --c: var(--aviso); }
 .critico { --c: var(--critico); }
 .nodato { --c: var(--nodato); }
+.medicion { --c: var(--info); }
 
 .cabecera {
     display: flex; align-items: center;
@@ -63,6 +65,7 @@ main {
 .tarjeta header > * + * { margin-left: 12px; }
 .estado { font-weight: 700; color: var(--c); font-size: 20px; }
 .tarjeta header .chip { margin-left: auto; }
+.tarjeta header .chip + .chip { margin-left: 8px; }
 .chip { padding: 2px 10px; border-radius: 99px; font-size: 14px; border: 1px solid var(--c); color: var(--c); }
 .cifras { display: flex; }
 .cifras > * + * { margin-left: 12px; }

@@ -30,7 +30,7 @@ scrape_configs:
       - targets: ["host.docker.internal:9115"]
 
   - job_name: sleipnir                 # throughput periódico (textfile servido por httpd)
-    scrape_interval: 60s
+    scrape_interval: 15s               # a 60 s, una medición de ~70 s cabía en un solo scrape: medicion_en_curso llegaba tarde o no llegaba
     # busybox httpd no envía Content-Type y Prometheus 3 rechaza el scrape sin este respaldo
     fallback_scrape_protocol: PrometheusText0.0.4
     static_configs:
@@ -38,13 +38,13 @@ scrape_configs:
 
   # --- Sondas por WAN: el target real viaja en ?target= y la dirección pasa a ser blackbox ---
   - job_name: blackbox_icmp_wan1
-    scrape_interval: 5s          # pérdida con resolución 1/120 por ventana de 5 min (2 objetivos); a 15 s era 1/40 = 2,5 % y el umbral es 1 %
+    scrape_interval: 5s          # 60 sondas por objetivo en cada ventana de 5 min; a 15 s eran 20 (5 % por sonda) y el umbral es 1 %
     scrape_timeout: 5s
     metrics_path: /probe
     params:
       module: [icmp_wan1]
     static_configs:
-      - targets: ["1.1.1.1", "8.8.8.8"]
+      - targets: ["1.1.1.1", "8.8.8.8", "208.67.222.222"]
         labels: {wan: wan1, sonda: icmp}
     relabel_configs: &sonda_relabel
       - source_labels: [__address__]
@@ -55,13 +55,13 @@ scrape_configs:
         replacement: host.docker.internal:9115
 
   - job_name: blackbox_icmp_wan2
-    scrape_interval: 5s          # pérdida con resolución 1/120 por ventana de 5 min (2 objetivos); a 15 s era 1/40 = 2,5 % y el umbral es 1 %
+    scrape_interval: 5s          # 60 sondas por objetivo en cada ventana de 5 min; a 15 s eran 20 (5 % por sonda) y el umbral es 1 %
     scrape_timeout: 5s
     metrics_path: /probe
     params:
       module: [icmp_wan2]
     static_configs:
-      - targets: ["1.1.1.1", "8.8.8.8"]
+      - targets: ["1.1.1.1", "8.8.8.8", "208.67.222.222"]
         labels: {wan: wan2, sonda: icmp}
     relabel_configs: *sonda_relabel
 
