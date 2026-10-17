@@ -82,7 +82,8 @@ echo "default via 192.168.1.1 dev wan1 " > "$T/ruta"
 touch "$T/nas-montado"
 printf '%s\n' "yggdrasil-grafana always running healthy" "yggdrasil-prometheus unless-stopped running -" \
     "yggdrasil-node-red unless-stopped running unhealthy" "yggdrasil-mosquitto unless-stopped exited -" \
-    "yggdrasil-prometheus-pausado unless-stopped paused -" "yggdrasil-node-red-init no exited -" > "$T/contenedores"
+    "yggdrasil-prometheus-pausado unless-stopped paused -" "yggdrasil-node-red-init no exited -" \
+    "545d8f5f4ab3_yggdrasil-host-metrics unless-stopped exited -" > "$T/contenedores"   # renombrado de Compose al recrear
 printf '%s\n' yggdrasil-grafana yggdrasil-alertmanager > "$T/inventario"   # alertmanager: no existe
 printf '%s\n' "docker.service activa" "wan-balancer.service inactiva" > "$T/unidades"
 echo 1792180000 > "$T/ultimo-exito"
@@ -119,6 +120,7 @@ tiene "contenedor parado" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdr
 tiene "contenedor en pausa (respaldo) cuenta como en marcha" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-prometheus-pausado"} 1'
 tiene "contenedor del inventario que no existe" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-alertmanager"} 0'
 no_tiene "tarea de un solo uso (restart no) fuera" 'nombre="yggdrasil-node-red-init"'
+no_tiene "contenedor viejo renombrado por Compose al recrear fuera" 'nombre="545d8f5f4ab3_'
 tiene "unidad activa" 'yggdrasil_servicio_ok{tipo="unidad",nombre="docker.service"} 1'
 tiene "unidad inactiva" 'yggdrasil_servicio_ok{tipo="unidad",nombre="wan-balancer.service"} 0'
 no_tiene "unidad no instalada se salta" 'nombre="dnsmasq.service"'
