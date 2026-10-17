@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.9] - 2026-10-16
+
+**Hlidskjalf, el tablero de pared.** Una tablet en la pared muestra el estado de midgard: WAN,
+alertas activas, salud del host y servicios, servido por Nornas con un token de solo lectura.
+
 ### Añadido
 - **Hlidskjalf, el tablero de pared** (ADR-0007). Una Galaxy Tab 2 (Android 7.1, WebView
   Chromium 81, 1 GB de RAM) enseña de un vistazo el estado de midgard: cada WAN (en línea, en la
@@ -428,7 +433,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/higerotech/yggdrasil/compare/v0.5.5...v0.5.6
