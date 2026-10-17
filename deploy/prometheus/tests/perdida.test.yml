@@ -1,0 +1,73 @@
+# Pruebas de `wan:perdida_pct:5m` (mediana de los tres objetivos ICMP). Ejecutar:
+#   promtool test rules deploy/prometheus/tests/perdida.test.yml
+# Las sondas van cada 5 s, como en prometheus.yml: 60 por objetivo en la ventana de 5 min.
+rule_files:
+  - ../rules/heimdall-recording.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: Google descarta ping a 8.8.8.8 (lo que se ve en wan1) — el enlace no pierde
+    interval: 5s
+    input_series:
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="1.1.1.1", wan="wan1"}'
+        values: '1x72'
+      # 1 de cada 5 sondas sin respuesta: 20 % en la ventana
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="8.8.8.8", wan="wan1"}'
+        values: '1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1'
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="208.67.222.222", wan="wan1"}'
+        values: '1x72'
+    promql_expr_test:
+      - expr: wan:perdida_pct:5m
+        eval_time: 6m
+        exp_samples:
+          - labels: 'wan:perdida_pct:5m{wan="wan1"}'
+            value: 0
+
+  - name: pérdida del enlace — los tres objetivos pierden lo mismo
+    interval: 5s
+    input_series:
+      # 1 de cada 10 sondas sin respuesta en cada objetivo: 10 %
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="1.1.1.1", wan="wan2"}'
+        values: '1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1'
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="8.8.8.8", wan="wan2"}'
+        values: '1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1'
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="208.67.222.222", wan="wan2"}'
+        values: '1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1 1 1 1 1 1 1 0 1 1 1'
+    promql_expr_test:
+      - expr: round(wan:perdida_pct:5m, 0.1)   # 1 - 0.9 en coma flotante da 9,999...
+        eval_time: 6m
+        exp_samples:
+          - labels: '{wan="wan2"}'
+            value: 10
+
+  - name: TA-05 — un objetivo bloqueado del todo no es pérdida; los otros dos promedian
+    interval: 5s
+    input_series:
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="1.1.1.1", wan="wan1"}'
+        values: '0x72'
+      # 8.8.8.8 pierde 1 de cada 5 (20 %) y 208.67.222.222 nada: la mediana de dos es su media
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="8.8.8.8", wan="wan1"}'
+        values: '1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1 1 0 1 1 1'
+      - series: 'probe_success{job="blackbox_icmp_wan1", target="208.67.222.222", wan="wan1"}'
+        values: '1x72'
+    promql_expr_test:
+      - expr: round(wan:perdida_pct:5m, 0.1)   # 1 - 0.9 en coma flotante da 9,999...
+        eval_time: 6m
+        exp_samples:
+          - labels: '{wan="wan1"}'
+            value: 10
+
+  - name: los tres objetivos caídos — sin serie, como antes (WanCaida se encarga)
+    interval: 5s
+    input_series:
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="1.1.1.1", wan="wan2"}'
+        values: '0x72'
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="8.8.8.8", wan="wan2"}'
+        values: '0x72'
+      - series: 'probe_success{job="blackbox_icmp_wan2", target="208.67.222.222", wan="wan2"}'
+        values: '0x72'
+    promql_expr_test:
+      - expr: wan:perdida_pct:5m
+        eval_time: 6m
+        exp_samples: []

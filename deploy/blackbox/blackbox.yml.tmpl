@@ -1,8 +1,9 @@
 # Plantilla de Huginn y Muninn (blackbox_exporter). scripts/render.sh sustituye ${WAN1_IP} y
 # ${WAN2_IP} por las IPv4 actuales de wan1/wan2 y escribe blackbox.yml (gitignored).
 #
-# Cada WAN sondea 1.1.1.1 y 8.8.8.8 por ICMP (pérdida y latencia) y www.gstatic.com:443,
-# 1.1.1.1:443 y 8.8.8.8:443 por TCP+TLS (disponibilidad: `wan:up` = 2 de esas 3). El prober
+# Cada WAN sondea 1.1.1.1, 8.8.8.8 y 208.67.222.222 por ICMP (pérdida = mediana de los tres, y
+# latencia) y www.gstatic.com:443, 1.1.1.1:443 y 8.8.8.8:443 por TCP+TLS (disponibilidad:
+# `wan:up` = 2 de esas 3). El prober
 # http de blackbox no permite fijar la IP de origen, así que se valida el handshake TLS en vez
 # de esperar un HTTP 204. Desde 2026-10-06 la disponibilidad la deciden las sondas TCP: ese día
 # wan2 respondía a los ping pero TCP estaba roto (agujero negro de MTU y destinos sin ruta).

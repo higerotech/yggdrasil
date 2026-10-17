@@ -10,7 +10,7 @@ const GJALLARHORN = env.get("HLIDSKJALF_GJALLARHORN_URL") || "http://gjallarhorn
 const SERIES = [
     "wan:up", "wan:perdida_pct:5m", "wan:latencia_p95:5m", "wan:disponibilidad:30d", "wan:slo_throughput_mbps",
     "hogar:up", "hogar:disponibilidad:30d",
-    "wan_throughput_mbps", "wan_throughput_ultima_medicion_timestamp_seconds",
+    "wan_throughput_mbps", "wan_throughput_ultima_medicion_timestamp_seconds", "wan_throughput_medicion_en_curso",
     "yggdrasil_wan_en_ruta", "yggdrasil_thor_timestamp_seconds",
     "yggdrasil_smart_atributo", "yggdrasil_smart_salud", "yggdrasil_smart_lectura_ok",
     "yggdrasil_fs_montado", "yggdrasil_fs_tamano_bytes", "yggdrasil_fs_libre_bytes",
@@ -50,6 +50,7 @@ const wan = wans.map((w) => {
         slo_bajada_mbps: valor("wan:slo_throughput_mbps", { wan: w, direccion: "down" }),
         slo_subida_mbps: valor("wan:slo_throughput_mbps", { wan: w, direccion: "up" }),
         medicion_hace_s: hace(valor("wan_throughput_ultima_medicion_timestamp_seconds", { wan: w })),
+        sleipnir_midiendo: valor("wan_throughput_medicion_en_curso", { wan: w }),
     };
 });
 

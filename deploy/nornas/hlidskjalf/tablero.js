@@ -54,10 +54,18 @@
     function sinPrefijo(nombre) { return String(nombre).replace(/^yggdrasil-/, ""); }
 
     // --- Niveles -----------------------------------------------------------------------------
+    // Sleipnir satura el enlace unos 70 s al medir la velocidad: las sondas ICMP ven pérdida y la
+    // latencia sube, y no es una avería. La ventana de 5 min de wan:perdida_pct:5m la arrastra hasta
+    // 5 min después de terminar; 30 s más cubren la evaluación de la regla y el sondeo de la tablet.
+    var TRAS_MEDICION_S = 330;
+    function enMedicion(w) {
+        return w.sleipnir_midiendo === 1 || (hay(w.medicion_hace_s) && w.medicion_hace_s < TRAS_MEDICION_S);
+    }
     function nivelWan(w) {
         if (!hay(w.up)) return "nodato";
         if (w.up === 0) return "critico";
         if (w.en_ruta === 0) return "aviso";                       // sana pero fuera de la ruta
+        if (enMedicion(w)) return "ok";                           // la caída la sigue decidiendo wan:up
         if ((hay(w.perdida_pct) && w.perdida_pct >= 1) || (hay(w.latencia_p95_ms) && w.latencia_p95_ms >= 200)) return "aviso";
         return "ok";
     }
@@ -110,8 +118,10 @@
         var ruta = !hay(w.en_ruta) ? "" : w.en_ruta === 1
             ? "<span class=\"chip " + (w.up === 0 ? "critico" : "ok") + "\">en la ruta</span>"
             : "<span class=\"chip " + (w.up === 1 ? "aviso" : "nodato") + "\">fuera de la ruta</span>";
+        var medicion = !enMedicion(w) ? "" : "<span class=\"chip medicion\">" +
+            (w.sleipnir_midiendo === 1 ? "Sleipnir midiendo" : "tras medir la velocidad") + "</span>";
         return "<section class=\"tarjeta wan " + n + "\">" +
-            "<header><h2>" + esc(w.wan) + "</h2><span class=\"estado " + n + "\">" + ETIQUETA_WAN[n] + "</span>" + ruta + "</header>" +
+            "<header><h2>" + esc(w.wan) + "</h2><span class=\"estado " + n + "\">" + ETIQUETA_WAN[n] + "</span>" + medicion + ruta + "</header>" +
             "<div class=\"cifras\">" +
             "<div><small>latencia p95</small><b>" + numero(w.latencia_p95_ms, w.latencia_p95_ms < 10 ? 1 : 0) + "<small> ms</small></b></div>" +
             "<div><small>pérdida</small><b>" + numero(w.perdida_pct, 1) + "<small> %</small></b></div>" +
@@ -256,7 +266,7 @@
 
     var api = {
         esc: esc, numero: numero, porcentaje: porcentaje, bytes: bytes, duracion: duracion,
-        nivelWan: nivelWan, nivelDisco: nivelDisco, nivelFs: nivelFs, nivelRespaldo: nivelRespaldo,
+        enMedicion: enMedicion, nivelWan: nivelWan, nivelDisco: nivelDisco, nivelFs: nivelFs, nivelRespaldo: nivelRespaldo,
         estadoGeneral: estadoGeneral, vistaWan: vistaWan, vistaAlertas: vistaAlertas, vistaHost: vistaHost,
         vistaServicios: vistaServicios, vistaTodo: vistaTodo
     };
