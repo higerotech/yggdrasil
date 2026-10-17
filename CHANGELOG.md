@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Corregido
+- **Thor ya no publica como caídos los contenedores que Compose renombra al recrear.** Durante
+  un despliegue, Compose renombra el contenedor viejo a `<12 hex del id>_<nombre>` mientras
+  levanta el nuevo. Una pasada de Thor en ese momento (v0.5.10, 2026-10-17) los publicó como
+  servicios, y Hlidskjalf enseñó «4 servicios caídos» durante un minuto, dos de ellos
+  inexistentes. Los otros dos, Ratatosk y Nornas, sí estaban recreándose. Thor descarta esos
+  nombres temporales y `prueba-thor.sh` tiene el caso.
+
 ## [0.5.10] - 2026-10-17
 
 **Pérdida de WAN sin falsas alarmas.** La pérdida de cada WAN es la mediana de tres objetivos, así

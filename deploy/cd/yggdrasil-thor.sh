@@ -116,10 +116,14 @@ done
 # Contenedores: el inventario del vigia (servicios con restart, sacado del Compose) mas los que
 # esten en marcha con la etiqueta del proyecto, para no depender de que el vigia haya corrido.
 # Uno del inventario que no existe sale con 0. Las tareas de un solo uso (restart "no") no cuentan.
+# Al recrear un contenedor, Compose renombra el viejo a <12 hex del id>_<nombre> mientras levanta el
+# nuevo; ese nombre dura segundos y no es un servicio. Sin filtrarlo, una pasada de Thor durante un
+# despliegue (2026-10-17, v0.5.10) publico dos servicios caidos que nunca existieron.
 echo "# HELP yggdrasil_servicio_ok 1 si el contenedor esta en marcha y sano, o la unidad activa."
 echo "# TYPE yggdrasil_servicio_ok gauge"
 if docker_ps=$(timeout "$DOCKER_TIMEOUT_S" docker ps -a --filter "label=com.docker.compose.project=$PROYECTO" \
         --format '{{.Names}}' 2>/dev/null); then
+    docker_ps=$(printf '%s\n' "$docker_ps" | grep -Ev '^[0-9a-f]{12}_' || true)
     nombres=$( { [ -r "$INVENTARIO" ] && cat "$INVENTARIO"; printf '%s\n' "$docker_ps"; } | grep -E '^[A-Za-z0-9_.-]+$' | sort -u)
     for c in $nombres; do
         s=$(timeout "$DOCKER_TIMEOUT_S" docker inspect -f \
