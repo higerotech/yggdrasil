@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.10] - 2026-10-17
+
+**Pérdida de WAN sin falsas alarmas.** La pérdida de cada WAN es la mediana de tres objetivos, así
+que un destino que descarta ping ya no la infla, y la tablet distingue la pérdida que provoca la
+medición de velocidad de Sleipnir.
+
 ### Cambiado
 - **La pérdida de una WAN es la mediana de tres objetivos, no la media de dos.** Las sondas ICMP
   suman 208.67.222.222 (OpenDNS) a 1.1.1.1 y 8.8.8.8, y `wan:perdida_pct:5m` toma la mediana.
@@ -466,7 +472,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...HEAD
+[0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7
