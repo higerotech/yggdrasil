@@ -56,9 +56,11 @@ if (existentes.some((n) => n.id === TAB) && revActual === revNueva) {
   console.log(`importar-flujo: el flujo Heimdall ya está desplegado en la revisión ${revActual}; sin cambios`);
   process.exit(0);
 }
-// Sustituye solo los nodos de Heimdall (pestaña, sus nodos y el broker Ratatosk); conserva el resto.
+// Sustituye solo las pestañas del fichero (Heimdall y Hlidskjalf), sus nodos y el broker Ratatosk;
+// conserva el resto. Los nodos de una pestaña propia que ya no estén en el fichero se borran con ella.
 const propios = new Set(flujo.map((n) => n.id));
-const conservados = existentes.filter((n) => n.id !== TAB && n.z !== TAB && !propios.has(n.id));
+const pestanas = new Set(flujo.filter((n) => n.type === "tab").map((n) => n.id));
+const conservados = existentes.filter((n) => !pestanas.has(n.id) && !pestanas.has(n.z) && !propios.has(n.id));
 for (const n of flujo) {
   if (n.type === "mqtt-broker") n.credentials = { user: mqttUser, password: mqttPass };
 }
@@ -68,4 +70,4 @@ const r = await fetch(base + "/flows", {
   body: JSON.stringify({ flows: [...conservados, ...flujo] }),
 });
 if (!r.ok) throw new Error(`despliegue del flujo: HTTP ${r.status} ${await r.text()}`);
-console.log(`importar-flujo: flujo Heimdall ${revActual ? "actualizado de " + revActual + " a " : "importado en la revisión "}${revNueva} (${flujo.length} nodos) con credenciales MQTT de ${mqttUser}`);
+console.log(`importar-flujo: flujo Heimdall ${revActual ? "actualizado de " + revActual + " a " : "importado en la revisión "}${revNueva} (${flujo.length} nodos, ${pestanas.size} pestañas) con credenciales MQTT de ${mqttUser}`);

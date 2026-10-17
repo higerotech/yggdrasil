@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hlidskjalf: el trono de Odín desde el que se ven todos los mundos. Un ojo sobre fondo oscuro. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path android:fillColor="#161B22" android:pathData="M8,2h32a6,6 0,0 1,6 6v32a6,6 0,0 1,-6 6h-32a6,6 0,0 1,-6 -6v-32a6,6 0,0 1,6 -6z" />
+    <path android:fillColor="#E6EDF3" android:pathData="M6,24C11,15 17,11 24,11S37,15 42,24C37,33 31,37 24,37S11,33 6,24z" />
+    <path android:fillColor="#3FB950" android:pathData="M24,16a8,8 0,1 1,0 16a8,8 0,1 1,0 -16z" />
+    <path android:fillColor="#0D1117" android:pathData="M24,20.5a3.5,3.5 0,1 1,0 7a3.5,3.5 0,1 1,0 -7z" />
+</vector>

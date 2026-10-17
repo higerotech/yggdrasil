@@ -67,9 +67,11 @@ quadrantChart
 | T3 | Dispositivo IoT publica estado falso en `midgard/wan/#` | 6 | 6 | 5 | 4 | 5 | 5.2 | ACL de Ratatosk por usuario/tópico, control propio desde ADR-0006 |
 | T4 | Webhook Alertmanager→Node-RED falsificado | 5 | 6 | 5 | 4 | 5 | 5.0 | Token Bearer en cabecera + validación en flujo (implementado en Gate 2; el token no queda en logs de acceso) |
 | T5 | Sonda de throughput degrada el servicio del hogar | 4 | 8 | 6 | 6 | 3 | 5.4 | Frecuencia 6 h, alternancia, horario valle |
+| T6 | Lectura del estado de midgard por `/hlidskjalf/resumen` desde la LAN (patrones de presencia) | 3 | 7 | 5 | 4 | 5 | 4.8 | Token de solo lectura propio (`HLIDSKJALF_TOKEN`, ≥ 32 caracteres, comparación en tiempo constante); sin token, 503; solo LAN, sin puerto nuevo; la página escapa todo texto y lleva CSP por hash (ADR-0007) |
 
 ## Controles y trazabilidad
 - T1 → RS01 (PRD) · ASVS V2 · verificación por inspección en Gate 3.
 - T2, T4 → ADR-0003 (topología de red de contenedores) · ASVS V13.
 - T3 → `deploy/mosquitto/acl` (Ratatosk, ADR-0006) — control propio de la plataforma.
 - T5 → RF02 y regla de scheduler — verificación por test de carga en Gate 3.
+- T6 → ADR-0007 · `deploy/nornas/tests/hlidskjalf.test.mjs` (401/503, escape de HTML, CSP). T2 se mantiene: el tablero consulta Mimir y Gjallarhorn desde Nornas, por la red interna, sin publicarlos.

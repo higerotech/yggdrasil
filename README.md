@@ -35,7 +35,8 @@ con vigilancia). Las `0.5.1` a `0.5.3` son hotfixes posteriores; la `0.5.4` y la
 revisión completa del appliance del 2026-09-16/18, y la `0.5.6` el respaldo nocturno, los avisos por
 ntfy, el vigía de servicios y la salud de WAN por TCP tras el incidente de wan2 del 2026-10-06;
 la `0.5.7` es su hotfix de montajes, y la `0.5.8` añade Thor (métricas del host: disco, NAS y
-discrepancia con el balanceador) y corrige las reglas de SLO. Gate 4 (Deployment) está por arrancar.
+discrepancia con el balanceador) y corrige las reglas de SLO; la `0.5.9` añade Hlidskjalf, el
+tablero de pared en una tablet (ADR-0007). Gate 4 (Deployment) está por arrancar.
 
 ## Mapa del repo
 
@@ -45,6 +46,7 @@ discrepancia con el balanceador) y corrige las reglas de SLO. Gate 4 (Deployment
 - `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
 - `docs/04-testing/` — `test-plan.md`: estrategia, alcance sobre la arquitectura, trazabilidad `verifies`, casos de aceptación, seguridad y rendimiento (Gate 3)
 - `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas, scripts de despliegue y `cd/` con el despliegue continuo hacia midgard (ADR-0005)
+- `hlidskjalf/` — app Android kiosco del tablero de pared (ADR-0007): fuente, `construir.sh` (sin Gradle) e `instalar.sh` por adb
 - `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
 - `.ai-dlc/gates/` — checklists de los Gates 0 a 3
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
@@ -68,6 +70,8 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Odín | Grafana | Dashboards |
 | Nornas | Node-RED | Automatización sobre eventos |
 | Ratatosk | Mosquitto (MQTT) | Bus de eventos (`midgard/...`) |
+| Thor | Recolector en el host + httpd | Métricas del host: disco, NAS, ruta, servicios y respaldo |
+| Hlidskjalf | Página en Nornas + app Android kiosco | Tablero de pared con el estado de midgard (ADR-0007) |
 
 ## Anonimización
 

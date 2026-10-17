@@ -30,6 +30,11 @@ desktop.ini
 .idea/
 *.swp
 
+# APK de Hlidskjalf (hlidskjalf/construir.sh) y claves de firma
+hlidskjalf/build/
+*.keystore
+*.jks
+
 # Herramientas locales
 .claude/settings.local.json
 __pycache__/

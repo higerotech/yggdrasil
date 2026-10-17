@@ -9,6 +9,11 @@
 #     no esta montado, df devuelve el sistema de ficheros padre: se detecta y se marca como no
 #     montado en vez de publicar el espacio de `/` con la etiqueta del NAS.
 #   - Que WAN tiene wan-balancer en la ruta por defecto: Heimdall lo compara con wan:up.
+#   - Estado de los servicios (para Hlidskjalf, el tablero de pared): los contenedores
+#     permanentes del Compose, sacados del inventario que mantiene el vigia de servicios, y las
+#     unidades del host. Solo se publican; el aviso sigue siendo cosa del vigia, que no depende
+#     de la cadena de alertas.
+#   - Momento del ultimo respaldo completado (marca que deja yggdrasil-respaldar.sh).
 #
 # Escritura atomica (fichero temporal en el MISMO directorio + mv). El directorio se monta entero
 # en el contenedor: montar el fichero suelto dejaria al contenedor leyendo el inodo viejo tras cada
@@ -25,6 +30,12 @@ DF_TIMEOUT_S=${THOR_DF_TIMEOUT_S:-15}
 # Atributos SMART publicados: los que predicen fallo (5, 187, 188, 197, 198), el de cable (199)
 # y contexto (9 horas, 193 ciclos de carga, 194 temperatura).
 ATRIBUTOS=${THOR_ATRIBUTOS:-5 9 187 188 193 194 197 198 199}
+# Mismas fuentes que el vigia de servicios: su inventario de contenedores y su lista de unidades.
+INVENTARIO=${THOR_INVENTARIO:-/var/lib/yggdrasil-vigia/.inventario}
+PROYECTO=${THOR_PROYECTO:-yggdrasil}
+UNIDADES=${THOR_UNIDADES:-docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer}
+RESPALDO_MARCA=${THOR_RESPALDO_MARCA:-/var/lib/yggdrasil-respaldo/ultimo-exito}
+DOCKER_TIMEOUT_S=${THOR_DOCKER_TIMEOUT_S:-10}
 AHORA=$(date +%s)
 
 mkdir -p "$DIR" "$CACHE"
@@ -100,6 +111,44 @@ for w in $WANS; do
     if grep -q -E "dev $w( |$)" <<<"$ruta"; then e=1; else e=0; fi
     echo "yggdrasil_wan_en_ruta{wan=\"$w\"} $e"
 done
+
+# --- Servicios -------------------------------------------------------------------------------
+# Contenedores: el inventario del vigia (servicios con restart, sacado del Compose) mas los que
+# esten en marcha con la etiqueta del proyecto, para no depender de que el vigia haya corrido.
+# Uno del inventario que no existe sale con 0. Las tareas de un solo uso (restart "no") no cuentan.
+echo "# HELP yggdrasil_servicio_ok 1 si el contenedor esta en marcha y sano, o la unidad activa."
+echo "# TYPE yggdrasil_servicio_ok gauge"
+if docker_ps=$(timeout "$DOCKER_TIMEOUT_S" docker ps -a --filter "label=com.docker.compose.project=$PROYECTO" \
+        --format '{{.Names}}' 2>/dev/null); then
+    nombres=$( { [ -r "$INVENTARIO" ] && cat "$INVENTARIO"; printf '%s\n' "$docker_ps"; } | grep -E '^[A-Za-z0-9_.-]+$' | sort -u)
+    for c in $nombres; do
+        s=$(timeout "$DOCKER_TIMEOUT_S" docker inspect -f \
+            '{{.HostConfig.RestartPolicy.Name}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}' \
+            "$c" 2>/dev/null) || s="- ausente -"
+        read -r reinicio estado salud <<<"$s"
+        [ "$reinicio" = no ] && continue
+        case "$estado $salud" in
+            running\ unhealthy|paused\ unhealthy) ok=0 ;;
+            running\ *|paused\ *) ok=1 ;;   # paused: el respaldo congela unos segundos
+            *) ok=0 ;;
+        esac
+        echo "yggdrasil_servicio_ok{tipo=\"contenedor\",nombre=\"$c\"} $ok"
+    done
+fi
+for u in $UNIDADES; do
+    carga=$(systemctl show -p LoadState --value "$u" 2>/dev/null)
+    [ "$carga" = loaded ] || continue   # no instalada en esta maquina
+    if systemctl is-active --quiet "$u"; then ok=1; else ok=0; fi
+    echo "yggdrasil_servicio_ok{tipo=\"unidad\",nombre=\"$u\"} $ok"
+done
+
+# --- Respaldo --------------------------------------------------------------------------------
+echo "# HELP yggdrasil_respaldo_ultimo_exito_timestamp_seconds Momento del ultimo respaldo completado."
+echo "# TYPE yggdrasil_respaldo_ultimo_exito_timestamp_seconds gauge"
+marca=$(cat "$RESPALDO_MARCA" 2>/dev/null)
+if [[ "$marca" =~ ^[0-9]+$ ]]; then
+    echo "yggdrasil_respaldo_ultimo_exito_timestamp_seconds $marca"
+fi
 } > "$tmp"
 
 chmod 0644 "$tmp"
