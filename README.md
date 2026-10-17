@@ -45,6 +45,7 @@ discrepancia con el balanceador) y corrige las reglas de SLO. Gate 4 (Deployment
 - `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
 - `docs/04-testing/` — `test-plan.md`: estrategia, alcance sobre la arquitectura, trazabilidad `verifies`, casos de aceptación, seguridad y rendimiento (Gate 3)
 - `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas, scripts de despliegue y `cd/` con el despliegue continuo hacia midgard (ADR-0005)
+- `hlidskjalf/` — app Android kiosco del tablero de pared (ADR-0007): fuente, `construir.sh` (sin Gradle) e `instalar.sh` por adb
 - `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
 - `.ai-dlc/gates/` — checklists de los Gates 0 a 3
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
@@ -68,6 +69,8 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Odín | Grafana | Dashboards |
 | Nornas | Node-RED | Automatización sobre eventos |
 | Ratatosk | Mosquitto (MQTT) | Bus de eventos (`midgard/...`) |
+| Thor | Recolector en el host + httpd | Métricas del host: disco, NAS, ruta, servicios y respaldo |
+| Hlidskjalf | Página en Nornas + app Android kiosco | Tablero de pared con el estado de midgard (ADR-0007) |
 
 ## Anonimización
 

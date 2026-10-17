@@ -4,6 +4,7 @@
 El JSON es el artefacto que se importa; el JavaScript de los nodos function vive en src/ para
 poder revisarlo. Ejecutar tras editar src/: python3 generar-flujo.py
 """
+import base64
 import hashlib
 import json
 from pathlib import Path
@@ -21,14 +22,42 @@ INFO = (
 )
 
 
-def fn(id_, name, src, outputs, x, y, wires):
-    return {"id": id_, "type": "function", "z": TAB, "name": name, "func": (AQUI / "src" / src).read_text(encoding="utf-8"),
+def fn(id_, name, src, outputs, x, y, wires, z=TAB):
+    return {"id": id_, "type": "function", "z": z, "name": name, "func": (AQUI / "src" / src).read_text(encoding="utf-8"),
             "outputs": outputs, "timeout": 0, "noerr": 0, "initialize": "", "finalize": "", "libs": [],
             "x": x, "y": y, "wires": wires}
 
 
-# Revision del flujo = hash de las fuentes; nornas-init reimporta la pestaña cuando cambia.
-REV = hashlib.sha256(b"".join((AQUI / "src" / f).read_bytes() for f in sorted(("autorizar.js", "traducir.js", "ntfy.js", "ntfy-respuesta.js")))).hexdigest()[:12]
+TAB_H = "hlidskjalf.tab"
+INFO_H = (
+    "Hlidskjalf, el tablero de pared de midgard (ADR-0007). GET /hlidskjalf/ sirve la página (HTML, CSS y "
+    "JS en línea, con CSP por hash) y GET /hlidskjalf/resumen el JSON que pinta, a partir de una consulta a "
+    "Mimir y de las alertas activas de Gjallarhorn por la red interna. El resumen exige el token de solo "
+    "lectura HLIDSKJALF_TOKEN (Bearer); sin él configurado responde 503. Fuentes en deploy/nornas/hlidskjalf/."
+)
+FUENTES = ("autorizar.js", "traducir.js", "ntfy.js", "ntfy-respuesta.js", "hlidskjalf-autorizar.js", "hlidskjalf-resumen.js")
+PAGINA = ("index.html", "tablero.css", "tablero.js")
+
+
+def pagina():
+    """index.html con tablero.css y tablero.js en línea, y la CSP que solo admite esos dos bloques."""
+    d = AQUI / "hlidskjalf"
+    css = (d / "tablero.css").read_text(encoding="utf-8")
+    js = (d / "tablero.js").read_text(encoding="utf-8")
+    html = (d / "index.html").read_text(encoding="utf-8")
+    for marca, contenido in (("/* tablero.css */", css), ("/* tablero.js */", js)):
+        assert html.count(marca) == 1, marca
+        html = html.replace(marca, contenido)
+    h = lambda t: "'sha256-" + base64.b64encode(hashlib.sha256(t.encode("utf-8")).digest()).decode() + "'"
+    csp = (f"default-src 'none'; script-src {h(js)}; style-src {h(css)}; connect-src 'self'; img-src 'self' data:; "
+           "base-uri 'none'; form-action 'none'; frame-ancestors 'none'")
+    return html, csp
+
+
+HTML, CSP = pagina()
+# Revision del flujo = hash de las fuentes; nornas-init reimporta las pestañas cuando cambia.
+REV = hashlib.sha256(b"".join([(AQUI / "src" / f).read_bytes() for f in sorted(FUENTES)] +
+                              [(AQUI / "hlidskjalf" / f).read_bytes() for f in PAGINA])).hexdigest()[:12]
 
 flow = [
     {"id": TAB, "type": "tab", "label": "Heimdall · alertas SLA", "disabled": False, "info": INFO,
@@ -59,6 +88,26 @@ flow = [
      "authType": "", "senderr": False, "headers": [], "x": 1310, "y": 240, "wires": [["h.ntfy.res"]]},
     fn("h.ntfy.res", "Respuesta de ntfy", "ntfy-respuesta.js", 1, 1500, 240, [[]]),
     {"id": "h.res200", "type": "http response", "z": TAB, "name": "200", "statusCode": "200", "headers": {}, "x": 1010, "y": 180, "wires": []},
+
+    # --- Hlidskjalf: tablero de pared ---
+    {"id": TAB_H, "type": "tab", "label": "Hlidskjalf · tablero de pared", "disabled": False, "info": INFO_H, "env": []},
+    {"id": "t.comentario", "type": "comment", "z": TAB_H, "name": "Tablet de pared → página y resumen de midgard (solo lectura)",
+     "info": INFO_H, "x": 330, "y": 40, "wires": []},
+    {"id": "t.pagina.in", "type": "http in", "z": TAB_H, "name": "GET /hlidskjalf", "url": "/hlidskjalf", "method": "get",
+     "upload": False, "swaggerDoc": "", "x": 140, "y": 120, "wires": [["t.pagina"]]},
+    {"id": "t.pagina", "type": "template", "z": TAB_H, "name": "Página (deploy/nornas/hlidskjalf)", "field": "payload",
+     "fieldType": "msg", "format": "html", "syntax": "plain", "template": HTML, "output": "str", "x": 400, "y": 120,
+     "wires": [["t.pagina.res"]]},
+    {"id": "t.pagina.res", "type": "http response", "z": TAB_H, "name": "200 HTML", "statusCode": "200",
+     "headers": {"Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": CSP, "Cache-Control": "no-cache",
+                 "X-Content-Type-Options": "nosniff", "Referrer-Policy": "no-referrer"},
+     "x": 660, "y": 120, "wires": []},
+    {"id": "t.resumen.in", "type": "http in", "z": TAB_H, "name": "GET /hlidskjalf/resumen", "url": "/hlidskjalf/resumen",
+     "method": "get", "upload": False, "swaggerDoc": "", "x": 160, "y": 220, "wires": [["t.auth"]]},
+    fn("t.auth", "Autorizar tablero (HLIDSKJALF_TOKEN)", "hlidskjalf-autorizar.js", 2, 430, 220, [["t.resumen"], ["t.resumen.res"]], z=TAB_H),
+    fn("t.resumen", "Resumen de midgard (Mimir + Gjallarhorn)", "hlidskjalf-resumen.js", 1, 720, 220, [["t.resumen.res"]], z=TAB_H),
+    {"id": "t.resumen.res", "type": "http response", "z": TAB_H, "name": "JSON", "statusCode": "", "headers": {},
+     "x": 980, "y": 280, "wires": []},
 ]
 
 salida = AQUI / "flows" / "heimdall-alertas.json"

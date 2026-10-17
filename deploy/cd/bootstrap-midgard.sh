@@ -103,7 +103,7 @@ done
 systemctl daemon-reload
 systemctl enable --now yggdrasil-vigia-servicios.timer >/dev/null 2>&1 && echo "   yggdrasil-vigia-servicios.timer habilitado"
 
-echo "== 5e. Thor: métricas del host (SMART, espacio del NAS, WAN en la ruta) para Mimir"
+echo "== 5e. Thor: métricas del host (SMART, NAS, WAN en la ruta, servicios, respaldo) para Mimir"
 command -v smartctl >/dev/null || echo "   FALTA smartmontools: sin él Thor no publica el SMART del disco"
 install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-thor.sh" /usr/local/sbin/yggdrasil-thor.sh
 for u in yggdrasil-thor.service yggdrasil-thor.timer; do

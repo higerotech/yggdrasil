@@ -1,0 +1,109 @@
+/* Hlidskjalf — pensado para 1280x800 a 1x (Galaxy Tab 2 10.1 en horizontal), legible a 2 m.
+   Sin `gap` en flexbox: el WebView de la tablet es Chromium 81 y no lo soporta (llegó en la 84);
+   el espaciado va con márgenes entre hermanos. En grid sí funciona. */
+:root {
+    --fondo: #0d1117;
+    --tarjeta: #161b22;
+    --borde: #262d36;
+    --texto: #e6edf3;
+    --tenue: #8b949e;
+    --ok: #3fb950;
+    --aviso: #d29922;
+    --critico: #f85149;
+    --nodato: #6e7681;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body {
+    background: var(--fondo);
+    color: var(--texto);
+    font: 18px/1.3 Roboto, "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
+}
+small { color: var(--tenue); font-size: 0.72em; font-weight: normal; }
+b { font-weight: 600; }
+h2 { margin: 0; font-size: 30px; text-transform: uppercase; letter-spacing: 0.04em; }
+h3 { margin: 0 0 8px; font-size: 15px; color: var(--tenue); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+
+.ok { --c: var(--ok); }
+.aviso { --c: var(--aviso); }
+.critico { --c: var(--critico); }
+.nodato { --c: var(--nodato); }
+
+.cabecera {
+    display: flex; align-items: center;
+    height: 64px; padding: 0 24px;
+    background: var(--tarjeta); border-bottom: 4px solid var(--c, var(--nodato));
+}
+.cabecera .marca { font-size: 22px; font-weight: 700; letter-spacing: 0.08em; }
+.cabecera .semaforo { width: 22px; height: 22px; border-radius: 50%; background: var(--c, var(--nodato)); box-shadow: 0 0 12px var(--c, transparent); }
+.cabecera > * + * { margin-left: 16px; }
+#estado { font-size: 22px; font-weight: 600; color: var(--c, var(--texto)); flex: 1; }
+#frescura { color: var(--tenue); font-size: 16px; }
+#reloj { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
+body.viejo main { opacity: 0.45; }
+
+main {
+    display: grid; gap: 14px; padding: 14px;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr auto;
+    height: calc(100% - 64px);
+}
+.columna { display: flex; flex-direction: column; min-height: 0; }
+.columna > * + * { margin-top: 14px; }
+.panel { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 16px; min-height: 0; }
+.panel.crece { flex: 1; overflow: hidden; }
+.panel.ancho { grid-column: 1 / -1; }
+
+.tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-left: 6px solid var(--c); border-radius: 10px; padding: 12px 16px; }
+#wan .tarjeta { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.tarjeta header { display: flex; align-items: center; margin-bottom: 8px; }
+.tarjeta header > * + * { margin-left: 12px; }
+.estado { font-weight: 700; color: var(--c); font-size: 20px; }
+.tarjeta header .chip { margin-left: auto; }
+.chip { padding: 2px 10px; border-radius: 99px; font-size: 14px; border: 1px solid var(--c); color: var(--c); }
+.cifras { display: flex; }
+.cifras > * + * { margin-left: 12px; }
+.cifras div { flex: 1; display: flex; flex-direction: column; }
+.cifras b { font-size: 38px; font-variant-numeric: tabular-nums; }
+.velocidades { display: flex; align-items: baseline; margin-top: 6px; font-size: 26px; font-variant-numeric: tabular-nums; }
+.vel.aviso { color: var(--aviso); }
+.velocidades > * + * { margin-left: 18px; }
+.velocidades .medido { margin-left: auto; }
+.hogar { padding: 4px 6px; color: var(--tenue); }
+.hogar b { color: var(--c); }
+
+.alertas { list-style: none; margin: 0; padding: 0; }
+.alertas li + li { margin-top: 8px; }
+.alertas li > * + * { margin-left: 12px; }
+.alertas li { display: flex; align-items: flex-start; padding: 8px 10px; border-radius: 8px; background: #0d1117; border-left: 4px solid var(--c); }
+.alertas li div { flex: 1; display: flex; flex-direction: column; }
+.alertas li span { color: var(--tenue); font-size: 16px; }
+.alertas time { color: var(--tenue); font-size: 15px; white-space: nowrap; }
+.punto { width: 12px; height: 12px; margin-top: 6px; border-radius: 50%; background: var(--c); flex: none; }
+.vacio { margin: 8px 0; color: var(--c); font-size: 20px; }
+
+.fila > * + * { margin-left: 12px; }
+.fila { display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--borde); }
+.fila:last-child { border-bottom: 0; }
+.fila > span { width: 92px; flex: none; color: var(--tenue); }
+.fila > b { flex: 1; color: var(--c); font-size: 18px; }
+progress.barra { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 6px; margin-top: 4px; border: 0; border-radius: 3px; background: var(--borde); overflow: hidden; }
+progress.barra::-webkit-progress-bar { background: var(--borde); }
+progress.barra::-webkit-progress-value { background: var(--c); }
+progress.barra::-moz-progress-bar { background: var(--c); }
+
+#servicios { display: flex; flex-wrap: wrap; margin-bottom: -8px; }
+.servicio { display: flex; align-items: center; margin: 0 8px 8px 0; padding: 6px 12px; border-radius: 8px; background: #0d1117; border: 1px solid var(--borde); }
+.servicio small { margin-left: 8px; }
+.servicio i { margin-right: 8px; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
+.servicio.critico { border-color: var(--critico); color: var(--critico); }
+
+/* Teléfono u otra pantalla estrecha: una columna con desplazamiento */
+@media (max-width: 900px) {
+    body { overflow: auto; }
+    main { grid-template-columns: 1fr; height: auto; }
+    .cabecera { flex-wrap: wrap; height: auto; padding: 10px 16px; }
+}

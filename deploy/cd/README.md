@@ -207,6 +207,8 @@ sirve a Mimir, job `thor`.
 | `yggdrasil_smart_salud`, `yggdrasil_smart_lectura_ok` | `smartctl -H` da PASSED; la lectura funcionó |
 | `yggdrasil_fs_montado`, `_tamano_bytes`, `_libre_bytes{punto}` | `/` y `/mnt/nas/respaldos`; `df` con timeout por si el NFS se cuelga |
 | `yggdrasil_wan_en_ruta{wan}` | 1 si `wan-balancer` tiene esa WAN en la ruta por defecto |
+| `yggdrasil_servicio_ok{tipo,nombre}` | 1 si el contenedor permanente está en marcha y sano (`tipo="contenedor"`, inventario del vigía más los del proyecto) o la unidad del host activa (`tipo="unidad"`); solo para el tablero, el aviso es del vigía |
+| `yggdrasil_respaldo_ultimo_exito_timestamp_seconds` | último respaldo completado (`/var/lib/yggdrasil-respaldo/ultimo-exito`) |
 | `yggdrasil_thor_timestamp_seconds` | última recolección |
 
 Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):

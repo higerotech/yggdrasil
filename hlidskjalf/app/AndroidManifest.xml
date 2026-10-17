@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hlidskjalf: kiosco de la tablet de pared (ADR-0007). Una sola actividad con un WebView que
+     muestra http://<midgard>:1880/hlidskjalf/. Puede hacer de pantalla de inicio (HOME) para que
+     el botón de inicio y el arranque de la tablet vuelvan siempre al tablero.
+     debuggable: instalar.sh escribe la URL (con el token) en los datos privados de la app con
+     run-as, para que el token no pase por la línea de órdenes de ningún proceso. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.higerotech.hlidskjalf">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:label="Hlidskjalf"
+        android:icon="@drawable/icono"
+        android:allowBackup="false"
+        android:debuggable="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen">
+
+        <activity
+            android:name=".Tablero"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <receiver android:name=".Arranque">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

@@ -7,11 +7,13 @@ on:
   pull_request:
     paths:
       - "deploy/**"
+      - "hlidskjalf/**"
       - ".github/workflows/validar-configs.yml"
   push:
     branches: [develop, main]
     paths:
       - "deploy/**"
+      - "hlidskjalf/**"
   schedule:
     - cron: "17 6 * * 1"   # lunes 06:17 UTC: informe semanal de Trivy sobre las imágenes pineadas
 
@@ -58,8 +60,8 @@ jobs:
         run: |
           docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/settings.js
           docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --check /n/init/importar-flujo.mjs
-      - name: Pruebas del flujo de Nornas (avisos únicos y ntfy)
-        run: docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --test /n/tests/flujo.test.mjs
+      - name: Pruebas del flujo de Nornas (avisos únicos, ntfy y tablero Hlidskjalf)
+        run: docker run --rm -v "$PWD/deploy/nornas:/n:ro" --entrypoint node "$NODERED" --test /n/tests/flujo.test.mjs /n/tests/hlidskjalf.test.mjs
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
@@ -90,6 +92,21 @@ jobs:
         run: bash deploy/cd/tests/prueba-thor.sh
       - name: Vigía de servicios (docker, systemctl y curl simulados)
         run: bash deploy/cd/tests/prueba-vigia-servicios.sh
+
+  hlidskjalf:
+    name: "Hlidskjalf: APK de la tablet de pared"
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SDK de Android (plataforma 25 y build-tools 34.0.0)
+        run: (yes || true) | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-25" "build-tools;34.0.0" > /dev/null
+      - name: Compilar y firmar (clave de depuración efímera del runner)
+        run: |
+          export PATH="$JAVA_HOME_17_X64/bin:$PATH"
+          bash hlidskjalf/construir.sh
+      - name: ShellCheck de los scripts de la tablet
+        run: docker run --rm -v "$PWD/hlidskjalf:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/construir.sh /mnt/instalar.sh
 
   secretos:
     name: "Secretos: gitleaks"

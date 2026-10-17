@@ -57,11 +57,38 @@ cat > "$T/bin/ip" <<'EOF'
 #!/usr/bin/env bash
 cat "$STUB/ruta"
 EOF
+# docker ps -a ... --format '{{.Names}}'  /  docker inspect -f '...' <nombre>
+# $STUB/contenedores: "<nombre> <restart> <estado> <salud>" por linea
+cat > "$T/bin/docker" <<'EOF'
+#!/usr/bin/env bash
+[ -f "$STUB/docker-caido" ] && exit 1
+case "$1" in
+  ps) awk '{print $1}' "$STUB/contenedores" ;;
+  inspect) l=$(grep "^${*: -1} " "$STUB/contenedores") || exit 1; echo "${l#* }" ;;
+esac
+EOF
+# systemctl show -p LoadState --value <u>  /  systemctl is-active --quiet <u>
+# $STUB/unidades: "<unidad> <activa|inactiva>"; las que no estan, not-found
+cat > "$T/bin/systemctl" <<'EOF'
+#!/usr/bin/env bash
+u="${*: -1}"; l=$(grep "^$u " "$STUB/unidades")
+case "$1" in
+  show) [ -n "$l" ] && echo loaded || echo not-found ;;
+  is-active) [ "${l#* }" = activa ] ;;
+esac
+EOF
 chmod +x "$T/bin/"*
 echo "default via 192.168.1.1 dev wan1 " > "$T/ruta"
 touch "$T/nas-montado"
+printf '%s\n' "yggdrasil-grafana always running healthy" "yggdrasil-prometheus unless-stopped running -" \
+    "yggdrasil-node-red unless-stopped running unhealthy" "yggdrasil-mosquitto unless-stopped exited -" \
+    "yggdrasil-prometheus-pausado unless-stopped paused -" "yggdrasil-node-red-init no exited -" > "$T/contenedores"
+printf '%s\n' yggdrasil-grafana yggdrasil-alertmanager > "$T/inventario"   # alertmanager: no existe
+printf '%s\n' "docker.service activa" "wan-balancer.service inactiva" > "$T/unidades"
+echo 1792180000 > "$T/ultimo-exito"
 
-export STUB="$T" PATH="$T/bin:$PATH" THOR_DIR="$T/pub" THOR_CACHE="$T/cache" THOR_SMART_CADA_S=600
+export STUB="$T" PATH="$T/bin:$PATH" THOR_DIR="$T/pub" THOR_CACHE="$T/cache" THOR_SMART_CADA_S=600 \
+    THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito"
 fallos=0
 ok()  { echo "ok   $1"; }
 mal() { echo "FALLO $1"; fallos=$((fallos + 1)); }
@@ -85,6 +112,17 @@ tiene "wan2 fuera de la ruta" 'yggdrasil_wan_en_ruta{wan="wan2"} 0'
 [ "$(stat -c %a "$T/pub/host.prom")" = 644 ] && ok "host.prom legible (644)" || mal "host.prom legible (644)"
 [ -z "$(find "$T/pub" -name '.host.prom.*')" ] && ok "sin temporales en el directorio servido" || mal "sin temporales en el directorio servido"
 [ -z "$(find "$T/pub" -name 'smart*')" ] && [ -s "$T/cache/smart-sda" ] && ok "la cache de smartctl queda fuera del directorio servido" || mal "la cache de smartctl queda fuera del directorio servido"
+tiene "contenedor sano" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-grafana"} 1'
+tiene "contenedor sin healthcheck en marcha" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-prometheus"} 1'
+tiene "contenedor unhealthy" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-node-red"} 0'
+tiene "contenedor parado" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-mosquitto"} 0'
+tiene "contenedor en pausa (respaldo) cuenta como en marcha" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-prometheus-pausado"} 1'
+tiene "contenedor del inventario que no existe" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="yggdrasil-alertmanager"} 0'
+no_tiene "tarea de un solo uso (restart no) fuera" 'nombre="yggdrasil-node-red-init"'
+tiene "unidad activa" 'yggdrasil_servicio_ok{tipo="unidad",nombre="docker.service"} 1'
+tiene "unidad inactiva" 'yggdrasil_servicio_ok{tipo="unidad",nombre="wan-balancer.service"} 0'
+no_tiene "unidad no instalada se salta" 'nombre="dnsmasq.service"'
+tiene "ultimo respaldo" 'yggdrasil_respaldo_ultimo_exito_timestamp_seconds 1792180000'
 
 pasada
 [ "$(wc -l < "$T/smartctl.log")" = 1 ] && ok "segunda pasada: reutiliza la cache, no llama a smartctl" || mal "segunda pasada: reutiliza la cache"
@@ -108,6 +146,13 @@ rm -f "$T/cache/smart-sda"; touch "$T/smartctl-falla"
 pasada
 tiene "smartctl sin salida y sin cache: lectura fallida" 'yggdrasil_smart_lectura_ok{disco="sda"} 0'
 no_tiene "smartctl sin salida: no inventa atributos" 'yggdrasil_smart_atributo{'
+
+touch "$T/docker-caido"; echo basura > "$T/ultimo-exito"
+pasada
+no_tiene "docker caido: no publica contenedores" 'tipo="contenedor"'
+tiene "docker caido: las unidades siguen" 'yggdrasil_servicio_ok{tipo="unidad",nombre="docker.service"} 1'
+grep -q '^yggdrasil_respaldo_ultimo_exito_timestamp_seconds' "$T/pub/host.prom" \
+    && mal "marca de respaldo no numerica: no se publica" || ok "marca de respaldo no numerica: no se publica"
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }

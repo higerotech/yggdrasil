@@ -10,7 +10,7 @@
 # Odín pasó de 256 a 512 MB el 2026-09-16: rozaba el 86 % de su techo (220 MiB) y un OOM kill
 # se lleva por delante el dashboard y la sesión de Grafana.
 # Puertos publicados, todos solo en la IP LAN (${HOST_LAN_IP}): Odín 3000, Ratatosk 1883 y el editor
-# de Nornas 1880. Las sondas
+# de Nornas 1880, que sirve también Hlidskjalf, el tablero de pared (/hlidskjalf/, ADR-0007). Las sondas
 # en host-mode escuchan en la IP de docker0 (${DOCKER_HOST_GW}) para que Mimir las scrapee sin
 # exponerlas a la LAN ni a las WAN; la política INPUT de nftables es la segunda barrera (T2).
 name: yggdrasil
@@ -220,6 +220,7 @@ services:
       NORNAS_WEBHOOK_TOKEN: ${NORNAS_WEBHOOK_TOKEN}   # lo lee el nodo de autorización del flujo
       YGG_WANS: ${YGG_WANS:-wan1,wan2}                # WANs que el flujo considera para el estado del hogar
       NTFY_URL: ${NTFY_URL:-}                         # tema de ntfy para los push; vacío = push desactivado
+      HLIDSKJALF_TOKEN: ${HLIDSKJALF_TOKEN:-}         # token de lectura del tablero de pared; vacío = tablero cerrado (ADR-0007)
       YGG_REV: ${IMAGE_TAG:-local}                    # fuerza recreacion por despliegue (settings.js montado como fichero)
     volumes:
       - nornas-datos:/data
