@@ -2,16 +2,26 @@
 # La latencia se toma de probe_icmp_duration_seconds{phase="rtt"} (RTT real de la sonda) y no
 # de probe_duration_seconds, que incluye resolución y setup. blackbox expone un gauge por
 # sonda, no un histograma: los percentiles se calculan con quantile_over_time en 5 min y se
-# promedian entre los objetivos de cada WAN.
+# promedian entre los objetivos de cada WAN. Desde 2026-10-17 son tres: 208.67.222.222 queda a
+# ~59 ms por wan1 (1.1.1.1 ~49, 8.8.8.8 ~33), así que la latencia de wan1 sube ~6 ms ese día
+# sin que el enlace cambie; por wan2 los tres están a ~33 ms.
 groups:
   - name: heimdall_sli_5m
     interval: 15s
     rules:
-      # Pérdida del enlace = media de la pérdida de los objetivos que responden algo en la ventana.
-      # Un objetivo caído del todo (`> 0` lo excluye) no es pérdida del enlace: TA-05 mostró que con la
-      # media simple un solo objetivo bloqueado daba 50 % y disparaba WanDegradada y WanNoAptaLlamadas.
+      # Pérdida del enlace = MEDIANA de la pérdida de los 3 objetivos ICMP (1.1.1.1, 8.8.8.8 y
+      # 208.67.222.222) que responden algo en la ventana. La pérdida del enlace la ven todos los
+      # objetivos; la de un solo destino es de ese destino y la mediana la descarta.
+      #  - `> 0` saca a un objetivo caído del todo: TA-05 mostró que con la media simple un solo
+      #    objetivo bloqueado daba 50 % y disparaba WanDegradada y WanNoAptaLlamadas. Con dos
+      #    objetivos vivos, quantile interpola y la mediana es su media.
+      #  - Hasta 2026-10-17 era la media de 1.1.1.1 y 8.8.8.8. Google descarta ping a 8.8.8.8 a ratos
+      #    (por TLS respondía al 99,8 %): en 7 días wan1 sumó 838 min ≥ 1 % y solo 153 con el mejor
+      #    objetivo. Quedarse con el mejor de dos perdía sensibilidad (5 % de pérdida real: la alerta
+      #    disparaba en el 73 % de las simulaciones, frente al 94 % de la media); la mediana de tres
+      #    dispara en el 97 % y no la mueve ningún objetivo suelto.
       - record: wan:perdida_pct:5m
-        expr: 100 * (1 - avg by (wan) (avg_over_time(probe_success{job=~"blackbox_icmp_wan[0-9]+"}[5m]) > 0))
+        expr: 100 * (1 - quantile by (wan) (0.5, avg_over_time(probe_success{job=~"blackbox_icmp_wan[0-9]+"}[5m]) > 0))
 
       - record: wan:latencia_p90:5m
         expr: avg by (wan) (quantile_over_time(0.90, probe_icmp_duration_seconds{job=~"blackbox_icmp_wan[0-9]+", phase="rtt"}[5m]))

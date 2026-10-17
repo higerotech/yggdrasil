@@ -137,7 +137,7 @@ Métricas (contrato Prometheus):
 |---|---|---|
 | `probe_success` | `wan`, `target`, `module` | 1/0 por sonda |
 | `probe_icmp_duration_seconds{phase="rtt"}` | `wan`, `target` | RTT por sonda ICMP; base de los percentiles (`probe_duration_seconds` incluye resolución y setup) |
-| `wan:perdida_pct:5m` (recording) | `wan` | Pérdida agregada por WAN; SLO < 1 % |
+| `wan:perdida_pct:5m` (recording) | `wan` | Pérdida del enlace: mediana de los 3 objetivos ICMP que responden (la pérdida de un solo destino no cuenta); SLO < 1 % |
 | `wan:latencia_p90:5m` (recording) | `wan` | p90 de latencia en 5 min, seguimiento |
 | `wan:latencia_p95:5m` (recording) | `wan` | p95 de latencia en 5 min, referencia de SLO |
 | `wan:latencia_p99:5m` (recording) | `wan` | p99 de latencia en 5 min, seguimiento |
@@ -151,6 +151,7 @@ Métricas (contrato Prometheus):
 | `wan_throughput_medicion_ok` | `wan` | 1 si la última medición de Sleipnir fue válida; condiciona `WanThroughputBajo` |
 | `wan_throughput_ultima_medicion_timestamp_seconds` | `wan` | Epoch de la última medición; base de `SleipnirSinMedicion` |
 | `wan_throughput_latencia_ms` | `wan` | Latencia reportada por la prueba de throughput (seguimiento) |
+| `wan_throughput_medicion_en_curso` | `wan` | 1 mientras Sleipnir mide esa WAN: la prueba satura el enlace y las sondas ven pérdida; Hlidskjalf la usa para no pintarla como avería |
 
 Alertas (contrato Alertmanager → Node-RED):
 | Alerta | Severidad | Condición | Efecto |

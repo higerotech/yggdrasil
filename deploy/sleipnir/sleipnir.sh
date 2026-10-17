@@ -84,9 +84,18 @@ generar_metrics() {
       read -r ok down up ping ts < "$DATOS/$w.estado"
       echo "wan_throughput_ultima_medicion_timestamp_seconds{wan=\"$w\"} $ts"
     done
+    # La prueba satura el enlace unos 70 s y las sondas ICMP ven perdida: Hlidskjalf lo usa para no
+    # pintar esa perdida como una averia (la ventana de 5 min la arrastra despues; ver tablero.js).
+    echo "# HELP wan_throughput_medicion_en_curso 1 mientras Sleipnir mide esa WAN."
+    echo "# TYPE wan_throughput_medicion_en_curso gauge"
+    for w in wan1 wan2; do
+      if [ -f "$DATOS/$w.midiendo" ]; then v=1; else v=0; fi
+      echo "wan_throughput_medicion_en_curso{wan=\"$w\"} $v"
+    done
   } > "$f" && mv "$f" "$WWW/metrics"
 }
 
+rm -f "$DATOS"/*.midiendo   # una medicion cortada por un reinicio no sigue en curso
 generar_metrics
 # httpd viene de busybox-extras (la busybox base de Alpine no lo incluye).
 httpd -f -p "$SLEIPNIR_LISTEN" -h "$WWW" &
@@ -100,6 +109,7 @@ ultima=$(cat "$DATOS/ultima_wan" 2>/dev/null || echo wan2)
 while :; do
   if [ "$ultima" = wan1 ]; then wan=wan2; ifc=$WAN2_IF; else wan=wan1; ifc=$WAN1_IF; fi
   ip=$(ip_de "$ifc" || true)
+  [ -z "$ip" ] || { : > "$DATOS/$wan.midiendo"; generar_metrics; }
   if [ -z "$ip" ]; then
     log "$wan ($ifc) sin IPv4; medición omitida"
     guardar "$wan" 0 0 0 0
@@ -112,6 +122,7 @@ while :; do
     log "$wan ($ip): medición fallida"
     guardar "$wan" 0 0 0 0
   fi
+  rm -f "$DATOS/$wan.midiendo"
   generar_metrics
   echo "$wan" > "$DATOS/ultima_wan"
   ultima=$wan

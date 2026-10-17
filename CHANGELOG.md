@@ -9,6 +9,45 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.10] - 2026-10-17
+
+**Pérdida de WAN sin falsas alarmas.** La pérdida de cada WAN es la mediana de tres objetivos, así
+que un destino que descarta ping ya no la infla, y la tablet distingue la pérdida que provoca la
+medición de velocidad de Sleipnir.
+
+### Cambiado
+- **La pérdida de una WAN es la mediana de tres objetivos, no la media de dos.** Las sondas ICMP
+  suman 208.67.222.222 (OpenDNS) a 1.1.1.1 y 8.8.8.8, y `wan:perdida_pct:5m` toma la mediana.
+  Google descarta a ratos el ping a 8.8.8.8, aunque por TLS responde al 99,8 %. Con la media,
+  wan1 sumó en 7 días 838 minutos de pérdida ≥ 1 % y salía en ámbar sin estar mal. La pérdida
+  de un solo destino ya no cuenta como pérdida del enlace.
+  - Por qué no basta con el mejor objetivo: perdía sensibilidad. Con un 5 % de pérdida real, la
+    alerta disparaba en el 73 % de las simulaciones, frente al 94 % de la media. La mediana de
+    tres dispara en el 97 %.
+  - Se mantiene lo de TA-05: un objetivo caído del todo sigue fuera del cálculo. Si caen los
+    tres, no hay serie y decide `WanCaida`, como antes.
+  - Efecto en la latencia: es la media de los objetivos, y 208.67.222.222 queda a ~59 ms por
+    wan1. La latencia de wan1 sube ~6 ms el día del cambio sin que el enlace cambie.
+- Mimir lee Sleipnir cada 15 s en vez de cada 60 s, para que la marca de medición en curso
+  llegue a tiempo.
+
+### Añadido
+- **Hlidskjalf distingue la pérdida que provoca Sleipnir.** Sleipnir satura el enlace unos 70 s
+  al medir la velocidad, y las sondas ven pérdida y más latencia. Ahora publica
+  `wan_throughput_medicion_en_curso{wan}` mientras mide. La tarjeta de esa WAN muestra
+  «Sleipnir midiendo» y luego «tras medir la velocidad» durante los 5 min y medio en que la
+  ventana arrastra la prueba, sin ponerse en ámbar por pérdida ni latencia. Una caída o una WAN
+  fuera de la ruta se siguen viendo igual. Fue lo que la tablet enseñó como un 5 % en wan2 el
+  2026-10-17 a las 00:28 UTC.
+
+### Pruebas
+- Nuevo `deploy/prometheus/tests/perdida.test.yml` en el CI, con cuatro casos:
+  - un objetivo que pierde el 20 % no mueve la pérdida;
+  - la pérdida real en los tres objetivos se ve entera;
+  - un objetivo bloqueado (TA-05) no cuenta;
+  - con los tres caídos no hay serie.
+- La pérdida de Sleipnir en la tablet tiene su prueba de Node.
+
 ## [0.5.9] - 2026-10-16
 
 **Hlidskjalf, el tablero de pared.** Una tablet en la pared muestra el estado de midgard: WAN,
@@ -433,7 +472,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...HEAD
+[0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/higerotech/yggdrasil/compare/v0.5.6...v0.5.7

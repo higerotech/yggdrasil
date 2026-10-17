@@ -97,6 +97,8 @@ const SERIES = [
     s("wan_throughput_mbps", { wan: "wan2", direccion: "up", job: "sleipnir" }, 102),
     s("wan:slo_throughput_mbps", { wan: "wan2", direccion: "up" }, 400),
     s("wan_throughput_ultima_medicion_timestamp_seconds", { wan: "wan1", direccion: "down" }, AHORA - 3600),
+    s("wan_throughput_medicion_en_curso", { wan: "wan1", job: "sleipnir" }, 0),
+    s("wan_throughput_medicion_en_curso", { wan: "wan2", job: "sleipnir" }, 1),
     s("hogar:up", {}, 1), s("hogar:disponibilidad:30d", {}, 0.9997),
     s("yggdrasil_thor_timestamp_seconds", { job: "thor" }, AHORA - 30),
     s("yggdrasil_smart_lectura_ok", { disco: "sda" }, 1), s("yggdrasil_smart_salud", { disco: "sda" }, 1),
@@ -153,6 +155,8 @@ test("resumen: WAN, host, servicios y alertas ordenadas por gravedad", async () 
     assert.equal(w1.latencia_p95_ms, 12.3);
     assert.equal(w1.bajada_mbps, 912.4);
     casi(w1.medicion_hace_s, 3600, "medicion_hace_s");
+    assert.equal(w1.sleipnir_midiendo, 0);
+    assert.equal(w2.sleipnir_midiendo, 1);
     assert.equal(w2.up, 0);
     assert.equal(w2.en_ruta, 1);
     assert.equal(w2.subida_mbps, 102);
@@ -243,6 +247,24 @@ test("tablero: la tarjeta de wan2 caída con la subida bajo el SLO", () => {
     assert.match(html, /CAÍDA/);
     assert.match(html, /chip critico">en la ruta/);
     assert.match(html, /vel aviso">↑ 102<small> \/ 400 Mbps/);
+});
+
+test("tablero: la pérdida que provoca Sleipnir al medir no pone la WAN en ámbar", () => {
+    const base = { wan: "wan2", up: 1, en_ruta: 1, perdida_pct: 5, latencia_p95_ms: 260 };
+    // midiendo ahora, y dentro de la ventana de 5 min (+30 s) tras terminar
+    assert.equal(tablero.nivelWan({ ...base, sleipnir_midiendo: 1, medicion_hace_s: 3 * 3600 }), "ok");
+    assert.equal(tablero.nivelWan({ ...base, sleipnir_midiendo: 0, medicion_hace_s: 120 }), "ok");
+    assert.equal(tablero.nivelWan({ ...base, sleipnir_midiendo: 0, medicion_hace_s: 329 }), "ok");
+    // pasada la ventana, la pérdida ya es del enlace
+    assert.equal(tablero.nivelWan({ ...base, sleipnir_midiendo: 0, medicion_hace_s: 330 }), "aviso");
+    assert.equal(tablero.nivelWan({ ...base, medicion_hace_s: null }), "aviso", "sin datos de Sleipnir no se disculpa nada");
+    // una caída o una WAN fuera de la ruta se ven igual aunque Sleipnir esté midiendo
+    assert.equal(tablero.nivelWan({ ...base, up: 0, sleipnir_midiendo: 1 }), "critico");
+    assert.equal(tablero.nivelWan({ ...base, en_ruta: 0, sleipnir_midiendo: 1 }), "aviso");
+
+    assert.match(tablero.vistaWan({ ...base, sleipnir_midiendo: 1 }), /chip medicion">Sleipnir midiendo<\/span><span class="chip ok">en la ruta/);
+    assert.match(tablero.vistaWan({ ...base, sleipnir_midiendo: 0, medicion_hace_s: 90 }), /chip medicion">tras medir la velocidad/);
+    assert.ok(!/chip medicion/.test(tablero.vistaWan({ ...base, sleipnir_midiendo: 0, medicion_hace_s: 3600 })));
 });
 
 // --- Flujo generado ------------------------------------------------------------------------
