@@ -1,12 +1,13 @@
 #!/bin/sh
 # Sleipnir — mide el throughput de cada WAN alternando wan1/wan2 cada ciclo y publica el
-# Modos: ookla (CLI oficial, por defecto; servidor por latencia o OOKLA_SERVER_ID), speedtest
-# (speedtest-cli, poco fiable: servidores lejanos y CPU), iperf3 (requiere IPERF3_SERVER).
 # resultado en formato Prometheus en http://$SLEIPNIR_LISTEN/metrics (busybox httpd), que
 # Mimir scrapea. Contrato: wan_throughput_mbps{wan,direccion} (RF02, RF09).
+# Modos: ookla (CLI oficial, por defecto; servidor por latencia o OOKLA_SERVER_ID), speedtest
+# (speedtest-cli, poco fiable: servidores lejanos y CPU), iperf3 (requiere IPERF3_SERVER).
+# Prueba: deploy/sleipnir/tests/prueba-sleipnir.sh.
 set -eu
 
-DATOS=/var/lib/sleipnir
+DATOS=${SLEIPNIR_DATOS:-/var/lib/sleipnir}
 WWW=$DATOS/www
 mkdir -p "$WWW"
 
@@ -17,7 +18,8 @@ log() { echo "$(date -Iseconds) sleipnir: $*" >&2; }  # a stderr: las mediciones
 
 ip_de() { ip -4 -o addr show dev "$1" scope global 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -n1; }
 
-# Imprime "down_mbps up_mbps ping_ms" o devuelve 1 si la medición falla.
+# Cada medir_* imprime "down_mbps up_mbps ping_ms" o devuelve 1 si la medición falla. ping_ms
+# es "-" cuando el modo no lo mide: no se publica latencia antes que publicar una inventada.
 medir_ookla() { # $1 ip  $2 interfaz -> "down up ping". OOKLA_SERVER_ID admite varios IDs separados por
   # coma: se mide contra cada uno y se devuelve el maximo por sentido (y el mejor ping). El SLO mide la
   # capacidad del enlace, y un servidor lento no debe parecer una degradacion del ISP (v0.4.5).
@@ -38,11 +40,40 @@ medir_ookla() { # $1 ip  $2 interfaz -> "down up ping". OOKLA_SERVER_ID admite v
   [ "$n" -gt 0 ] || return 1
   echo "$d $u $p"
 }
+# Estas dos funciones se perdieron en el hotfix 0.4.5 al reescribir medir_ookla, y hasta 0.5.10
+# los dos modos acababan en "medir_iperf3: not found" y medicion_ok=0 en cada ciclo.
+medir_speedtest() { # $1 ip. speedtest-cli liga el origen con --source; da bit/s y ping en ms.
+  out=$(speedtest-cli --source "$1" --json 2>/dev/null) || return 1
+  echo "$out" | jq -er 'select((.download|type) == "number" and (.upload|type) == "number")
+    | "\(.download/1000000) \(.upload/1000000) \(.ping // "-")"' 2>/dev/null
+}
+medir_iperf3() { # $1 ip. IPERF3_SERVER = host[:puerto]; -B fija el origen y con él la tabla de la WAN.
+  # Bajada (-R: envía el servidor) y subida, 10 s cada una sin los 2 primeros (arranque lento de TCP).
+  # iperf3 no mide latencia en reposo: ping "-".
+  [ -n "$IPERF3_SERVER" ] || { log "  modo iperf3 sin IPERF3_SERVER"; return 1; }
+  case "$IPERF3_SERVER" in
+    *:*) srv=${IPERF3_SERVER%:*}; puerto=${IPERF3_SERVER##*:} ;;
+    *)   srv=$IPERF3_SERVER; puerto=5201 ;;
+  esac
+  res=
+  for sentido in -R ""; do
+    # shellcheck disable=SC2086
+    if ! out=$(iperf3 -c "$srv" -p "$puerto" -B "$1" $sentido -t 10 -O 2 -J 2>/dev/null) \
+        || ! mbps=$(echo "$out" | jq -er '.end.sum_received.bits_per_second / 1000000' 2>/dev/null); then
+      e=$(echo "$out" | jq -r '.error // empty' 2>/dev/null || true)
+      log "  iperf3 ${sentido:-sin -R} contra $srv:$puerto: ${e:-sin resultado}"
+      return 1
+    fi
+    res="$res$mbps "
+  done
+  echo "$res-"
+}
 medir() { # $1 ip  $2 interfaz
   case "$SLEIPNIR_MODO" in
+    ookla)     medir_ookla "$1" "$2" ;;
     iperf3)    medir_iperf3 "$1" ;;
     speedtest) medir_speedtest "$1" ;;
-    *)         medir_ookla "$1" "$2" ;;
+    *)         log "  SLEIPNIR_MODO desconocido: $SLEIPNIR_MODO (ookla, speedtest o iperf3)"; return 1 ;;
   esac
 }
 
@@ -68,7 +99,7 @@ generar_metrics() {
     for w in wan1 wan2; do
       [ -f "$DATOS/$w.estado" ] || continue
       read -r ok down up ping ts < "$DATOS/$w.estado"
-      [ "$ok" = 1 ] && echo "wan_throughput_latencia_ms{wan=\"$w\"} $ping"
+      [ "$ok" = 1 ] && [ "$ping" != - ] && echo "wan_throughput_latencia_ms{wan=\"$w\"} $ping"
     done
     echo "# HELP wan_throughput_medicion_ok 1 si la ultima medicion fue valida, 0 si fallo."
     echo "# TYPE wan_throughput_medicion_ok gauge"
@@ -116,7 +147,8 @@ while :; do
   elif res=$(medir "$ip" "$ifc"); then
     # shellcheck disable=SC2086
     set -- $res
-    log "$wan ($ip): down=${1} Mbps up=${2} Mbps ping=${3} ms"
+    if [ "$3" = - ]; then p="sin ping"; else p="ping=$3 ms"; fi
+    log "$wan ($ip): down=${1} Mbps up=${2} Mbps $p"
     guardar "$wan" 1 "$1" "$2" "$3"
   else
     log "$wan ($ip): medición fallida"

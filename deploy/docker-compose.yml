@@ -47,7 +47,7 @@ services:
       - --web.listen-address=${DOCKER_HOST_GW:-172.17.0.1}:9115
       - --log.level=info
 
-  # Sleipnir — sonda de throughput (speedtest-cli o iperf3); expone /metrics con busybox httpd
+  # Sleipnir — sonda de throughput (CLI de Ookla, speedtest-cli o iperf3); expone /metrics con busybox httpd
   sleipnir:
     <<: *comun
     build: ./sleipnir
