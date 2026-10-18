@@ -150,7 +150,7 @@ Métricas (contrato Prometheus):
 | `wan_throughput_mbps` | `wan`, `direccion` | Resultado periódico de throughput; SLO = `wan:slo_throughput_mbps`, 80 % del nominal contratado por WAN y dirección (RF09) |
 | `wan_throughput_medicion_ok` | `wan` | 1 si la última medición de Sleipnir fue válida; condiciona `WanThroughputBajo` |
 | `wan_throughput_ultima_medicion_timestamp_seconds` | `wan` | Epoch de la última medición; base de `SleipnirSinMedicion` |
-| `wan_throughput_latencia_ms` | `wan` | Latencia reportada por la prueba de throughput (seguimiento) |
+| `wan_throughput_latencia_ms` | `wan` | Latencia reportada por la prueba de throughput (seguimiento); no existe en modo `iperf3`, que no la mide |
 | `wan_throughput_medicion_en_curso` | `wan` | 1 mientras Sleipnir mide esa WAN: la prueba satura el enlace y las sondas ven pérdida; Hlidskjalf la usa para no pintarla como avería |
 
 Alertas (contrato Alertmanager → Node-RED):

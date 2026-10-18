@@ -9,6 +9,31 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.11] - 2026-10-18
+
+**Dos correcciones.** Thor deja de contar como servicios caídos los nombres temporales que Compose
+pone durante un despliegue, y Sleipnir vuelve a medir con `speedtest-cli` e `iperf3`.
+
+### Corregido
+- **Thor ya no publica como caídos los contenedores que Compose renombra al recrear.** Durante
+  un despliegue, Compose renombra el contenedor viejo a `<12 hex del id>_<nombre>` mientras
+  levanta el nuevo. Una pasada de Thor en ese momento (v0.5.10, 2026-10-17) los publicó como
+  servicios, y Hlidskjalf enseñó «4 servicios caídos» durante un minuto, dos de ellos
+  inexistentes. Los otros dos, Ratatosk y Nornas, sí estaban recreándose. Thor descarta esos
+  nombres temporales y `prueba-thor.sh` tiene el caso.
+- **Sleipnir vuelve a medir en los modos `speedtest` e `iperf3`.** El hotfix 0.4.5 borró
+  `medir_speedtest` y `medir_iperf3` al reescribir `medir_ookla`. Desde entonces esos dos modos
+  fallaban en cada ciclo con `not found` y publicaban `medicion_ok=0`. midgard mide con `ookla`
+  y no se vio afectado. Las dos funciones vuelven con dos correcciones:
+  - **iperf3 ya no publica una latencia de 0 ms inventada.** No la mide, así que no publica
+    `wan_throughput_latencia_ms`.
+  - **Un fallo de iperf3 se detecta.** Antes el `|| return 1` miraba el estado de `jq`, no el de
+    iperf3, y el error del servidor (por ejemplo, «server is busy») llega ahora al log.
+
+  `IPERF3_SERVER` acepta `host:puerto`. Un `SLEIPNIR_MODO` desconocido ya no cae a `ookla` en
+  silencio: no mide y lo dice en el log. La prueba nueva `deploy/sleipnir/tests/prueba-sleipnir.sh`
+  corre el script entero en los tres modos y está en el CI.
+
 ## [0.5.10] - 2026-10-17
 
 **Pérdida de WAN sin falsas alarmas.** La pérdida de cada WAN es la mediana de tres objetivos, así
@@ -472,7 +497,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...HEAD
+[0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
