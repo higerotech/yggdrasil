@@ -9,6 +9,19 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Corregido
+- **El segundo despliegue de una release ya no recrea Sleipnir, Thor ni sync.** Cuando un commit
+  cambia el Compose, el job `redespliegue` relanza `build` para que el receptor despliegue otra vez
+  con el Compose nuevo. Ese relanzamiento reconstruía las imágenes y, como el build no es
+  reproducible (las etiquetas OCI llevan la fecha), subía otro digest con el mismo tag `sha-<7>`.
+  El receptor lo descargaba y recreaba todos los contenedores de esas imágenes.
+  - **Cuándo pasó:** en las releases 0.5.8, 0.5.9 y 0.5.11.
+  - **Efecto en la 0.5.11:** Sleipnir midió wan1 dos veces seguidas y `WanDegradada` llegó a
+    `pending`.
+
+  `build` comprueba ahora si la imagen del commit ya está en GHCR y, si está, no la reconstruye.
+  El segundo despliegue solo recrea los servicios cuya configuración cambió.
+
 ## [0.5.11] - 2026-10-18
 
 **Dos correcciones.** Thor deja de contar como servicios caídos los nombres temporales que Compose
