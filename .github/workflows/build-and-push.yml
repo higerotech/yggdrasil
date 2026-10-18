@@ -35,14 +35,33 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Una imagen ya publicada para este commit no se reconstruye. El build no es reproducible (las
+      # etiquetas OCI llevan la fecha), asi que reconstruir sube otro digest con el MISMO tag sha-<7>,
+      # el receptor lo descarga y recrea cada contenedor de esa imagen. Le pasaba al relanzamiento de
+      # `redespliegue`: en v0.5.11 (2026-10-18) recreo Sleipnir, Thor y sync una segunda vez, y Sleipnir
+      # midio wan1 dos veces seguidas (WanDegradada llego a pending).
+      - id: existe
+        name: Comprobar si la imagen de este commit ya esta publicada
+        env:
+          IMAGEN: ghcr.io/${{ github.repository }}-${{ matrix.imagen }}
+        run: |
+          ref="$IMAGEN:sha-${GITHUB_SHA::7}"   # el mismo tag que pone metadata-action con type=sha
+          if docker buildx imagetools inspect "$ref" >/dev/null 2>&1; then
+            echo "$ref ya esta publicada: no se reconstruye"
+            echo "publicada=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "publicada=0" >> "$GITHUB_OUTPUT"
+          fi
       - id: meta
+        if: steps.existe.outputs.publicada != '1'
         uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}-${{ matrix.imagen }}
           tags: |
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
-      - uses: docker/build-push-action@v7
+      - if: steps.existe.outputs.publicada != '1'
+        uses: docker/build-push-action@v7
         with:
           context: deploy/${{ matrix.imagen }}
           push: true
@@ -54,6 +73,8 @@ jobs:
   # El receptor levanta el stack con el Compose del checkout ANTERIOR (sync-host lo actualiza
   # durante el propio despliegue). Si este push cambio docker-compose*.yml, se dispara un segundo
   # workflow_run (workflow_dispatch) para que el receptor vuelva a desplegar con el Compose nuevo.
+  # Ese segundo run no reconstruye (paso `existe`): el despliegue repetido solo recrea los servicios
+  # cuya configuracion cambio.
   redespliegue:
     needs: build
     if: github.event_name == 'push'
