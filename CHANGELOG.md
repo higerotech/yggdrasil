@@ -16,6 +16,18 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   servicios, y Hlidskjalf enseñó «4 servicios caídos» durante un minuto, dos de ellos
   inexistentes. Los otros dos, Ratatosk y Nornas, sí estaban recreándose. Thor descarta esos
   nombres temporales y `prueba-thor.sh` tiene el caso.
+- **Sleipnir vuelve a medir en los modos `speedtest` e `iperf3`.** El hotfix 0.4.5 borró
+  `medir_speedtest` y `medir_iperf3` al reescribir `medir_ookla`. Desde entonces esos dos modos
+  fallaban en cada ciclo con `not found` y publicaban `medicion_ok=0`. midgard mide con `ookla`
+  y no se vio afectado. Las dos funciones vuelven con dos correcciones:
+  - **iperf3 ya no publica una latencia de 0 ms inventada.** No la mide, así que no publica
+    `wan_throughput_latencia_ms`.
+  - **Un fallo de iperf3 se detecta.** Antes el `|| return 1` miraba el estado de `jq`, no el de
+    iperf3, y el error del servidor (por ejemplo, «server is busy») llega ahora al log.
+
+  `IPERF3_SERVER` acepta `host:puerto`. Un `SLEIPNIR_MODO` desconocido ya no cae a `ookla` en
+  silencio: no mide y lo dice en el log. La prueba nueva `deploy/sleipnir/tests/prueba-sleipnir.sh`
+  corre el script entero en los tres modos y está en el CI.
 
 ## [0.5.10] - 2026-10-17
 
