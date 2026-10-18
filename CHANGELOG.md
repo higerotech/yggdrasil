@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.11] - 2026-10-18
+
+**Dos correcciones.** Thor deja de contar como servicios caídos los nombres temporales que Compose
+pone durante un despliegue, y Sleipnir vuelve a medir con `speedtest-cli` e `iperf3`.
+
 ### Corregido
 - **Thor ya no publica como caídos los contenedores que Compose renombra al recrear.** Durante
   un despliegue, Compose renombra el contenedor viejo a `<12 hex del id>_<nombre>` mientras
@@ -492,7 +497,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...HEAD
+[0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/higerotech/yggdrasil/compare/v0.5.7...v0.5.8
