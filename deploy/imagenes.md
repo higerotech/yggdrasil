@@ -14,6 +14,7 @@ política de aceptación están en `docs/03-implementation/cadena-suministro.md`
 | `grafana/grafana` | `12.4.10` | `sha256:c132a683b2430fff9115a29b2a79c8ab97540cdcc90846e3c81878c778ca3596` | `sha256:27e80e0f4fa3d423bcbbbb3418f2a6475833f94a2a88b6f2547c74830ce4286e` | 2026-09-01 | Odín (línea 12.x, mantenida) |
 | `eclipse-mosquitto` | `2.0.22` | `sha256:212f89e1eaeb2c322d6441b64396e3346026674db8fa9c27beac293405c32b3c` | `sha256:54c90ecc78645241b6aa272b2a5ac8fc20b0eaf02cc4dd431c0cc8d2fd4447dd` | 2026-06-22 | Ratatosk (ADR-0006) |
 | `nodered/node-red` | `4.1.14-22` | `sha256:427c7dce93108c57cca613e5c9fbfbda0e46fd69328f76735d9537915d0ce396` | `sha256:55e5cfe31b28a791b632913e1f8a280eacb8d7f14448300be5e10cb8ce3da922` | 2026-09-01 | Nornas y nornas-init (ADR-0006); línea 4.x sobre Node 22 |
+| `grafana/tempo` | `3.1.0` | `sha256:3076b8dcdfb32fd6bc5ccef85e7b7313e6199b9cb84366257fc17ecb696db5fd` | `sha256:19dca9c0b1801209424a757cd5970d6ffd7cfc9a7f4966c2a6795fbe29b495a8` | 2026-09-29 | Saga (ADR-0008); distroless, usuario 10001 |
 | `alpine` | `3.22` | `sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce` | `sha256:7c8cb692ae09657cbc4a3f3cbd0e8d5a2690ba38386aaaf252dbb060bf5eb2e6` | 2026-06-22 | Base de Sleipnir `0.2.0` (pineada por digest; `apk upgrade` en el build) |
 
 Sleipnir `0.2.1` mide con la CLI oficial de Ookla `1.2.0` (`ookla-speedtest-1.2.0-linux-x86_64.tgz`, sha256 `5690596c54ff9bed63fa3732f818a05dbc2db19ad36ed68f21ca5f64d5cfeeb7`), descargada de `install.speedtest.net` en el build y verificada por hash antes de extraerla. Es un binario estático de código cerrado: Trivy no lo inspecciona, así que la garantía es el origen oficial, la versión y el hash pineados; para subirla, cambiar `OOKLA_VERSION` y `OOKLA_SHA256` en el `Dockerfile` con el hash calculado sobre la descarga. `speedtest-cli==2.1.3` (PyPI) sigue instalada como modo alternativo.
@@ -23,6 +24,7 @@ Imágenes propias publicadas por `build-and-push.yml` en cada push a `main` (ADR
 ## Historial de pines
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-10-19 | Añadido `grafana/tempo:3.1.0` (Saga) | ADR-0008. La 3.0.4, del 2026-10-16, no tenía dos semanas |
 | 2026-09-05 | Pines iniciales: prometheus `v3.5.0`, blackbox `v0.27.0`, alertmanager `v0.28.1`, grafana `12.1.1` | Gate 2, PR #7 |
 | 2026-09-05 | Añadidos `eclipse-mosquitto:2.0.22` (Ratatosk) y `nodered/node-red:4.1.14-22` (Nornas) | ADR-0006 |
 | 2026-09-07 | Sleipnir `0.2.0`: CLI de Ookla `1.2.0` pineada por sha256; modo por defecto `ookla` | Calibración de TA-07: `speedtest-cli` daba 76–188 Mbps de bajada por CPU y elección de servidor; la CLI de Ookla ligada a la interfaz (`-I wanN`) midió 939 Mbps, coherente con iperf3 en LAN |

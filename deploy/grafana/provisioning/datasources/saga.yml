@@ -1,0 +1,20 @@
+# Odín (Grafana): datasource provisionado hacia Saga (Tempo, ADR-0008) por la red interna de Compose.
+# Las trazas siguen la regla de los logs de cada servicio que las emite: solo identificadores, rutas y recuentos.
+apiVersion: 1
+datasources:
+  - name: Saga
+    uid: saga
+    type: tempo
+    access: proxy
+    url: http://saga:3200
+    isDefault: false
+    editable: false
+    jsonData:
+      # Sin metrics_generator en Saga no hay grafo de servicios ni métricas derivadas de las trazas: el serviceMap
+      # queda sin configurar. El grafo de una traza sí se dibuja.
+      nodeGraph:
+        enabled: true
+      search:
+        hide: false
+      streamingEnabled:
+        search: true
