@@ -244,10 +244,25 @@ THOR_DISCOS="/dev/sda /dev/sdb"
 THOR_PUNTOS="/ /mnt/nas/respaldos /srv/rapido"
 THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito bifrost=/var/lib/bifrost-respaldo/ultimo-exito hermod=/var/lib/hermod-respaldo/ultimo-exito andvari=/var/lib/andvari-respaldo/ultimo-exito"
 THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer bifrost-arranque.service bifrost-respaldo.timer bifrost-respaldo-vigia.timer vigilar-ssd.timer hermod-arranque.service hermod-respaldo.timer hermod-respaldo-vigia.timer andvari-arranque.service andvari-respaldo.timer andvari-respaldo-vigia.timer"
+THOR_CONTENEDORES="andvari-openbao bifrost-nats hermod-rabbitmq"
+THOR_ANDVARI="andvari-openbao"
 ```
 
 `THOR_UNIDADES` sustituye a la lista por defecto, no se suma: hay que repetirla entera. Hliðskjálf
 pinta cada disco con su tipo (HDD o SSD), `/srv/rapido` como «SSD» y una fila por respaldo.
+
+**La infraestructura de `/srv/infra`.** Sus contenedores no son del proyecto, y el vigía de servicios no los mira. Thor
+los vigila con estas dos variables:
+
+- `THOR_CONTENEDORES` publica su salud como la del resto. Uno que no existe sale con 0.
+- `THOR_ANDVARI` publica además `yggdrasil_andvari_sellado`, con `bao status`.
+
+Mimir avisa con dos alertas críticas:
+
+- **`AndvariSellado`**, con 2 minutos de margen: sin Andvari, el gateway no abre ninguna clave.
+- **`ServicioDePlataformaCaido`**, con 5 minutos. No salta por un Andvari sellado, que ya tiene la suya.
+
+Sin respuesta legible de `bao status` no se publica el sello: un 0 diría que está abierto.
 
 La salida de `smartctl` lleva el número de serie del disco: se guarda en
 `/var/cache/yggdrasil-thor` (0700), fuera del directorio que se sirve. El recolector escribe con `mv`

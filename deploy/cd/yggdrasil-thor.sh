@@ -12,7 +12,9 @@
 #   - Estado de los servicios (para Hlidskjalf, el tablero de pared): los contenedores
 #     permanentes del Compose, sacados del inventario que mantiene el vigia de servicios, y las
 #     unidades del host. Solo se publican; el aviso sigue siendo cosa del vigia, que no depende
-#     de la cadena de alertas.
+#     de la cadena de alertas. Mas los contenedores de THOR_CONTENEDORES, de fuera del proyecto
+#     (Andvari, Bifrost, Hermod): esos no los vigila nadie mas, y Mimir avisa por ellos.
+#   - Si Andvari (THOR_ANDVARI, su contenedor) esta sellado: en marcha pero sin abrir ninguna clave.
 #   - Momento del ultimo respaldo completado de cada respaldo de THOR_RESPALDOS (nombre=marca): el de
 #     Yggdrasil (yggdrasil-respaldar.sh) y los de otros servicios del host, como Bifrost.
 #   - De cada disco, si es mecanico o SSD, y cuantos errores del enlace SATA o de E/S registro el
@@ -41,6 +43,11 @@ ATRIBUTOS=${THOR_ATRIBUTOS:-5 9 187 188 193 194 197 198 199}
 # Mismas fuentes que el vigia de servicios: su inventario de contenedores y su lista de unidades.
 INVENTARIO=${THOR_INVENTARIO:-/var/lib/yggdrasil-vigia/.inventario}
 PROYECTO=${THOR_PROYECTO:-yggdrasil}
+# Contenedores de midgard que no son del proyecto y se vigilan igual: la infraestructura de /srv/infra
+# (Andvari, Bifrost, Hermod). Uno de la lista que no existe sale con 0.
+CONTENEDORES=${THOR_CONTENEDORES:-}
+# El contenedor de Andvari (OpenBao): ademas de su salud, si esta sellado. Vacio, no se mira.
+ANDVARI=${THOR_ANDVARI:-}
 UNIDADES=${THOR_UNIDADES:-docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer}
 RESPALDO_MARCA=${THOR_RESPALDO_MARCA:-/var/lib/yggdrasil-respaldo/ultimo-exito}
 RESPALDOS=${THOR_RESPALDOS:-yggdrasil=$RESPALDO_MARCA}
@@ -162,7 +169,8 @@ echo "# TYPE yggdrasil_servicio_ok gauge"
 if docker_ps=$(timeout "$DOCKER_TIMEOUT_S" docker ps -a --filter "label=com.docker.compose.project=$PROYECTO" \
         --format '{{.Names}}' 2>/dev/null); then
     docker_ps=$(printf '%s\n' "$docker_ps" | grep -Ev '^[0-9a-f]{12}_' || true)
-    nombres=$( { [ -r "$INVENTARIO" ] && cat "$INVENTARIO"; printf '%s\n' "$docker_ps"; } | grep -E '^[A-Za-z0-9_.-]+$' | sort -u)
+    nombres=$( { [ -r "$INVENTARIO" ] && cat "$INVENTARIO"; printf '%s\n' "$docker_ps"; printf '%s\n' $CONTENEDORES; } \
+        | grep -E '^[A-Za-z0-9_.-]+$' | sort -u)
     for c in $nombres; do
         s=$(timeout "$DOCKER_TIMEOUT_S" docker inspect -f \
             '{{.HostConfig.RestartPolicy.Name}} {{.State.Status}} {{if .State.Health}}{{.State.Health.Status}}{{else}}-{{end}}' \
@@ -183,6 +191,24 @@ for u in $UNIDADES; do
     if systemctl is-active --quiet "$u"; then ok=1; else ok=0; fi
     echo "yggdrasil_servicio_ok{tipo=\"unidad\",nombre=\"$u\"} $ok"
 done
+
+# --- Andvari ---------------------------------------------------------------------------------
+# Sellado, Andvari sigue en marcha pero no abre ninguna clave: el gateway responde 503 a todo lo cifrado. Su
+# healthcheck ya lo cuenta como no sano; esto dice ademas que es el sello, no el contenedor. `bao status`
+# sale con 2 cuando esta sellado, pero escribe el estado igual. Sin respuesta legible no se publica nada:
+# un 0 diria que esta abierto.
+if [ -n "$ANDVARI" ]; then
+    estado=$(timeout "$DOCKER_TIMEOUT_S" docker exec "$ANDVARI" bao status -format=json 2>/dev/null || true)
+    sellado=""
+    if printf '%s' "$estado" | grep -Eq '"sealed":[[:space:]]*true'; then sellado=1
+    elif printf '%s' "$estado" | grep -Eq '"sealed":[[:space:]]*false'; then sellado=0
+    fi
+    if [ -n "$sellado" ]; then
+        echo "# HELP yggdrasil_andvari_sellado 1 si Andvari (OpenBao) esta sellado y no abre ninguna clave."
+        echo "# TYPE yggdrasil_andvari_sellado gauge"
+        echo "yggdrasil_andvari_sellado $sellado"
+    fi
+fi
 
 # --- Respaldos -------------------------------------------------------------------------------
 echo "# HELP yggdrasil_respaldo_ultimo_exito_timestamp_seconds Momento del ultimo respaldo completado."

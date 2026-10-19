@@ -225,3 +225,56 @@ tests:
           - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "thor:9471"}
             exp_annotations:
               resumen: "Mimir no recibe métricas frescas del host (Thor): disco, NAS y discrepancias sin vigilancia"
+
+  - name: Andvari sellado avisa una vez, por el sello
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_andvari_sellado{job="thor", instance="thor:9471"}'
+        values: '0x2 1x10'
+      # Sellado, su healthcheck lo cuenta como no sano.
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="andvari-openbao"}'
+        values: '1x2 0x10'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: AndvariSellado
+        exp_alerts: []          # sellado hace 1 min: aún dentro del for
+      - eval_time: 8m
+        alertname: AndvariSellado
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: andvari, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Andvari está sellado: el gateway no abre ninguna clave y responde 503"
+              descripcion: "Revisar `docker exec andvari-openbao bao status` y que exista /srv/infra/andvari/secretos/sello.key; después, `docker logs andvari-openbao`."
+      - eval_time: 10m
+        alertname: ServicioDePlataformaCaido
+        exp_alerts: []          # el mismo problema no avisa dos veces
+
+  - name: un contenedor de la plataforma caído
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="bifrost-nats"}'
+        values: '1x2 0x10'
+      # Andvari caído y no sellado: sin respuesta de bao status, Thor no publica el sello.
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="andvari-openbao"}'
+        values: '0x12'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="hermod-rabbitmq"}'
+        values: '1x12'
+      # Uno del proyecto: lo vigila el vigía de servicios, no esta alerta.
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="yggdrasil-grafana"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ServicioDePlataformaCaido
+        exp_alerts: []          # caídos, pero aún dentro del for de 5 min
+      - eval_time: 9m
+        alertname: ServicioDePlataformaCaido
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: plataforma, job: thor, instance: "thor:9471", tipo: contenedor, nombre: andvari-openbao}
+            exp_annotations:
+              resumen: "andvari-openbao está caído o no sano"
+              descripcion: "Revisar `docker ps -a --filter name=andvari-openbao` y `docker logs andvari-openbao`. Sin Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe."
+          - exp_labels: {severity: critical, servicio: plataforma, job: thor, instance: "thor:9471", tipo: contenedor, nombre: bifrost-nats}
+            exp_annotations:
+              resumen: "bifrost-nats está caído o no sano"
+              descripcion: "Revisar `docker ps -a --filter name=bifrost-nats` y `docker logs bifrost-nats`. Sin Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe."
+

@@ -9,6 +9,22 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.15] - 2026-10-19
+
+**Andvari vigilado:** un Andvari sellado, o cualquier contenedor de `/srv/infra` caído (Andvari, Bifröst, Hermod),
+avisa ahora por Mimir. Hliðskjálf muestra los tres.
+
+### Añadido
+- **Vigilancia de Andvari y del resto de `/srv/infra`.** Hasta ahora, un Andvari sellado no avisaba a nadie.
+  - **Thor** vigila los contenedores de `THOR_CONTENEDORES` (`andvari-openbao`, `bifrost-nats` y `hermod-rabbitmq`),
+    aunque no sean del proyecto, y publica si Andvari está sellado (`yggdrasil_andvari_sellado`, con `bao status`).
+  - **Mimir** avisa con `AndvariSellado` (crítica, 2 min): sin Andvari, el gateway responde 503 a todo lo cifrado.
+    Avisa también con `ServicioDePlataformaCaido` (crítica, 5 min), que no se repite con un Andvari sellado.
+  - **Hliðskjálf** muestra los tres. Con esto, `bifrost-nats` sale por fin en el tablero.
+  - **Pruebas:** en `prueba-thor.sh`, un contenedor de fuera que no existe, el sello abierto, el sello cerrado
+    aunque `bao status` salga con 2, y que sin respuesta no se publique nada. Hay además pruebas de `promtool` para
+    las dos alertas.
+
 ## [0.5.14] - 2026-10-19
 
 **Saga, el almacén de trazas de la plataforma** (Grafana Tempo 3.1, ADR-0008): 15 días en el SSD, consultadas
@@ -628,7 +644,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...HEAD
+[0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12

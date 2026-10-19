@@ -139,6 +139,38 @@ groups:
         annotations:
           resumen: "El respaldo {{ $labels.respaldo }} lleva más de 30 h sin completarse"
 
+      # --- Infraestructura de midgard (THOR_CONTENEDORES, THOR_ANDVARI) ---------------------------
+      # Andvari guarda la clave maestra del gateway: sellado, el gateway responde 503 a todo lo cifrado. Pasa si el
+      # contenedor arranca sin su clave de sello (/srv/infra/andvari/secretos/sello.key) o con otra.
+      - alert: AndvariSellado
+        expr: yggdrasil_andvari_sellado == 1
+        for: 2m
+        labels:
+          severity: critical
+          servicio: andvari
+        annotations:
+          resumen: "Andvari está sellado: el gateway no abre ninguna clave y responde 503"
+          descripcion: >-
+            Revisar `docker exec andvari-openbao bao status` y que exista /srv/infra/andvari/secretos/sello.key;
+            después, `docker logs andvari-openbao`.
+
+      # Contenedores de /srv/infra que no vigila el vigía de servicios. Andvari sellado ya avisa con la suya: su
+      # healthcheck (`bao status`) también lo cuenta como no sano.
+      - alert: ServicioDePlataformaCaido
+        expr: >-
+          yggdrasil_servicio_ok{tipo="contenedor",nombre=~"bifrost-nats|hermod-rabbitmq"} == 0
+          or (yggdrasil_servicio_ok{tipo="contenedor",nombre="andvari-openbao"} == 0
+              unless on () yggdrasil_andvari_sellado == 1)
+        for: 5m
+        labels:
+          severity: critical
+          servicio: plataforma
+        annotations:
+          resumen: "{{ $labels.nombre }} está caído o no sano"
+          descripcion: >-
+            Revisar `docker ps -a --filter name={{ $labels.nombre }}` y `docker logs {{ $labels.nombre }}`. Sin
+            Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe.
+
       # --- Thor mismo --------------------------------------------------------------------------
       - alert: ThorSinMetricas
         expr: up{job="thor"} == 0 or (time() - yggdrasil_thor_timestamp_seconds) > 300
