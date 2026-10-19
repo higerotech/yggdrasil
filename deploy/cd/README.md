@@ -235,14 +235,14 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 La unidad lee `/etc/default/yggdrasil-thor` si existe. Va en el host y no en el repositorio, que es
 público: ahí se nombran los discos, y un `by-id` lleva el número de serie. Sin el fichero, Thor
 vigila `/dev/sda`, `/` y el NAS. La etiqueta `disco` es siempre el nombre del kernel (`sda`, `sdb`),
-también con una ruta `by-id`. En midgard, con el SSD de datos y el respaldo de Bifröst:
+también con una ruta `by-id`. En midgard, con el SSD de datos y los respaldos de Bifröst, Hermod y Andvari:
 
 ```sh
 # /etc/default/yggdrasil-thor (root, 644)
 THOR_DISCOS="/dev/sda /dev/sdb"
 THOR_PUNTOS="/ /mnt/nas/respaldos /srv/rapido"
-THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito bifrost=/var/lib/bifrost-respaldo/ultimo-exito"
-THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer bifrost-arranque.service bifrost-respaldo.timer bifrost-respaldo-vigia.timer vigilar-ssd.timer"
+THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito bifrost=/var/lib/bifrost-respaldo/ultimo-exito hermod=/var/lib/hermod-respaldo/ultimo-exito andvari=/var/lib/andvari-respaldo/ultimo-exito"
+THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer bifrost-arranque.service bifrost-respaldo.timer bifrost-respaldo-vigia.timer vigilar-ssd.timer hermod-arranque.service hermod-respaldo.timer hermod-respaldo-vigia.timer andvari-arranque.service andvari-respaldo.timer andvari-respaldo-vigia.timer"
 ```
 
 `THOR_UNIDADES` sustituye a la lista por defecto, no se suma: hay que repetirla entera. Hliðskjálf
