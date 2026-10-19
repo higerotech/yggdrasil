@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.12] - 2026-10-19
+
+**Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst**, y el segundo
+despliegue de una release deja de recrear Sleipnir, Thor y sync.
+
 ### Añadido
 - **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst.** El SSD se cayó
   del bus el 2026-10-19 con SMART limpio: `smartctl` no lo habría visto.
@@ -529,7 +534,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...HEAD
+[0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
