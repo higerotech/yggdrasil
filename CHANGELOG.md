@@ -14,6 +14,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   Yggdrasil, Bifröst, Hermod y Andvari. Un respaldo sin nombre propio en el tablero sale con la inicial en
   mayúscula. El ejemplo de `/etc/default/yggdrasil-thor` del README trae sus respaldos y unidades.
 
+### Corregido
+- **Las alertas activas no se veían en Hliðskjálf.** Con el SSD, los cuatro respaldos y 26 servicios, Host
+  y Servicios llenaban la pantalla de 1280×800 y el panel de alertas, que solo recibía el alto sobrante,
+  quedaba en 30 px: con `WanCaida` de wan2 activa, la tablet solo enseñaba el título. Ahora las alertas
+  toman el alto de su contenido (tres como mucho, y una línea «y N alertas más») y Host se recorta por
+  abajo. Para que quepa todo, las unidades del host en orden se resumen en una ficha (las que fallan
+  siguen con su nombre en rojo), los respaldos van en una fila y los discos se rotulan «HDD sda».
+
 ## [0.5.12] - 2026-10-19
 
 **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst**, y el segundo
