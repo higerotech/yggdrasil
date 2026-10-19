@@ -12,14 +12,18 @@
     <span class="semaforo"></span>
     <span class="marca">MIDGARD</span>
     <span id="estado">Cargando…</span>
+    <span id="bateria" class="chip" hidden></span>
     <span id="frescura">sin datos</span>
     <span id="reloj"></span>
 </header>
 <main>
-    <div class="columna" id="wan"></div>
+    <div class="columna">
+        <div class="columna pila" id="wan"></div>
+        <section class="panel en-linea"><h3>Respaldos</h3><div id="respaldos"></div></section>
+    </div>
     <div class="columna">
         <section class="panel prioridad"><h3>Alertas activas <span id="n-alertas"></span></h3><div id="alertas"></div></section>
-        <section class="panel resto"><h3>Host</h3><div id="host"></div></section>
+        <section class="panel resto"><h3>Host <span id="host-frescura" hidden></span></h3><div id="host"></div><div id="host-ocultas" class="ocultas" hidden></div></section>
     </div>
     <section class="panel ancho"><h3>Servicios</h3><div id="servicios"></div></section>
 </main>

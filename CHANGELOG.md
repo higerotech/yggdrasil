@@ -13,6 +13,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - **Hliðskjálf nombra los respaldos de Hermod y Andvari.** Thor ya publica los cuatro respaldos de midgard:
   Yggdrasil, Bifröst, Hermod y Andvari. Un respaldo sin nombre propio en el tablero sale con la inicial en
   mayúscula. El ejemplo de `/etc/default/yggdrasil-thor` del README trae sus respaldos y unidades.
+- **Aviso de batería de la tablet en la cabecera**: si no carga, si baja con el cable puesto o si queda
+  por debajo del 20 %. El WebView da `charging` con cualquier cosa enchufada: el 2026-10-19, con el USB del
+  PC, decía «cargando» mientras bajaba del 17 al 15 %.
 
 ### Corregido
 - **Las alertas activas no se veían en Hliðskjálf.** Con el SSD, los cuatro respaldos y 26 servicios, Host
@@ -21,6 +24,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   toman el alto de su contenido (tres como mucho, y una línea «y N alertas más») y Host se recorta por
   abajo. Para que quepa todo, las unidades del host en orden se resumen en una ficha (las que fallan
   siguen con su nombre en rojo), los respaldos van en una fila y los discos se rotulan «HDD sda».
+- **Hliðskjálf ya no pierde información cuando hay varios problemas a la vez.** Probado en la tablet
+  con cinco alertas, errores del SSD, el NAS al 2,8 %, un respaldo atrasado, Thor sin datos y once
+  servicios caídos: antes Host perdía cuatro filas sin avisar, justo las que estaban mal. Ahora los
+  respaldos tienen panel propio bajo las WAN, la frescura de Thor va en el título de Host y el detalle de
+  cada disco solo nombra los contadores que no están a cero. Si aun así no cabe, Host junta lo sano en
+  una fila «En orden», las alertas pasan a una línea, y un pie nombra lo que quede tapado. La línea
+  «y N alertas más» dice cuáles son.
+- **Una WAN caída enseñaba «0,0 ms» y velocidades vacías.** Ahora dice desde cuándo está caída, con la
+  hora de su `WanCaida`, y deja la latencia y la pérdida en «—».
 
 ## [0.5.12] - 2026-10-19
 

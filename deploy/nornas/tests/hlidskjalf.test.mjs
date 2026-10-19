@@ -237,30 +237,85 @@ test("tablero: niveles de WAN, NAS, disco y respaldo", () => {
     assert.equal(tablero.nivelRespaldo({ hace_h: 5 }), "ok");
 });
 
-test("tablero: el SSD, sus errores del enlace y los respaldos en una sola fila", () => {
+test("tablero: el SSD con errores del enlace, y los respaldos en su panel en una sola línea", () => {
     const html = tablero.vistaHost({
         thor_hace_s: 30,
         discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1 }, { disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, errores_kernel: 5 }],
         fs: [{ punto: "/srv/rapido", montado: 0 }],
+    });
+    assert.match(html, /fila ok"><span>HDD sda</);
+    assert.match(html, /fila critico"><span>SSD sdb<\/span><b>5 errores del enlace en 15 min</);
+    assert.match(html, /fila critico"><span>SSD<\/span><b>NO MONTADO/);
+    assert.ok(!/Respaldo/.test(html), "los respaldos ya no son una fila de Host");
+
+    const resp = tablero.vistaRespaldos({
         respaldo: { hace_h: 5 },
         respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "bifrost", hace_h: 30 }, { nombre: "<x>", hace_h: null },
             { nombre: "hermod", hace_h: 1 }, { nombre: "andvari", hace_h: 2 }, { nombre: "otro", hace_h: 3 }],
     });
-    assert.equal((html.match(/<span>Respaldos?</g) || []).length, 1, "una sola fila para los seis respaldos");
-    assert.match(html, /fila aviso"><span>Respaldos<\/span>/, "la fila toma el color del peor");
-    assert.match(html, /<span class="ok"><small>Hermod<\/small>1 h<\/span>/);
-    assert.match(html, /<span class="ok"><small>Andvari<\/small>2 h<\/span>/);
-    assert.match(html, /<span class="ok"><small>Otro<\/small>3 h<\/span>/, "uno sin nombre propio sale con mayúscula");
-    assert.match(html, /<span class="ok"><small>Yggdrasil<\/small>5 h<\/span>/);
-    assert.match(html, /<span class="aviso"><small>Bifröst<\/small>30 h<\/span>/);
-    assert.match(html, /<span class="aviso"><small>&lt;x&gt;<\/small>sin constancia<\/span>/);
-    assert.match(html, /fila ok"><span>HDD sda</);
-    assert.match(html, /fila critico"><span>SSD sdb<\/span><b>5 errores del enlace en 15 min · /);
-    assert.match(html, /fila critico"><span>SSD<\/span><b>NO MONTADO/);
-    assert.match(tablero.vistaHost({ thor_hace_s: 30, respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "hermod", hace_h: 1 }] }),
-        /fila ok"><span>Respaldos<\/span>/, "todos al día: fila en verde");
-    // un resumen anterior: solo `respaldo`, una fila sin nombre como antes
-    assert.match(tablero.vistaHost({ thor_hace_s: 30, respaldo: { hace_h: 5 } }), /fila ok"><span>Respaldo<\/span><b>hace 5 h/);
+    assert.match(resp, /<span class="ok"><small>Hermod<\/small>1 h<\/span>/);
+    assert.match(resp, /<span class="ok"><small>Andvari<\/small>2 h<\/span>/);
+    assert.match(resp, /<span class="ok"><small>Otro<\/small>3 h<\/span>/, "uno sin nombre propio sale con mayúscula");
+    assert.match(resp, /<span class="ok"><small>Yggdrasil<\/small>5 h<\/span>/);
+    assert.match(resp, /<span class="aviso"><small>Bifröst<\/small>30 h<\/span>/);
+    assert.match(resp, /<span class="aviso"><small>&lt;x&gt;<\/small>sin constancia<\/span>/);
+    // un resumen anterior: solo `respaldo`, que es el de Yggdrasil
+    assert.equal(tablero.vistaRespaldos({ respaldo: { hace_h: 5 } }), '<span class="lista"><span class="ok"><small>Yggdrasil</small>5 h</span></span>');
+});
+
+test("tablero: el detalle del disco solo nombra los contadores que no están a cero", () => {
+    assert.equal(tablero.detalleDisco({ lectura_ok: 1, salud: 1, pendientes: null, incorregibles: 0, reasignados: 0, temperatura_c: 43 }), "SMART sano · 43 °C");
+    assert.equal(tablero.detalleDisco({ lectura_ok: 1, salud: 1, pendientes: 16, incorregibles: 16, reasignados: 0, temperatura_c: 35 }),
+        "16 pendientes · 16 incorregibles · 35 °C");
+    assert.equal(tablero.detalleDisco({ lectura_ok: 1, salud: 0, errores_kernel: 42, reasignados: 3 }),
+        "42 errores del enlace en 15 min · SMART FALLA · 3 reasignados");
+    assert.equal(tablero.detalleDisco({ lectura_ok: 0 }), "sin lectura SMART");
+});
+
+test("tablero: Host se aprieta empezando por lo que está bien y nunca esconde un aviso", () => {
+    const h = {
+        thor_hace_s: 30,
+        discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1, pendientes: 16, temperatura_c: 35 },
+            { disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, temperatura_c: 43 }],
+        fs: [{ punto: "/", montado: 1, tamano_bytes: 100, libre_bytes: 86 }, { punto: "/mnt/nas/respaldos", montado: 1, tamano_bytes: 100, libre_bytes: 2 }],
+    };
+    const nombres = (html) => [...html.matchAll(/fila (\w+)"><span>([^<]+)</g)].map((m) => `${m[1]}:${m[2]}`);
+    assert.deepEqual(nombres(tablero.vistaHost(h, 0)), ["aviso:HDD sda", "ok:SSD sdb", "ok:Raíz", "critico:NAS"], "densidad 0: todas, en su orden");
+    const d1 = tablero.vistaHost(h, 1);
+    assert.deepEqual(nombres(d1), ["aviso:HDD sda", "critico:NAS", "ok:En orden"], "densidad 1: los avisos primero");
+    assert.match(d1, /<span class="ok"><small>SSD sdb<\/small>43 °C<\/span><span class="ok"><small>Raíz<\/small>86 % libre<\/span>/);
+    const d2 = tablero.vistaHost(h, 2);
+    assert.match(d2, /En orden<\/span><b><span class="lista"><span class="ok">SSD sdb<\/span><span class="ok">Raíz<\/span><\/span>/, "densidad 2: solo nombres");
+    for (let d = 0; d < tablero.DENSIDADES; d++) {
+        const html = tablero.vistaHost(h, d);
+        assert.match(html, /fila critico"><span>NAS<\/span><b>2,0 % libre/, `el NAS en rojo y con su cifra en la densidad ${d}`);
+        assert.match(html, /fila aviso"><span>HDD sda<\/span><b>16 pendientes/, `el HDD con su detalle en la densidad ${d}`);
+    }
+    assert.ok(!/En orden/.test(tablero.vistaHost({ discos: [{ disco: "sda", lectura_ok: 0 }] }, 2)), "sin nada sano no hay fila «En orden»");
+});
+
+test("tablero: la frescura de Thor va en el título de Host", () => {
+    assert.equal(tablero.frescuraHost({ thor_hace_s: 30 }), null);
+    assert.deepEqual(tablero.frescuraHost({ thor_hace_s: 720 }), { nivel: "aviso", texto: "datos de hace 12 min" });
+    assert.deepEqual(tablero.frescuraHost({}), { nivel: "nodato", texto: "sin datos de Thor" });
+    assert.ok(!/Thor/.test(tablero.vistaHost({ thor_hace_s: 720, discos: [] }, 0)), "ya no es una fila");
+});
+
+test("tablero: el pie de Host nombra lo que no cabe, con el color del peor", () => {
+    assert.equal(tablero.vistaOcultas([]), null);
+    assert.deepEqual(tablero.vistaOcultas([{ nombre: "En orden", nivel: "ok" }]), { nivel: "ok", texto: "Sin sitio para 1 fila: En orden" });
+    assert.deepEqual(tablero.vistaOcultas([{ nombre: "NAS", nivel: "aviso" }, { nombre: "SSD sdb", nivel: "critico" }, { nombre: "En orden", nivel: "ok" }]),
+        { nivel: "critico", texto: "Sin sitio para 3 filas: NAS · SSD sdb · En orden" });
+});
+
+test("tablero: la batería de la tablet, también cuando dice que carga y no carga", () => {
+    assert.equal(tablero.vistaBateria(0.8, true, false), null, "enchufada y cargando: nada que decir");
+    assert.equal(tablero.vistaBateria(null, false, false), null, "sin API de batería: nada");
+    assert.deepEqual(tablero.vistaBateria(0.62, false, false), { nivel: "aviso", texto: "Tablet sin cargar · 62 %" });
+    assert.deepEqual(tablero.vistaBateria(0.1, false, false), { nivel: "critico", texto: "Tablet sin cargar · 10 %" });
+    // 2026-10-19: con el USB del PC el WebView decía charging=true y la batería bajaba
+    assert.deepEqual(tablero.vistaBateria(0.6, true, true), { nivel: "aviso", texto: "Tablet pierde carga enchufada · 60 %" });
+    assert.deepEqual(tablero.vistaBateria(0.16, true, false), { nivel: "aviso", texto: "Tablet al 16 %" });
 });
 
 test("tablero: el texto del servidor se escapa (una anotación no puede inyectar HTML)", () => {
@@ -271,14 +326,17 @@ test("tablero: el texto del servidor se escapa (una anotación no puede inyectar
     assert.match(tablero.vistaAlertas([], AHORA, false), /Gjallarhorn no responde/);
 });
 
-test("tablero: como mucho tres alertas, y las demás en una línea", () => {
+test("tablero: como mucho tres alertas, y las demás en una línea con su nombre", () => {
     const alerta = (n) => ({ nombre: `A${n}`, severidad: "warning", resumen: "x", desde: "2026-10-19T10:00:00Z" });
     const cinco = tablero.vistaAlertas([1, 2, 3, 4, 5].map(alerta), AHORA, true);
     assert.equal((cinco.match(/<li class="aviso">/g) || []).length, 3);
     assert.match(cinco, /<b>A3</);
     assert.ok(!cinco.includes("<b>A4<"));
-    assert.match(cinco, /<li class="mas">y 2 alertas más<\/li>/);
-    assert.match(tablero.vistaAlertas([1, 2, 3, 4].map(alerta), AHORA, true), /y 1 alerta más</);
+    assert.match(cinco, /<li class="mas">y 2 alertas más: <span class="aviso">A4<\/span> · <span class="aviso">A5<\/span><\/li>/);
+    assert.match(tablero.vistaAlertas([1, 2, 3, 4].map(alerta), AHORA, true), /y 1 alerta más: <span class="aviso">A4</);
+    const compactas = tablero.vistaAlertas([1, 2].map(alerta), AHORA, true, true);
+    assert.equal((compactas.match(/<li class="aviso compacta">/g) || []).length, 2, "compactas: una línea por alerta");
+    assert.ok(!compactas.includes("<span>x</span>"), "compactas: sin el resumen");
     assert.ok(!/class="mas"/.test(tablero.vistaAlertas([1, 2, 3].map(alerta), AHORA, true)));
 });
 
@@ -310,12 +368,19 @@ test("tablero: formato en español y nombres nórdicos de los servicios", () => 
     assert.match(html, /servicio critico.*>wan-watchdog<small>temporizador<\/small>/);
 });
 
-test("tablero: la tarjeta de wan2 caída con la subida bajo el SLO", () => {
-    const html = tablero.vistaWan({ wan: "wan2", up: 0, en_ruta: 1, subida_mbps: 102, slo_subida_mbps: 400 });
+test("tablero: la tarjeta de una WAN caída dice desde cuándo, no 0 ms ni velocidades vacías", () => {
+    const desde = new Date((AHORA - 6 * 3600 - 60) * 1000).toISOString();
+    const alertas = [{ nombre: "WanCaida", wan: "wan2", severidad: "critical", desde }, { nombre: "WanCaida", wan: "wan1", desde: "2026-01-01T00:00:00Z" }];
+    const html = tablero.vistaWan({ wan: "wan2", up: 0, en_ruta: 1, latencia_p95_ms: 0, subida_mbps: null }, alertas, AHORA);
     assert.match(html, /tarjeta wan critico/);
     assert.match(html, /CAÍDA/);
     assert.match(html, /chip critico">en la ruta/);
-    assert.match(html, /vel aviso">↑ 102<small> \/ 400 Mbps/);
+    assert.match(html, /<b>—<small> ms<\/small><\/b>/, "latencia «—», no el 0 que da Mimir");
+    assert.match(html, /velocidades caida"><b>Caída hace 6 h<\/b><small class="medido">desde las \d\d:\d\d<\/small>/);
+    assert.ok(!/vel /.test(html), "sin velocidades");
+    assert.match(tablero.vistaWan({ wan: "wan2", up: 0 }, [], AHORA), /<b>Sin servicio<\/b>/, "sin su WanCaida no inventa la hora");
+    // en línea, las velocidades con su SLO como siempre
+    assert.match(tablero.vistaWan({ wan: "wan2", up: 1, en_ruta: 1, subida_mbps: 102, slo_subida_mbps: 400 }, [], AHORA), /vel aviso">↑ 102<small> \/ 400 Mbps/);
 });
 
 test("tablero: la pérdida que provoca Sleipnir al medir no pone la WAN en ámbar", () => {
