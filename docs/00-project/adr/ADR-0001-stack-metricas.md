@@ -28,3 +28,8 @@ Prometheus + blackbox_exporter + Alertmanager + Grafana, en Docker Compose con l
 - Negativas / deuda asumida: la RAM del appliance se comparte con Frigate, que se presupuesta en `nvr-frigate` (ADR-0004); si el conjunto aprieta, migrar la TSDB a VictoriaMetrics (compatible) — condición de revisión.
 - Aceptada por el owner el 2026-09-05.
 - Impacto en threat model: añade Grafana (T1) y API Prometheus (T2) como superficies; controles definidos en threat-model.md.
+
+> **Revisión 2026-10-19 — Fenrir fuera del appliance.** La RAM ya no se comparte con Frigate:
+> Fenrir (proyecto `higerotech/fenrir`, antes citado como `nvr-frigate`) se integró en la 0.5.1 y
+> salió de midgard en la 0.5.3 (2026-09-11), medido el coste en CPU. La condición de revisión
+> (migrar a VictoriaMetrics si el conjunto aprieta) sigue en pie para Yggdrasil solo.

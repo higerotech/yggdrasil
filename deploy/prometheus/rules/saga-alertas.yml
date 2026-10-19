@@ -1,0 +1,17 @@
+# Alertas de Saga, el almacén de trazas (Grafana Tempo, ADR-0008). Las trazas no son el contrato de Heimdall: una
+# caída de Saga no pierde métricas ni alertas, solo las trazas de ese rato, y los servicios siguen funcionando.
+groups:
+  - name: saga_alertas
+    rules:
+      - alert: SagaCaida
+        # La imagen es distroless y no tiene healthcheck: lo único que dice que vive es que Mimir la lea.
+        expr: up{job="saga"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: saga
+        annotations:
+          resumen: "Saga no responde: las trazas de este rato se pierden"
+          descripcion: >-
+            Mimir no lee saga:3200 desde hace 5 minutos. Revisar `docker logs yggdrasil-tempo` y que el SSD
+            esté montado en /srv/rapido (sin él, Saga no arranca).

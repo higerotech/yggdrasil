@@ -1,6 +1,6 @@
 # Gate 3 — Testing (checklist)
 
-* **Estado:** aprobado (2026-09-09)
+* **Estado:** approved (2026-09-09)
 * **Fecha:** 2026-09-05
 * **Fase AI-DLC:** 04-testing
 * **Versión:** 0.5.0

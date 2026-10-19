@@ -5,8 +5,9 @@
 #
 # Presupuesto RNF01 (RAM real del stack ≤ 1.5 GB): el criterio del PRD y de TA-12 es el uso medido
 # con `docker stats`, no la suma de techos. Los `mem_limit` son límites por contenedor, no reservas,
-# y suman 64 + 128 + 512 + 128 + 512 (Heimdall) + 64 + 256 (Ratatosk y Nornas, ADR-0006) = 1664 MB.
-# Uso real medido en 24 h (TA-12): 397 MB de media, 554 MB de pico — un tercio del presupuesto.
+# y suman 64 + 128 + 16 + 512 + 128 + 512 (Heimdall y Thor) + 64 + 256 (Ratatosk y Nornas, ADR-0006) + 512 (Saga,
+# ADR-0008) = 2192 MB. Saga en reposo usa 21 MiB (medido en local, 2026-10-19).
+# Uso real medido en 24 h (TA-12, antes de Thor): 406 MiB de media, 554 de pico — un tercio del presupuesto.
 # Odín pasó de 256 a 512 MB el 2026-09-16: rozaba el 86 % de su techo (220 MiB) y un OOM kill
 # se lleva por delante el dashboard y la sesión de Grafana.
 # Puertos publicados, todos solo en la IP LAN (${HOST_LAN_IP}): Odín 3000, Ratatosk 1883 y el editor
@@ -134,7 +135,7 @@ services:
       - --web.listen-address=:9093
     networks: [heimdall]
 
-  # Odín — Grafana: dashboards comparativos; único puerto publicado, solo en la LAN
+  # Odín — Grafana: dashboards comparativos; puerto 3000 publicado solo en la LAN
   odin:
     <<: *comun
     image: grafana/grafana:12.4.10
@@ -161,6 +162,32 @@ services:
       - odin-datos:/var/lib/grafana
     networks: [heimdall]
     depends_on: [mimir]
+
+  # Saga — Grafana Tempo 3.1: las trazas de los servicios de la plataforma, 15 días en el SSD (ADR-0008).
+  # Solo recibe OTLP/HTTP (4318) y sirve consultas (3200); ningún puerto publicado. Los emisores entran por la red
+  # yggdrasil_saga, que no alcanza a Mimir ni a Odín; Odín la consulta y Mimir la lee por heimdall. La imagen es
+  # distroless (sin shell ni wget): no hay healthcheck en el contenedor, y SagaCaida avisa si Mimir no la lee.
+  # Sin el SSD montado no escribe en el HDD: /srv/rapido/saga solo existe, con dueño 10001, dentro del SSD, y lo
+  # crea bootstrap-midgard.sh.
+  saga:
+    <<: *comun
+    image: grafana/tempo:3.1.0
+    container_name: yggdrasil-tempo
+    user: "10001:10001"
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 512m
+    command: ["-target=all", "-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./tempo:/etc/tempo:ro            # directorio, no fichero: el checkout de sync crea inodos nuevos
+      # Sin create_host_path: si /srv/rapido/saga no está (el SSD sin montar), Saga no arranca en vez de escribir
+      # en el disco que haya debajo.
+      - type: bind
+        source: /srv/rapido/saga
+        target: /var/tempo
+        bind:
+          create_host_path: false
+    networks: [heimdall, saga]
 
   # --- Servicios de plataforma (ADR-0006): compartidos por Heimdall y la domótica ---
 
@@ -266,6 +293,9 @@ services:
 networks:
   heimdall:
     name: yggdrasil_heimdall
+  # Solo para los emisores de trazas (ADR-0008): unirse a ella no da paso a Mimir, Odín ni al resto de heimdall.
+  saga:
+    name: yggdrasil_saga
 
 volumes:
   mimir-datos:

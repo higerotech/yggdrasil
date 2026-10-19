@@ -12,10 +12,10 @@ Documentación bajo metodología AI-DLC.
 |---|---|---|---|
 | 00-project | charter, glosario, clasificación de datos, convención de nombres | — | approved (Gate 0, 2026-09-05) |
 | 01-requirements | PRD F-001 Heimdall | Gate 0 | approved — v0.1.0 (2026-09-05) |
-| 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0004 | Gate 1 | approved — v0.2.0 (2026-09-05) |
+| 02-design | arquitectura C4, threat model STRIDE+DREAD, ADR-0001..0007 (revisados el 2026-10-19) | Gate 1 | approved — v0.2.0 (2026-09-05) |
 | 03-implementation | `deploy/` (Compose, configuraciones, Sleipnir, Nornas), baseline de configuración, triaje de CVEs, historial del repo | Gate 2 | approved — v0.3.0 (2026-09-05) |
-| 04-testing | plan de verificación (aceptación, seguridad, rendimiento) sobre el despliegue en midgard | Gate 3 | approved — v0.5.0 (2026-09-09) |
-| 05-deployment | — | Gate 4 | por arrancar |
+| 04-testing | plan de verificación (aceptación, seguridad, rendimiento) sobre el despliegue en midgard; inventario de las pruebas automatizadas | Gate 3 | approved — v0.5.0 (2026-09-09) |
+| 05-deployment | despliegue continuo en midgard desde v0.4.0: C4 Deployment, pipeline, rollback y runbook | Gate 4 | en curso desde 2026-10-19 (cierre previsto: v0.6.0) |
 
 Gate 0 quedó aprobado el 2026-09-05 y cortado como `v0.1.0` con estas decisiones: pérdida < 1 % en
 5 min; latencia p95 < 500 ms para servicios estándar y < 200 ms como referencia para llamadas
@@ -24,7 +24,7 @@ wan1 800↓/800↑, wan2 800↓/400↑, porque el ISP2 es asimétrico 1:0.5); pe
 disponibilidad mensual por ISP y del hogar; hosts de sondeo 1.1.1.1, 8.8.8.8 y
 `https://www.gstatic.com/generate_204`. Gate 1 quedó aprobado el mismo día y cortado como `v0.2.0`:
 stack Prometheus + Grafana (ADR-0001), appliance local (ADR-0002), host-mode selectivo (ADR-0003) y
-frontera con Fenrir en el proyecto `nvr-frigate` (ADR-0004). Gate 2 quedó aprobado como `v0.3.0` con los
+frontera con Fenrir en su propio proyecto, hoy `higerotech/fenrir` (ADR-0004). Gate 2 quedó aprobado como `v0.3.0` con los
 artefactos ejecutables de `deploy/`, las imágenes re-pineadas tras el triaje de CVEs y la documentación de
 la fase 03. La `v0.4.0` abre Gate 3: lleva a `main` el despliegue continuo (ADR-0005) y los servicios de
 plataforma Ratatosk y Nornas (ADR-0006), y su primer despliegue en midgard es la primera prueba de
@@ -39,9 +39,11 @@ discrepancia con el balanceador) y corrige las reglas de SLO; la `0.5.9` añade 
 tablero de pared en una tablet (ADR-0007), y la `0.5.10` calcula la pérdida de cada WAN con la
 mediana de tres objetivos y marca en la tablet las mediciones de Sleipnir; la `0.5.11` corrige
 los servicios fantasma de Thor durante un despliegue y los modos `speedtest` e `iperf3` de
-Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, y la `0.5.13` hace que la
-tablet no pierda información (alertas siempre visibles, nada tapado sin avisar). Gate 4
-(Deployment) está por arrancar.
+Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, la `0.5.13` hace que la
+tablet no pierda información (alertas siempre visibles, nada tapado sin avisar), y la `0.5.14` añade
+Saga, el almacén de trazas con Grafana Tempo en el SSD (ADR-0008). El sistema opera
+en producción con despliegue continuo desde la `0.4.0`. El Gate 4 (Deployment) se abrió formalmente
+el 2026-10-19 con su checklist (`.ai-dlc/gates/gate-4-deployment.md`); su cierre cortará la `0.6.0`.
 
 ## Mapa del repo
 
@@ -49,11 +51,12 @@ tablet no pierda información (alertas siempre visibles, nada tapado sin avisar)
 - `docs/01-requirements/` — PRD `isp-sla-monitor.md` con escenarios de abuso, C4 Context, journey y trazabilidad (Gate 0)
 - `docs/02-design/` — `architecture.md` (C4 Container, sequence, state, ER, class, contratos) y `threat-model.md` (Gate 1)
 - `docs/03-implementation/` — `config-baseline.md` (inventario, desviaciones, validación, cadena de suministro), `cadena-suministro.md` (triaje de CVEs) y `repo-history.md` generado desde el git log (Gate 2)
-- `docs/04-testing/` — `test-plan.md`: estrategia, alcance sobre la arquitectura, trazabilidad `verifies`, casos de aceptación, seguridad y rendimiento (Gate 3)
+- `docs/04-testing/` — `test-plan.md`: estrategia, alcance sobre la arquitectura, trazabilidad `verifies`, casos de aceptación, seguridad y rendimiento (Gate 3); `inventario-pruebas.md`: todas las pruebas automatizadas y manuales vigentes, con sus huecos
 - `deploy/` — artefactos ejecutables de Heimdall (Gate 2): Docker Compose, plantillas de blackbox y Alertmanager, reglas de Prometheus, dashboard de Grafana, imagen de Sleipnir, flujo de Nornas, scripts de despliegue y `cd/` con el despliegue continuo hacia midgard (ADR-0005)
 - `hlidskjalf/` — app Android kiosco del tablero de pared (ADR-0007): fuente, `construir.sh` (sin Gradle) e `instalar.sh` por adb
 - `scripts/` — `generar-historial.py` (documentación viva del historial) y `gitgraph_from_log.py` (copiado del skill AI-DLC)
-- `.ai-dlc/gates/` — checklists de los Gates 0 a 3
+- `docs/05-deployment/` — `deployment.md`: C4 Deployment, pipeline con sus controles, rollback, runbook e historial de despliegues (Gate 4)
+- `.ai-dlc/gates/` — checklists de los Gates 0 a 4
 - `.github/workflows/` — guardia de GitFlow para los PR hacia `main` y validación de `deploy/` (compose, promtool, amtool, blackbox, gitleaks, Trivy)
 - `CHANGELOG.md` — Keep a Changelog 1.1.0 + SemVer 2.0.0
 - `LICENSE` — GNU Affero General Public License v3.0
@@ -68,8 +71,8 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Nombre | Tecnología | Función |
 |---|---|---|
 | Heimdall | Servicio Monitor SLA (conjunto) | Vigila los dos enlaces WAN |
-| Huginn y Muninn | blackbox_exporter (wan1 / wan2) | Sondas ICMP/HTTP por WAN |
-| Sleipnir | speedtest / iperf3 | Throughput periódico |
+| Huginn y Muninn | blackbox_exporter (wan1 / wan2) | Sondas ICMP y TCP+TLS por WAN |
+| Sleipnir | CLI de Ookla (o iperf3) | Throughput periódico |
 | Mimir | Prometheus | TSDB y reglas SLO |
 | Gjallarhorn | Alertmanager | Alertas |
 | Odín | Grafana | Dashboards |
@@ -77,12 +80,13 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Ratatosk | Mosquitto (MQTT) | Bus de eventos (`midgard/...`) |
 | Thor | Recolector en el host + httpd | Métricas del host: disco, NAS, ruta, servicios y respaldo |
 | Hlidskjalf | Página en Nornas + app Android kiosco | Tablero de pared con el estado de midgard (ADR-0007) |
+| Saga | Grafana Tempo | Trazas de los servicios de la plataforma, 15 días en el SSD (ADR-0008) |
 
 ## Anonimización
 
 Este repositorio es público y documenta la postura de seguridad de una casa concreta, así que
 **ningún dato real del despliegue vive en él**. Los únicos hosts que aparecen en la documentación
-son objetivos públicos de sondeo (1.1.1.1, 8.8.8.8). Cuando lleguen los artefactos ejecutables
+son objetivos públicos de sondeo (1.1.1.1, 8.8.8.8, 208.67.222.222 y www.gstatic.com). Cuando lleguen los artefactos ejecutables
 (`deploy/`), aplica la misma convención que el resto de repos del estándar:
 
 | Dato real | Dónde vive | Cómo aparece en el repo |

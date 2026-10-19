@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 01-requirements
-* **Versión:** 0.1.1
+* **Versión:** 0.2.0 (revisión 2026-10-19, al pie)
 * **Gate:** 0
 * **Feature/Épica ID:** F-001
 * **Nivel ASVS objetivo:** L1
@@ -32,11 +32,11 @@ C4Context
     Person(jeremi, "Administrador del hogar", "Opera el appliance, consume dashboards y alertas")
     Enterprise_Boundary(casa, "Red doméstica") {
         System(heimdall, "Heimdall — Monitor SLA", "Mide latencia, pérdida y throughput por WAN y emite alertas")
-        System(domo, "Domótica — Nornas y Ratatosk", "Node-RED y Mosquitto existentes")
+        System(domo, "Domótica — Nornas y Ratatosk", "Node-RED y Mosquitto, servicios de plataforma del propio Compose (ADR-0006)")
     }
     System_Ext(isp1, "ISP 1 (wan1)", "Enlace 1 Gbps")
     System_Ext(isp2, "ISP 2 (wan2)", "Enlace 1 Gbps")
-    System_Ext(targets, "Objetivos de sondeo", "1.1.1.1, 8.8.8.8, endpoints HTTP estables")
+    System_Ext(targets, "Objetivos de sondeo", "1.1.1.1, 8.8.8.8, 208.67.222.222 por ICMP; www.gstatic.com, 1.1.1.1 y 8.8.8.8 por TCP+TLS")
     Rel(jeremi, heimdall, "Consulta dashboards y recibe alertas", "HTTPS LAN / WireGuard")
     Rel(heimdall, isp1, "Sondea a través de", "ICMP/HTTP vía source IP de wan1")
     Rel(heimdall, isp2, "Sondea a través de", "ICMP/HTTP vía source IP de wan2")
@@ -54,7 +54,7 @@ journey
     title Detección y aviso de degradación de un ISP
     section Operación normal
       Revisa dashboard comparativo: 5: Administrador
-      Sondas miden cada 15s: 4: Sistema
+      Sondas miden cada 5 a 15 s: 4: Sistema
     section Degradación
       ISP1 pierde paquetes: 1: Sistema
       Alerta supera ventana de 2 min: 3: Sistema
@@ -83,10 +83,10 @@ journey
 ## Requisitos funcionales
 | ID | Requisito |
 |---|---|
-| RF01 | Medir latencia, pérdida y jitter por WAN de forma independiente (source IP por interfaz), cada 15 s, contra ≥ 2 objetivos |
+| RF01 | Medir latencia, pérdida y jitter por WAN de forma independiente (source IP por interfaz), cada 15 s como máximo, contra ≥ 2 objetivos. Implementado: ICMP cada 5 s a 3 objetivos y TCP+TLS cada 15 s a otros 3. **Jitter pendiente** (ver revisión 2026-10-19) |
 | RF02 | Medir throughput por WAN de forma periódica (≥ 4 veces/día, alternando) |
 | RF03 | Derivar estado del enlace (Saludable/Degradado/Caído/Recuperando) según los umbrales SLO de la tabla siguiente |
-| RF04 | Alertar: caída < 2 min (critical), degradación < 5 min (warning), con notificación push; aviso informativo cuando una WAN deja de ser apta para llamadas |
+| RF04 | Alertar: caída < 2 min (critical), degradación < 5 min (warning), con notificación push; aviso informativo cuando una WAN deja de ser apta para llamadas. SLO de alertado aceptado en Gate 3 (HITL 2026-09-08): ≈ 2,5 min para la caída y ≈ 6 min para la degradación, medidos de punta a punta hasta el push |
 | RF05 | Publicar en MQTT (retained) el estado `midgard/wan/<id>/estado`, el indicador `midgard/wan/<id>/apto_llamadas` y el estado agregado `midgard/hogar/internet/estado` |
 | RF06 | Dashboard comparativo con 30 días de retención |
 | RF07 | Registrar percentiles p90, p95 y p99 de latencia por WAN como series de seguimiento (recording rules, ventana 5 min) comparables entre ISP1 e ISP2 |
@@ -100,22 +100,25 @@ journey
 | SLI | SLO | Ventana | Uso | Estado |
 |---|---|---|---|---|
 | Pérdida de paquetes | < 1 % | 5 min | Alerta warning → estado Degradado | Confirmado por el owner el 2026-09-05 |
-| Disponibilidad (quórum de objetivos) | Fallo simultáneo de ≥ 2 objetivos | 2 min | Alerta critical → estado Caído | Confirmado (RF01) |
+| Disponibilidad (quórum de objetivos) | Fallo simultáneo de ≥ 2 de las 3 sondas TCP+TLS | 2 min | Alerta critical → estado Caído | Confirmado (RF01); quórum solo TLS desde el 2026-10-06 |
 | Latencia p95 (servicios estándar) | < 500 ms | 5 min | Alerta warning → estado Degradado | Confirmado por el owner el 2026-09-05 |
 | Latencia p95 (llamadas críticas) | < 200 ms | 5 min | Alerta info → indicador `apto_llamadas = no`; no cambia el estado del enlace | Confirmado por el owner el 2026-09-05 |
 | Latencia p90 y p99 | Sin umbral | 5 min | Solo seguimiento comparativo ISP1 vs ISP2 | Confirmado el 2026-09-05 |
-| Jitter | Sin umbral | 5 min | Solo seguimiento | — |
+| Jitter | Sin umbral | 5 min | Solo seguimiento | Pendiente de implementar (`wan:jitter_ms:5m`), decidido el 2026-10-19 |
 | Throughput | ≥ 80 % del nominal contratado, por WAN y dirección: wan1 800↓/800↑, wan2 800↓/400↑ (ISP2 asimétrico 1:0.5) | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición calibrado ≥ 939 Mbps (Gate 3); umbral por dirección revisado el 2026-09-16 |
 | Disponibilidad mensual | Sin umbral de alerta; indicador por ISP y del hogar (≥ 1 WAN operativa) | 30 d | Reporte mensual y dashboard | Confirmado el 2026-09-05 |
 
 ### Hosts de sondeo
 | Host | Sonda | Motivo |
 |---|---|---|
-| `1.1.1.1` | ICMP | Anycast de Cloudflare, estable y cercano |
-| `8.8.8.8` | ICMP | Anycast de Google, operador distinto al anterior |
-| `www.gstatic.com:443` | TCP+TLS (handshake) | Verifica DNS y TLS de extremo a extremo, no solo ICMP. Se pensó como HTTPS 204, pero el prober http de blackbox no fija la IP de origen (ajuste de Gate 2) |
+| `1.1.1.1` | ICMP, cada 5 s | Anycast de Cloudflare, estable y cercano. Pérdida y latencia |
+| `8.8.8.8` | ICMP, cada 5 s | Anycast de Google, operador distinto al anterior. Pérdida y latencia |
+| `208.67.222.222` | ICMP, cada 5 s | OpenDNS, tercer operador: la pérdida es la mediana de los tres (desde el 2026-10-17) |
+| `www.gstatic.com:443` | TCP+TLS (handshake), cada 15 s | Verifica DNS y TLS de extremo a extremo, no solo ICMP. Se pensó como HTTPS 204, pero el prober http de blackbox no fija la IP de origen (ajuste de Gate 2) |
+| `1.1.1.1:443` | TCP+TLS, cada 15 s | Segundo voto del quórum de caída (desde el 2026-10-06) |
+| `8.8.8.8:443` | TCP+TLS, cada 15 s | Tercer voto del quórum de caída (desde el 2026-10-06) |
 
-Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0. El quórum de caída exige ≥ 2 fallos simultáneos (RF01).
+Hosts confirmados por el owner el 2026-09-05 al cerrar Gate 0, ampliados el 2026-10-06 y el 2026-10-17 (revisión al pie). El quórum de caída exige que fallen ≥ 2 de las 3 sondas TCP+TLS (RF01).
 
 ## Trazabilidad de requisitos
 Dos vistas, según la convención de ~12 nodos por diagrama: medición y alertado, y observabilidad, no funcionales y seguridad. `Mimir` aparece en ambas porque sus reglas satisfacen requisitos de los dos grupos.
@@ -286,11 +289,11 @@ quadrantChart
 *Eje trazabilidad · fase 01 · evidencia Gate 0.*
 
 ## Métricas de éxito
-- MTTD caída < 2 min; 0 falsos positivos de caída por objetivo único en 30 días.
+- MTTD caída < 2 min (SLO de alertado aceptado en Gate 3: ≈ 2,5 min de punta a punta hasta el push); 0 falsos positivos de caída por objetivo único en 30 días.
 - Reporte mensual de disponibilidad por ISP generable desde el dashboard.
 - Percentiles p90, p95 y p99 de latencia por WAN visibles en el dashboard comparativo con 30 días de historia.
 - Media de disponibilidad mensual de internet del hogar y por ISP calculada automáticamente al cierre de cada mes, sin intervención manual.
-- Throughput por WAN **y dirección** evaluado contra su SLO (80 % del nominal contratado) en cada medición, con el techo de medición calibrado y documentado en el dashboard.
+- Throughput por WAN **y dirección** evaluado contra su SLO (80 % del nominal contratado) en cada medición, con el techo de medición calibrado y documentado en el dashboard. Pendiente: el panel de Odín aún usa un umbral fijo de 800 (revisión 2026-10-19).
 
 ## Dependencias y riesgos
 - Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`) y de Ratatosk y Nornas, servicios de plataforma del propio Compose de Yggdrasil (ADR-0006).
@@ -307,3 +310,18 @@ quadrantChart
 > alerta. La alerta pasa además a vigilar la subida, que hasta esa fecha no miraba nadie.
 > Medido en 7 d sobre midgard: wan1 964↓/941↑, wan2 942↓/475↑ — las cuatro series en objetivo.
 > Afecta a RF09 y a la tabla de umbrales SLO. Confirmado por el owner (Jeremi) el 2026-09-16.
+
+> **Revisión 2026-10-19 — coherencia con la v0.5.13** (auditoría documental, HITL de Jeremi).
+> - **Sondeo (RF01).** Lo construido supera al requisito y la tabla de hosts no lo reflejaba.
+>   - ICMP cada 5 s (v0.4.6) a tres objetivos. La pérdida es la mediana de los tres (0.5.10, 2026-10-17).
+>   - TCP+TLS cada 15 s a otros tres. Desde el incidente del 2026-10-06 (0.5.6), el quórum de caída
+>     cuenta solo las TLS: wan2 respondía a los ping con TCP roto y, con dos votos ICMP, seguía «arriba».
+> - **Jitter (RF01).** Está en el requisito desde Gate 0 y no se implementó; Gate 3 dio RF01 por
+>   verificado con TA-02, que solo miraba `probe_success`. Decisión de Jeremi: **se implementa**,
+>   como `wan:jitter_ms:5m` (desviación típica del RTT ICMP por objetivo, mediana por WAN) y
+>   publicando el jitter que ya da Ookla. Queda abierto hasta entonces.
+> - **SLO de alertado (RF04).** Los valores aceptados en Gate 3 (≈ 2,5 min la caída y ≈ 6 min la
+>   degradación, HITL del 2026-09-08) pasan a RF04 y a las métricas de éxito. El objetivo de < 2 y
+>   < 5 min se mantiene como intención.
+> - **Contexto C4.** Nornas y Ratatosk ya no son «existentes»: los despliega el Compose de
+>   Yggdrasil (ADR-0006).

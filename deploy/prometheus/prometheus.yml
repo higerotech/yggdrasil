@@ -25,6 +25,10 @@ scrape_configs:
     static_configs:
       - targets: ["gjallarhorn:9093"]
 
+  - job_name: saga                     # Tempo: las trazas de la plataforma (ADR-0008)
+    static_configs:
+      - targets: ["saga:3200"]
+
   - job_name: huginn_muninn            # salud del propio exporter
     static_configs:
       - targets: ["host.docker.internal:9115"]

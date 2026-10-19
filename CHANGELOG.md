@@ -7,7 +7,70 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
+> Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
+
+## [0.5.14] - 2026-10-19
+
+**Saga, el almacén de trazas de la plataforma** (Grafana Tempo 3.1, ADR-0008): 15 días en el SSD, consultadas
+desde Odín, con una red propia para quien envía trazas. Abre el Gate 4 con su checklist y la fase 05 documentada.
+
+### Añadido
+- **Saga, el almacén de trazas de la plataforma (ADR-0008).** Es Grafana Tempo 3.1.0 en modo monolítico.
+  - **Qué recibe y dónde guarda:** recibe OTLP/HTTP y guarda 15 días en el SSD (`/srv/rapido/saga`).
+  - **Si falta el SSD:** sin él montado, Saga no arranca en vez de escribir en el HDD. El compose monta el directorio
+    sin `create_host_path`, y `bootstrap-midgard.sh` solo lo crea si `/srv/rapido` está montado.
+  - **Redes:** no publica puertos. Los emisores entran por una red propia, `yggdrasil_saga`, que no alcanza a Mimir
+    ni a Odín. Odín la consulta y Mimir la lee por `heimdall`.
+  - **Endurecida como el resto:** `read_only`, sin capacidades y con `mem_limit: 512m`, con `automemlimit`.
+  - **En Odín:** la fuente de datos `Saga`, provisionada.
+  - **Vigilancia:** el job `saga` de Mimir y la alerta `SagaCaida` (warning, 5 min), con su prueba de `promtool`.
+  - **En el CI:** `tempo -config.verify` y Trivy sobre la imagen.
+  - **Probado en local:** un span del gateway llegó por OTLP y se recuperó por su id. La fuente de datos de Odín
+    pasó su comprobación. En reposo usa 21 MiB.
+- **Gate 4 abierto y fase 05 documentada.** Nuevos documentos:
+  - `.ai-dlc/gates/gate-4-deployment.md`, el checklist, en curso;
+  - `docs/05-deployment/deployment.md`, con C4 Deployment, pipeline y sus controles de seguridad,
+    rollback, runbook de recuperación e historial de despliegues;
+  - `docs/04-testing/inventario-pruebas.md`, con todas las pruebas automatizadas y manuales vigentes,
+    su trazabilidad y sus huecos.
+
+  Salen de una auditoría documental del repositorio (con Fable), revisada contra el código.
+- **Vista previa de Hliðskjálf en la tablet real** (`hlidskjalf/vista-previa.py` y `vista-previa.sh`).
+  Sirve la página en desarrollo por `adb reverse`, con escenarios fijos en `hlidskjalf/escenarios/`
+  (normal, wan2 caída, estrés y extremo). Un medidor en la página informa de cada fila recortada,
+  tapada o fuera de la pantalla, y `probar` sale con 1 si se pierde algo. La URL de producción de la
+  tablet se guarda y se restaura con `run-as`, sin imprimir el token. Es la herramienta con la que se
+  midió la 0.5.13. El CI pasa ShellCheck al script y valida los escenarios.
+
+### Cambiado
+- **Documentación coherente con la v0.5.13** (auditoría documental del 2026-10-19). Los documentos
+  de diseño y requisitos describían Gate 1 y no lo construido después. Ahora:
+  - **Arquitectura y PRD.** El C4 incluye Thor, Bragi, ntfy y el host. Los objetivos de sondeo son 3
+    ICMP cada 5 s y 3 TCP+TLS cada 15 s, y el quórum de caída es solo TLS. Las tablas recogen las
+    alertas de Thor y Bragi y las recording rules que faltaban. RF04 adopta el SLO de alertado
+    aceptado en Gate 3.
+  - **ADR.** Notas de revisión en 0001-0006: Fenrir se integró y salió en la 0.5.3, sin el usuario
+    `frigate`; ADR-0005 supersede el CD de ADR-0002; blackbox sin `NET_RAW`; 1880 y 1883 publicados.
+  - **Threat model.** El DFD suma Thor, el NAS, ntfy, la tablet y `sync-host`. Se proponen T7-T10
+    (bind mount del clon, respaldo con secretos, tema de ntfy, datos del host), con su DREAD
+    pendiente de HITL. La clasificación de datos tiene sus filas.
+  - **Cifras.** La suma de `mem_limit` es 1680 MB con Thor, y la RAM media de TA-12, 406 MiB.
+  - **Nombres.** El repo del NVR es `higerotech/fenrir`. `naming.md` registra Bifröst, Hermod,
+    Andvari y Bragi como servicios hermanos y deja anotado el doble uso de «Bifröst».
+  - **Otros.** `repo-history.md` se regeneró: tenía 3 tags y ahora tiene 27. Las cabeceras de los
+    gates quedan con su versión. `deploy/README.md` y `deploy/cd/README.md` están al día; el push de
+    Nornas sí está conectado.
+  - **`THROUGHPUT_RECEIVER=nornas` por defecto** en `.env.example`. Con `nulo`, una instalación nueva
+    dejaba `WanThroughputBajo` en silencio. midgard ya usaba `nornas`.
+- **DREAD de T7-T10 aceptado** (HITL del 2026-10-19). En T7 y T8 se corrigen las columnas de daño
+  y reproducibilidad, que estaban intercambiadas; la media no cambia. El threat model añade
+  «Detección en operación»: la señal de Thor y la alerta con que se medirá cada amenaza durante el
+  uso. Están por implementar, y las puntuaciones se revisarán con 30 días de datos. El Gate 4 lo
+  recoge como ítem pendiente.
+- **Pendientes que la auditoría deja anotados** (van en PR aparte):
+  - el jitter de RF01, que se implementa;
+  - el umbral fijo de 800 del panel de throughput de Odín;
+  - `SondaCaida`, que no cubre las sondas del hogar.
 
 ## [0.5.13] - 2026-10-19
 
@@ -565,7 +628,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...HEAD
+[0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
