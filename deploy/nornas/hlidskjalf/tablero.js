@@ -27,7 +27,7 @@
         "yggdrasil-host-metrics": "Thor"
     };
     var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD" };
-    var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst" };
+    var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst", hermod: "Hermod", andvari: "Andvari" };
 
     function esc(v) {
         return String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, function (c) {
@@ -176,7 +176,9 @@
         // Un resumen anterior a los respaldos por nombre solo trae el de Yggdrasil
         var respaldos = h.respaldos && h.respaldos.length ? h.respaldos : [{ nombre: "yggdrasil", hace_h: (h.respaldo || {}).hace_h }];
         respaldos.forEach(function (rsp) {
-            var nombre = respaldos.length === 1 ? "Respaldo" : "Respaldo " + (RESPALDOS[rsp.nombre] || esc(rsp.nombre));
+            var propio = String(rsp.nombre || "");
+            var nombre = respaldos.length === 1 ? "Respaldo"
+                : "Respaldo " + (RESPALDOS[propio] || esc(propio.charAt(0).toUpperCase() + propio.slice(1)));
             partes.push(fila(nivelRespaldo(rsp), nombre, hay(rsp.hace_h) ? "hace " + duracion(rsp.hace_h * 3600) : "sin constancia"));
         });
         if (hay(h.thor_hace_s) && h.thor_hace_s > 300) partes.push(fila("aviso", "Thor", "datos de hace " + duracion(h.thor_hace_s)));

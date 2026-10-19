@@ -243,8 +243,12 @@ test("tablero: el SSD, sus errores del enlace y un respaldo por fila", () => {
         discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1 }, { disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, errores_kernel: 5 }],
         fs: [{ punto: "/srv/rapido", montado: 0 }],
         respaldo: { hace_h: 5 },
-        respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "bifrost", hace_h: 30 }, { nombre: "<x>", hace_h: null }],
+        respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "bifrost", hace_h: 30 }, { nombre: "<x>", hace_h: null },
+            { nombre: "hermod", hace_h: 1 }, { nombre: "andvari", hace_h: 2 }, { nombre: "otro", hace_h: 3 }],
     });
+    assert.match(html, /fila ok"><span>Respaldo Hermod<\/span>/);
+    assert.match(html, /fila ok"><span>Respaldo Andvari<\/span>/);
+    assert.match(html, /fila ok"><span>Respaldo Otro<\/span>/, "uno sin nombre propio sale con mayúscula");
     assert.match(html, /fila ok"><span>Disco sda · HDD</);
     assert.match(html, /fila critico"><span>Disco sdb · SSD<\/span><b>5 errores del enlace en 15 min · /);
     assert.match(html, /fila critico"><span>SSD<\/span><b>NO MONTADO/);

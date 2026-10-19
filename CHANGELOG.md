@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Hliðskjálf nombra los respaldos de Hermod y Andvari.** Thor ya publica los cuatro respaldos de midgard:
+  Yggdrasil, Bifröst, Hermod y Andvari. Un respaldo sin nombre propio en el tablero sale con la inicial en
+  mayúscula. El ejemplo de `/etc/default/yggdrasil-thor` del README trae sus respaldos y unidades.
+
 ## [0.5.12] - 2026-10-19
 
 **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst**, y el segundo
