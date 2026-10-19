@@ -108,17 +108,23 @@ const SERIES = [
     s("yggdrasil_fs_tamano_bytes", { punto: "/mnt/nas/respaldos" }, 3.93e12),
     s("yggdrasil_fs_libre_bytes", { punto: "/mnt/nas/respaldos" }, 1.857e11),
     s("yggdrasil_fs_montado", { punto: "/" }, 1),
+    // el SSD de datos: se cayó del bus con SMART limpio
+    s("yggdrasil_smart_lectura_ok", { disco: "sdb" }, 1), s("yggdrasil_smart_salud", { disco: "sdb" }, 1),
+    s("yggdrasil_disco_rotacional", { disco: "sda" }, 1), s("yggdrasil_disco_rotacional", { disco: "sdb" }, 0),
+    s("yggdrasil_disco_errores_kernel_15m", { disco: "sda" }, 0), s("yggdrasil_disco_errores_kernel_15m", { disco: "sdb" }, 5),
+    s("yggdrasil_fs_montado", { punto: "/srv/rapido" }, 1),
     s("yggdrasil_servicio_ok", { tipo: "unidad", nombre: "docker.service" }, 1),
     s("yggdrasil_servicio_ok", { tipo: "contenedor", nombre: "yggdrasil-prometheus" }, 1),
     s("yggdrasil_servicio_ok", { tipo: "contenedor", nombre: "yggdrasil-grafana" }, 0),
-    s("yggdrasil_respaldo_ultimo_exito_timestamp_seconds", {}, AHORA - 5 * 3600),
+    s("yggdrasil_respaldo_ultimo_exito_timestamp_seconds", { respaldo: "bifrost" }, AHORA - 2 * 3600),
+    s("yggdrasil_respaldo_ultimo_exito_timestamp_seconds", { respaldo: "yggdrasil" }, AHORA - 5 * 3600),
 ];
 const ALERTAS = [
     { labels: { alertname: "NasSeLlena", severity: "warning" }, annotations: { resumen: "NAS <b>lleno</b>" }, startsAt: "2026-10-16T10:00:00Z" },
     { labels: { alertname: "WanCaida", severity: "critical", wan: "wan2" }, annotations: { resumen: "wan2 caída" }, startsAt: "2026-10-16T12:00:00Z" },
     { labels: { alertname: "WanNoAptaLlamadas", severity: "info", wan: "wan1" }, annotations: {}, startsAt: "2026-10-16T09:00:00Z" },
 ];
-function fuentes({ mimir = true, gjallarhorn = true } = {}) {
+function fuentes({ mimir = true, gjallarhorn = true, series = SERIES } = {}) {
     const urls = [];
     return {
         urls,
@@ -126,7 +132,7 @@ function fuentes({ mimir = true, gjallarhorn = true } = {}) {
             urls.push(url);
             if (url.includes("/api/v1/query")) {
                 if (!mimir) throw new Error("connect ECONNREFUSED");
-                return { status: "success", data: { resultType: "vector", result: SERIES } };
+                return { status: "success", data: { resultType: "vector", result: series } };
             }
             if (!gjallarhorn) throw new Error("timeout");
             return ALERTAS;
@@ -166,11 +172,21 @@ test("resumen: WAN, host, servicios y alertas ordenadas por gravedad", async () 
     casi(r.host.thor_hace_s, 30, "thor_hace_s");
     assert.equal(r.host.discos[0].pendientes, 16);
     assert.ok(!("Raw_Read_Error_Rate" in r.host.discos[0]), "solo los atributos que enseña el tablero");
-    assert.deepEqual(r.host.fs.map((f) => f.punto), ["/", "/mnt/nas/respaldos"]);
-    assert.equal(r.host.respaldo.hace_h, 5);
+    assert.deepEqual(r.host.discos.map((d) => [d.disco, d.rotacional, d.errores_kernel]), [["sda", 1, 0], ["sdb", 0, 5]]);
+    assert.deepEqual(r.host.fs.map((f) => f.punto), ["/", "/mnt/nas/respaldos", "/srv/rapido"]);
+    assert.deepEqual(r.host.respaldos.map((x) => [x.nombre, x.hace_h]), [["yggdrasil", 5], ["bifrost", 2]], "el de Yggdrasil primero");
+    assert.equal(r.host.respaldo.hace_h, 5, "respaldo: el de Yggdrasil, para el tablero viejo");
     assert.deepEqual(r.servicios.map((x) => x.nombre), ["yggdrasil-grafana", "yggdrasil-prometheus", "docker.service"]);
     assert.deepEqual(r.alertas.map((a) => a.nombre), ["WanCaida", "NasSeLlena", "WanNoAptaLlamadas"]);
     assert.equal(r.alertas[2].resumen, "WanNoAptaLlamadas", "sin anotación usa el nombre");
+});
+
+test("resumen: el respaldo sin etiqueta de un Thor anterior es el de Yggdrasil", async () => {
+    const series = SERIES.filter((x) => x.metric.__name__ !== "yggdrasil_respaldo_ultimo_exito_timestamp_seconds")
+        .concat([s("yggdrasil_respaldo_ultimo_exito_timestamp_seconds", {}, AHORA - 7 * 3600)]);
+    const { payload: r } = await nodo("hlidskjalf-resumen.js", { globales: fuentes({ series }) }).ejecutar({});
+    assert.deepEqual(r.host.respaldos.map((x) => [x.nombre, x.hace_h]), [["yggdrasil", 7]]);
+    assert.equal(r.host.respaldo.hace_h, 7);
 });
 
 test("resumen: si una fuente cae, su sección va vacía, fuentes lo dice y el aviso sale una vez", async () => {
@@ -215,8 +231,28 @@ test("tablero: niveles de WAN, NAS, disco y respaldo", () => {
     assert.equal(tablero.nivelFs({ montado: 0 }), "critico");
     assert.equal(tablero.nivelDisco({ lectura_ok: 1, salud: 1, pendientes: 16 }), "aviso");
     assert.equal(tablero.nivelDisco({ lectura_ok: 1, salud: 0 }), "critico");
+    assert.equal(tablero.nivelDisco({ lectura_ok: 1, salud: 1, errores_kernel: 3 }), "critico", "errores del enlace con SMART limpio");
+    assert.equal(tablero.nivelDisco({ lectura_ok: 1, salud: 1, errores_kernel: 0 }), "ok");
     assert.equal(tablero.nivelRespaldo({ hace_h: 30 }), "aviso");
     assert.equal(tablero.nivelRespaldo({ hace_h: 5 }), "ok");
+});
+
+test("tablero: el SSD, sus errores del enlace y un respaldo por fila", () => {
+    const html = tablero.vistaHost({
+        thor_hace_s: 30,
+        discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1 }, { disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, errores_kernel: 5 }],
+        fs: [{ punto: "/srv/rapido", montado: 0 }],
+        respaldo: { hace_h: 5 },
+        respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "bifrost", hace_h: 30 }, { nombre: "<x>", hace_h: null }],
+    });
+    assert.match(html, /fila ok"><span>Disco sda · HDD</);
+    assert.match(html, /fila critico"><span>Disco sdb · SSD<\/span><b>5 errores del enlace en 15 min · /);
+    assert.match(html, /fila critico"><span>SSD<\/span><b>NO MONTADO/);
+    assert.match(html, /fila ok"><span>Respaldo Yggdrasil<\/span><b>hace 5 h/);
+    assert.match(html, /fila aviso"><span>Respaldo Bifröst<\/span><b>hace 30 h/);
+    assert.match(html, /fila aviso"><span>Respaldo &lt;x&gt;<\/span><b>sin constancia/);
+    // un resumen anterior: solo `respaldo`, una fila sin nombre como antes
+    assert.match(tablero.vistaHost({ thor_hace_s: 30, respaldo: { hace_h: 5 } }), /fila ok"><span>Respaldo<\/span><b>hace 5 h/);
 });
 
 test("tablero: el texto del servidor se escapa (una anotación no puede inyectar HTML)", () => {

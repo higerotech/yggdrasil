@@ -72,6 +72,19 @@ groups:
         annotations:
           resumen: "Disco {{ $labels.disco }}: SMART no pasa o no se puede leer"
 
+      # smartctl no ve que un disco se caiga del bus: el SSD de datos se cayó así el 2026-10-19
+      # con SMART limpio, tras timeouts de WRITE FPDMA QUEUED y resets del enlace.
+      - alert: DiscoErroresKernel
+        expr: yggdrasil_disco_errores_kernel_15m > 0
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "Disco {{ $labels.disco }}: {{ $value }} errores del enlace SATA o de E/S en el kernel en 15 min"
+          descripcion: >-
+            El disco puede estar cayéndose del bus. Detalle: `journalctl -k --since -1h | grep -E
+            'ata|I/O error|EXT4'`. Si sigue, parar lo que escribe en él y reconectar el cable.
+
       # --- NAS de respaldos -------------------------------------------------------------------
       - alert: NasSeLlena
         # Tendencia de 7 días: lo que importa es si se llena antes de poder actuar, no el %.
@@ -102,6 +115,29 @@ groups:
           servicio: thor
         annotations:
           resumen: "El NAS de respaldos no está montado o no responde: el respaldo nocturno fallará"
+
+      # --- Otros puntos y respaldos del host --------------------------------------------------
+      # Los puntos de THOR_PUNTOS que no son / ni el NAS son de datos (el SSD, /srv/rapido): lo
+      # que vive en ellos no arranca sin el montaje.
+      - alert: PuntoNoMontado
+        expr: yggdrasil_fs_montado{punto!~"/|/mnt/nas/respaldos"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "{{ $labels.punto }} no está montado: los servicios que guardan ahí sus datos no arrancan"
+
+      # 30 h, como Bragi: el respaldo es diario y Persistent=true lo recupera tras un apagón. El
+      # aviso por ntfy de cada vigía sigue siendo el principal: no depende del stack.
+      - alert: RespaldoAtrasado
+        expr: time() - yggdrasil_respaldo_ultimo_exito_timestamp_seconds > 30 * 3600
+        for: 30m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "El respaldo {{ $labels.respaldo }} lleva más de 30 h sin completarse"
 
       # --- Thor mismo --------------------------------------------------------------------------
       - alert: ThorSinMetricas

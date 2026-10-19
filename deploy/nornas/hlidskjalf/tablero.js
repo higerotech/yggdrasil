@@ -26,6 +26,8 @@
         "yggdrasil-node-red": "Nornas",
         "yggdrasil-host-metrics": "Thor"
     };
+    var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD" };
+    var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst" };
 
     function esc(v) {
         return String(v === null || v === undefined ? "" : v).replace(/[&<>"']/g, function (c) {
@@ -74,6 +76,8 @@
         return medido < slo ? "aviso" : "ok";
     }
     function nivelDisco(d) {
+        // Antes que SMART: un disco que se cae del bus puede tener SMART limpio (el SSD, 2026-10-19)
+        if ((d.errores_kernel || 0) > 0) return "critico";
         if (d.lectura_ok === 0) return "aviso";
         if (d.salud === 0) return "critico";
         if ((d.pendientes || 0) > 0 || (d.incorregibles || 0) > 0 || (d.reasignados || 0) > 0) return "aviso";
@@ -156,10 +160,12 @@
             var detalle = d.lectura_ok === 0 ? "sin lectura SMART"
                 : (d.salud === 0 ? "SMART FALLA · " : "") + numero(d.pendientes) + " pendientes · " + numero(d.incorregibles) +
                   " incorregibles · " + numero(d.reasignados) + " reasignados" + (hay(d.temperatura_c) ? " · " + numero(d.temperatura_c) + " °C" : "");
-            partes.push(fila(nivelDisco(d), "Disco " + esc(d.disco), detalle));
+            if ((d.errores_kernel || 0) > 0) detalle = numero(d.errores_kernel) + " errores del enlace en 15 min · " + detalle;
+            var tipo = d.rotacional === 1 ? " · HDD" : d.rotacional === 0 ? " · SSD" : "";
+            partes.push(fila(nivelDisco(d), "Disco " + esc(d.disco) + tipo, detalle));
         });
         (h.fs || []).forEach(function (f) {
-            var nombre = f.punto === "/" ? "Raíz" : /nas/.test(f.punto) ? "NAS" : esc(f.punto);
+            var nombre = PUNTOS[f.punto] || (/nas/.test(f.punto) ? "NAS" : esc(f.punto));
             var r = libreRatio(f);
             var valor = f.montado === 0 ? "NO MONTADO"
                 : porcentaje(r, 1) + " libre <small>(" + bytes(f.libre_bytes) + " de " + bytes(f.tamano_bytes) + ")</small>";
@@ -167,8 +173,12 @@
             var barra = hay(r) ? "<progress class=\"barra\" max=\"100\" value=\"" + Math.max(0, Math.min(100, (1 - r) * 100)).toFixed(1) + "\"></progress>" : "";
             partes.push(fila(nivelFs(f), nombre, valor + barra));
         });
-        var rsp = h.respaldo || {};
-        partes.push(fila(nivelRespaldo(rsp), "Respaldo", hay(rsp.hace_h) ? "hace " + duracion(rsp.hace_h * 3600) : "sin constancia"));
+        // Un resumen anterior a los respaldos por nombre solo trae el de Yggdrasil
+        var respaldos = h.respaldos && h.respaldos.length ? h.respaldos : [{ nombre: "yggdrasil", hace_h: (h.respaldo || {}).hace_h }];
+        respaldos.forEach(function (rsp) {
+            var nombre = respaldos.length === 1 ? "Respaldo" : "Respaldo " + (RESPALDOS[rsp.nombre] || esc(rsp.nombre));
+            partes.push(fila(nivelRespaldo(rsp), nombre, hay(rsp.hace_h) ? "hace " + duracion(rsp.hace_h * 3600) : "sin constancia"));
+        });
         if (hay(h.thor_hace_s) && h.thor_hace_s > 300) partes.push(fila("aviso", "Thor", "datos de hace " + duracion(h.thor_hace_s)));
         if (!hay(h.thor_hace_s)) partes.push(fila("nodato", "Thor", "sin datos del host"));
         return partes.join("");
