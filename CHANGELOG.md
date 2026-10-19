@@ -9,6 +9,37 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.13] - 2026-10-19
+
+**Hliðskjálf no pierde información en la tablet:** las alertas activas se ven siempre y, con varios
+problemas a la vez, nada queda tapado sin avisar. Nombra los respaldos de Hermod y Andvari y avisa de
+la batería de la tablet.
+
+### Añadido
+- **Hliðskjálf nombra los respaldos de Hermod y Andvari.** Thor ya publica los cuatro respaldos de midgard:
+  Yggdrasil, Bifröst, Hermod y Andvari. Un respaldo sin nombre propio en el tablero sale con la inicial en
+  mayúscula. El ejemplo de `/etc/default/yggdrasil-thor` del README trae sus respaldos y unidades.
+- **Aviso de batería de la tablet en la cabecera**: si no carga, si baja con el cable puesto o si queda
+  por debajo del 20 %. El WebView da `charging` con cualquier cosa enchufada: el 2026-10-19, con el USB del
+  PC, decía «cargando» mientras bajaba del 17 al 15 %.
+
+### Corregido
+- **Las alertas activas no se veían en Hliðskjálf.** Con el SSD, los cuatro respaldos y 26 servicios, Host
+  y Servicios llenaban la pantalla de 1280×800 y el panel de alertas, que solo recibía el alto sobrante,
+  quedaba en 30 px: con `WanCaida` de wan2 activa, la tablet solo enseñaba el título. Ahora las alertas
+  toman el alto de su contenido (tres como mucho, y una línea «y N alertas más») y Host se recorta por
+  abajo. Para que quepa todo, las unidades del host en orden se resumen en una ficha (las que fallan
+  siguen con su nombre en rojo), los respaldos van en una fila y los discos se rotulan «HDD sda».
+- **Hliðskjálf ya no pierde información cuando hay varios problemas a la vez.** Probado en la tablet
+  con cinco alertas, errores del SSD, el NAS al 2,8 %, un respaldo atrasado, Thor sin datos y once
+  servicios caídos: antes Host perdía cuatro filas sin avisar, justo las que estaban mal. Ahora los
+  respaldos tienen panel propio bajo las WAN, la frescura de Thor va en el título de Host y el detalle de
+  cada disco solo nombra los contadores que no están a cero. Si aun así no cabe, Host junta lo sano en
+  una fila «En orden», las alertas pasan a una línea, y un pie nombra lo que quede tapado. La línea
+  «y N alertas más» dice cuáles son.
+- **Una WAN caída enseñaba «0,0 ms» y velocidades vacías.** Ahora dice desde cuándo está caída, con la
+  hora de su `WanCaida`, y deja la latencia y la pérdida en «—».
+
 ## [0.5.12] - 2026-10-19
 
 **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst**, y el segundo
@@ -534,7 +565,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...HEAD
+[0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10

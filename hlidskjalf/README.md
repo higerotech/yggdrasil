@@ -13,13 +13,22 @@ tablet (WebView) ──GET /hlidskjalf/──────────▶ Nornas 
 
 | Bloque | Qué enseña | Fuente |
 |---|---|---|
-| WAN | en línea o caída, si está en la ruta del balanceador, latencia p95, pérdida, última medición de bajada y subida frente al SLO, disponibilidad de 30 días | `wan:*`, Sleipnir, Thor |
-| Alertas activas | las de Gjallarhorn sin silenciar ni inhibir, de la más grave a la más leve | Alertmanager |
-| Host | SMART del disco, espacio de `/` y del NAS, último respaldo | Thor |
-| Servicios | contenedores permanentes del Compose y unidades del host | Thor (inventario del vigía) |
+| WAN | en línea o caída, si está en la ruta del balanceador, latencia p95, pérdida, última medición de bajada y subida frente al SLO, disponibilidad de 30 días. Caída, en vez de latencia y velocidades, desde cuándo (la hora de su `WanCaida`) | `wan:*`, Sleipnir, Thor, Alertmanager |
+| Respaldos | una línea bajo las WAN con la edad de cada respaldo, en ámbar si pasa de 26 h | Thor |
+| Alertas activas | las de Gjallarhorn sin silenciar ni inhibir, de la más grave a la más leve; tres como mucho y una línea que nombra las demás. Tiene prioridad sobre Host | Alertmanager |
+| Host | SMART de cada disco (solo los contadores que no están a cero) y espacio de `/`, del SSD y del NAS; en el título, si los datos de Thor son viejos | Thor |
+| Servicios | contenedores permanentes del Compose; las unidades del host solo con nombre si fallan, las demás en una ficha resumen | Thor (inventario del vigía) |
 
 La cabecera resume el peor estado. Si la tablet pierde la conexión, la cabecera pasa a rojo y, al
-minuto, los datos se atenúan: nunca enseña en verde algo que no sabe.
+minuto, los datos se atenúan: nunca enseña en verde algo que no sabe. También avisa de la batería de
+la tablet si no carga, si baja con el cable puesto (el USB de un PC no le da corriente suficiente) o
+si queda por debajo del 20 %.
+
+Nada se pierde sin avisar. Si Host no cabe en el alto que le dejan las alertas, el navegador lo
+aprieta por pasos: primero junta los discos y volúmenes sanos en una fila «En orden» con su cifra,
+luego deja en ella solo los nombres, después pasa las alertas a una línea sin resumen. Si ni así
+cabe, un pie nombra las filas tapadas con el color de la peor. Las tarjetas de las WAN se aprietan
+igual si la columna izquierda no da para Respaldos.
 
 ## Piezas
 
