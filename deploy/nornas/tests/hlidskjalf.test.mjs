@@ -237,7 +237,7 @@ test("tablero: niveles de WAN, NAS, disco y respaldo", () => {
     assert.equal(tablero.nivelRespaldo({ hace_h: 5 }), "ok");
 });
 
-test("tablero: el SSD, sus errores del enlace y un respaldo por fila", () => {
+test("tablero: el SSD, sus errores del enlace y los respaldos en una sola fila", () => {
     const html = tablero.vistaHost({
         thor_hace_s: 30,
         discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1 }, { disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, errores_kernel: 5 }],
@@ -246,15 +246,19 @@ test("tablero: el SSD, sus errores del enlace y un respaldo por fila", () => {
         respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "bifrost", hace_h: 30 }, { nombre: "<x>", hace_h: null },
             { nombre: "hermod", hace_h: 1 }, { nombre: "andvari", hace_h: 2 }, { nombre: "otro", hace_h: 3 }],
     });
-    assert.match(html, /fila ok"><span>Respaldo Hermod<\/span>/);
-    assert.match(html, /fila ok"><span>Respaldo Andvari<\/span>/);
-    assert.match(html, /fila ok"><span>Respaldo Otro<\/span>/, "uno sin nombre propio sale con mayúscula");
-    assert.match(html, /fila ok"><span>Disco sda · HDD</);
-    assert.match(html, /fila critico"><span>Disco sdb · SSD<\/span><b>5 errores del enlace en 15 min · /);
+    assert.equal((html.match(/<span>Respaldos?</g) || []).length, 1, "una sola fila para los seis respaldos");
+    assert.match(html, /fila aviso"><span>Respaldos<\/span>/, "la fila toma el color del peor");
+    assert.match(html, /<span class="ok"><small>Hermod<\/small>1 h<\/span>/);
+    assert.match(html, /<span class="ok"><small>Andvari<\/small>2 h<\/span>/);
+    assert.match(html, /<span class="ok"><small>Otro<\/small>3 h<\/span>/, "uno sin nombre propio sale con mayúscula");
+    assert.match(html, /<span class="ok"><small>Yggdrasil<\/small>5 h<\/span>/);
+    assert.match(html, /<span class="aviso"><small>Bifröst<\/small>30 h<\/span>/);
+    assert.match(html, /<span class="aviso"><small>&lt;x&gt;<\/small>sin constancia<\/span>/);
+    assert.match(html, /fila ok"><span>HDD sda</);
+    assert.match(html, /fila critico"><span>SSD sdb<\/span><b>5 errores del enlace en 15 min · /);
     assert.match(html, /fila critico"><span>SSD<\/span><b>NO MONTADO/);
-    assert.match(html, /fila ok"><span>Respaldo Yggdrasil<\/span><b>hace 5 h/);
-    assert.match(html, /fila aviso"><span>Respaldo Bifröst<\/span><b>hace 30 h/);
-    assert.match(html, /fila aviso"><span>Respaldo &lt;x&gt;<\/span><b>sin constancia/);
+    assert.match(tablero.vistaHost({ thor_hace_s: 30, respaldos: [{ nombre: "yggdrasil", hace_h: 5 }, { nombre: "hermod", hace_h: 1 }] }),
+        /fila ok"><span>Respaldos<\/span>/, "todos al día: fila en verde");
     // un resumen anterior: solo `respaldo`, una fila sin nombre como antes
     assert.match(tablero.vistaHost({ thor_hace_s: 30, respaldo: { hace_h: 5 } }), /fila ok"><span>Respaldo<\/span><b>hace 5 h/);
 });
@@ -265,6 +269,31 @@ test("tablero: el texto del servidor se escapa (una anotación no puede inyectar
     assert.ok(html.includes("&lt;img src=x onerror=alert(1)&gt;"));
     assert.ok(html.includes("NAS &lt;b&gt;lleno&lt;/b&gt;"));
     assert.match(tablero.vistaAlertas([], AHORA, false), /Gjallarhorn no responde/);
+});
+
+test("tablero: como mucho tres alertas, y las demás en una línea", () => {
+    const alerta = (n) => ({ nombre: `A${n}`, severidad: "warning", resumen: "x", desde: "2026-10-19T10:00:00Z" });
+    const cinco = tablero.vistaAlertas([1, 2, 3, 4, 5].map(alerta), AHORA, true);
+    assert.equal((cinco.match(/<li class="aviso">/g) || []).length, 3);
+    assert.match(cinco, /<b>A3</);
+    assert.ok(!cinco.includes("<b>A4<"));
+    assert.match(cinco, /<li class="mas">y 2 alertas más<\/li>/);
+    assert.match(tablero.vistaAlertas([1, 2, 3, 4].map(alerta), AHORA, true), /y 1 alerta más</);
+    assert.ok(!/class="mas"/.test(tablero.vistaAlertas([1, 2, 3].map(alerta), AHORA, true)));
+});
+
+test("tablero: las unidades del host en orden se resumen; los contenedores y las caídas, con nombre", () => {
+    const html = tablero.vistaServicios([
+        { tipo: "contenedor", nombre: "yggdrasil-prometheus", ok: 1 },
+        { tipo: "unidad", nombre: "dnsmasq.service", ok: 1 },
+        { tipo: "unidad", nombre: "respaldo.timer", ok: 1 },
+        { tipo: "unidad", nombre: "wan-watchdog.timer", ok: 0 },
+    ]);
+    assert.match(html, /Mimir<small>prometheus<\/small>/);
+    assert.match(html, /servicio critico.*>wan-watchdog<small>temporizador<\/small>/);
+    assert.ok(!html.includes(">dnsmasq<"), "una unidad en orden no lleva ficha propia");
+    assert.match(html, /servicio resumen ok"><i><\/i>2 unidades del host en orden</);
+    assert.ok(!/resumen/.test(tablero.vistaServicios([{ tipo: "unidad", nombre: "x.service", ok: 0 }])), "sin unidades en orden no hay ficha resumen");
 });
 
 test("tablero: formato en español y nombres nórdicos de los servicios", () => {

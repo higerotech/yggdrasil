@@ -14,9 +14,9 @@ tablet (WebView) ──GET /hlidskjalf/──────────▶ Nornas 
 | Bloque | Qué enseña | Fuente |
 |---|---|---|
 | WAN | en línea o caída, si está en la ruta del balanceador, latencia p95, pérdida, última medición de bajada y subida frente al SLO, disponibilidad de 30 días | `wan:*`, Sleipnir, Thor |
-| Alertas activas | las de Gjallarhorn sin silenciar ni inhibir, de la más grave a la más leve | Alertmanager |
-| Host | SMART del disco, espacio de `/` y del NAS, último respaldo | Thor |
-| Servicios | contenedores permanentes del Compose y unidades del host | Thor (inventario del vigía) |
+| Alertas activas | las de Gjallarhorn sin silenciar ni inhibir, de la más grave a la más leve; tres como mucho y una línea con las demás. Tiene prioridad sobre Host, que se recorta por abajo si no cabe | Alertmanager |
+| Host | SMART de cada disco, espacio de `/`, del SSD y del NAS, y los respaldos en una fila | Thor |
+| Servicios | contenedores permanentes del Compose; las unidades del host solo con nombre si fallan, las demás en una ficha resumen | Thor (inventario del vigía) |
 
 La cabecera resume el peor estado. Si la tablet pierde la conexión, la cabecera pasa a rojo y, al
 minuto, los datos se atenúan: nunca enseña en verde algo que no sabe.

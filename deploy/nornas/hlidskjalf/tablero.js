@@ -140,16 +140,20 @@
         return "<div class=\"hogar " + n + "\">Hogar con internet: <b>" + (n === "ok" ? "sí" : n === "critico" ? "NO" : "—") +
             "</b> · 30 días " + porcentaje(h && h.disponibilidad_30d, 2) + "</div>";
     }
+    // Más de tres alertas empujarían Host fuera de la pantalla: las demás se resumen en una línea.
+    // El resumen ya las trae ordenadas de la más grave a la menos.
+    var MAX_ALERTAS = 3;
     function vistaAlertas(lista, ahora, fuenteOk) {
         if (!fuenteOk) return "<p class=\"vacio aviso\">Gjallarhorn no responde: no se sabe qué alertas hay.</p>";
         if (!lista.length) return "<p class=\"vacio ok\">Sin alertas activas</p>";
-        return "<ul class=\"alertas\">" + lista.map(function (a) {
+        var resto = lista.length - MAX_ALERTAS;
+        return "<ul class=\"alertas\">" + lista.slice(0, MAX_ALERTAS).map(function (a) {
             var desde = Date.parse(a.desde);
             var t = isNaN(desde) ? "" : duracion(ahora - desde / 1000);
             return "<li class=\"" + nivelAlerta(a) + "\"><span class=\"punto\"></span><div><b>" + esc(a.nombre) +
                 (a.wan ? " <small>" + esc(a.wan) + "</small>" : "") + "</b><span>" + esc(a.resumen) + "</span></div>" +
                 "<time>" + esc(t) + "</time></li>";
-        }).join("") + "</ul>";
+        }).join("") + (resto > 0 ? "<li class=\"mas\">y " + resto + (resto === 1 ? " alerta más" : " alertas más") + "</li>" : "") + "</ul>";
     }
     function fila(nivel, nombre, valor) {
         return "<div class=\"fila " + nivel + "\"><span>" + nombre + "</span><b>" + valor + "</b></div>";
@@ -161,8 +165,9 @@
                 : (d.salud === 0 ? "SMART FALLA · " : "") + numero(d.pendientes) + " pendientes · " + numero(d.incorregibles) +
                   " incorregibles · " + numero(d.reasignados) + " reasignados" + (hay(d.temperatura_c) ? " · " + numero(d.temperatura_c) + " °C" : "");
             if ((d.errores_kernel || 0) > 0) detalle = numero(d.errores_kernel) + " errores del enlace en 15 min · " + detalle;
-            var tipo = d.rotacional === 1 ? " · HDD" : d.rotacional === 0 ? " · SSD" : "";
-            partes.push(fila(nivelDisco(d), "Disco " + esc(d.disco) + tipo, detalle));
+            // «HDD sda» y no «Disco sda · HDD»: en la columna de 92 px ocupaba dos líneas
+            var tipo = d.rotacional === 1 ? "HDD " : d.rotacional === 0 ? "SSD " : "Disco ";
+            partes.push(fila(nivelDisco(d), tipo + esc(d.disco), detalle));
         });
         (h.fs || []).forEach(function (f) {
             var nombre = PUNTOS[f.punto] || (/nas/.test(f.punto) ? "NAS" : esc(f.punto));
@@ -175,25 +180,38 @@
         });
         // Un resumen anterior a los respaldos por nombre solo trae el de Yggdrasil
         var respaldos = h.respaldos && h.respaldos.length ? h.respaldos : [{ nombre: "yggdrasil", hace_h: (h.respaldo || {}).hace_h }];
-        respaldos.forEach(function (rsp) {
-            var propio = String(rsp.nombre || "");
-            var nombre = respaldos.length === 1 ? "Respaldo"
-                : "Respaldo " + (RESPALDOS[propio] || esc(propio.charAt(0).toUpperCase() + propio.slice(1)));
-            partes.push(fila(nivelRespaldo(rsp), nombre, hay(rsp.hace_h) ? "hace " + duracion(rsp.hace_h * 3600) : "sin constancia"));
-        });
+        if (respaldos.length === 1) {
+            var unico = respaldos[0];
+            partes.push(fila(nivelRespaldo(unico), "Respaldo", hay(unico.hace_h) ? "hace " + duracion(unico.hace_h * 3600) : "sin constancia"));
+        } else {
+            // Todos en una fila, cada uno con su color; la fila toma el del peor
+            var peor = respaldos.some(function (rsp) { return nivelRespaldo(rsp) !== "ok"; }) ? "aviso" : "ok";
+            partes.push(fila(peor, "Respaldos", "<span class=\"respaldos\">" + respaldos.map(function (rsp) {
+                var propio = String(rsp.nombre || "");
+                var nombre = RESPALDOS[propio] || esc(propio.charAt(0).toUpperCase() + propio.slice(1));
+                return "<span class=\"" + nivelRespaldo(rsp) + "\"><small>" + nombre + "</small>" +
+                    (hay(rsp.hace_h) ? duracion(rsp.hace_h * 3600) : "sin constancia") + "</span>";
+            }).join("") + "</span>"));
+        }
         if (hay(h.thor_hace_s) && h.thor_hace_s > 300) partes.push(fila("aviso", "Thor", "datos de hace " + duracion(h.thor_hace_s)));
         if (!hay(h.thor_hace_s)) partes.push(fila("nodato", "Thor", "sin datos del host"));
         return partes.join("");
     }
+    function fichaServicio(s) {
+        var n = s.ok === 1 ? "ok" : "critico";
+        var nombre = s.tipo === "contenedor" ? (NORDICOS[s.nombre] || sinPrefijo(s.nombre)) : sinPrefijo(s.nombre).replace(/\.(service|timer)$/, "");
+        var tecnico = s.tipo === "contenedor" ? sinPrefijo(s.nombre) : (/\.timer$/.test(s.nombre) ? "temporizador" : "unidad");
+        return "<span class=\"servicio " + n + "\" title=\"" + esc(s.nombre) + "\"><i></i>" + esc(nombre) +
+            "<small>" + esc(tecnico) + "</small></span>";
+    }
+    // Los contenedores salen siempre con su nombre. Las unidades del host solo si fallan: en orden
+    // se resumen en una ficha (con 18 fichas, Servicios se comía media pantalla).
     function vistaServicios(lista) {
         if (!lista.length) return "<p class=\"vacio nodato\">Sin datos de servicios</p>";
-        return lista.map(function (s) {
-            var n = s.ok === 1 ? "ok" : "critico";
-            var nombre = s.tipo === "contenedor" ? (NORDICOS[s.nombre] || sinPrefijo(s.nombre)) : sinPrefijo(s.nombre).replace(/\.(service|timer)$/, "");
-            var tecnico = s.tipo === "contenedor" ? sinPrefijo(s.nombre) : (/\.timer$/.test(s.nombre) ? "temporizador" : "unidad");
-            return "<span class=\"servicio " + n + "\" title=\"" + esc(s.nombre) + "\"><i></i>" + esc(nombre) +
-                "<small>" + esc(tecnico) + "</small></span>";
-        }).join("");
+        var visibles = lista.filter(function (s) { return s.tipo === "contenedor" || s.ok !== 1; });
+        var enOrden = lista.length - visibles.length;
+        return visibles.map(fichaServicio).join("") + (enOrden ? "<span class=\"servicio resumen ok\"><i></i>" + enOrden +
+            (enOrden === 1 ? " unidad del host en orden" : " unidades del host en orden") + "</span>" : "");
     }
     function vistaTodo(r) {
         var e = estadoGeneral(r);

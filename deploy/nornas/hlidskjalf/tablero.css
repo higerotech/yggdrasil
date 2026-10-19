@@ -56,7 +56,11 @@ main {
 .columna { display: flex; flex-direction: column; min-height: 0; }
 .columna > * + * { margin-top: 14px; }
 .panel { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 10px; padding: 14px 16px; min-height: 0; }
-.panel.crece { flex: 1; overflow: hidden; }
+/* Las alertas se ven siempre: toman el alto de su contenido (el JS limita la lista) y Host se queda
+   con lo que sobra, recortado por abajo. Con `flex: 1` en las alertas, un Host largo las dejaba en
+   cero (2026-10-19: WanCaida activa y el panel solo enseñaba el título). */
+.panel.prioridad { flex: none; }
+.panel.resto { flex: 1; overflow: hidden; }
 .panel.ancho { grid-column: 1 / -1; }
 
 .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-left: 6px solid var(--c); border-radius: 10px; padding: 12px 16px; }
@@ -86,6 +90,7 @@ main {
 .alertas li span { color: var(--tenue); font-size: 16px; }
 .alertas time { color: var(--tenue); font-size: 15px; white-space: nowrap; }
 .punto { width: 12px; height: 12px; margin-top: 6px; border-radius: 50%; background: var(--c); flex: none; }
+.alertas li.mas { background: none; border-left-color: transparent; color: var(--tenue); font-size: 16px; padding: 2px 10px; }
 .vacio { margin: 8px 0; color: var(--c); font-size: 20px; }
 
 .fila > * + * { margin-left: 12px; }
@@ -93,6 +98,9 @@ main {
 .fila:last-child { border-bottom: 0; }
 .fila > span { width: 92px; flex: none; color: var(--tenue); }
 .fila > b { flex: 1; color: var(--c); font-size: 18px; }
+.respaldos > span + span { margin-left: 14px; }
+.respaldos > span { white-space: nowrap; color: var(--c); }
+.respaldos small { margin-right: 4px; }
 progress.barra { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 6px; margin-top: 4px; border: 0; border-radius: 3px; background: var(--borde); overflow: hidden; }
 progress.barra::-webkit-progress-bar { background: var(--borde); }
 progress.barra::-webkit-progress-value { background: var(--c); }
@@ -103,6 +111,7 @@ progress.barra::-moz-progress-bar { background: var(--c); }
 .servicio small { margin-left: 8px; }
 .servicio i { margin-right: 8px; width: 12px; height: 12px; border-radius: 50%; background: var(--c); }
 .servicio.critico { border-color: var(--critico); color: var(--critico); }
+.servicio.resumen { color: var(--tenue); }
 
 /* Teléfono u otra pantalla estrecha: una columna con desplazamiento */
 @media (max-width: 900px) {
