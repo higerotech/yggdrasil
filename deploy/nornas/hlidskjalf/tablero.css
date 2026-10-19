@@ -44,6 +44,7 @@ h3 { margin: 0 0 8px; font-size: 15px; color: var(--tenue); text-transform: uppe
 .cabecera > * + * { margin-left: 16px; }
 #estado { font-size: 22px; font-weight: 600; color: var(--c, var(--texto)); flex: 1; }
 #frescura { color: var(--tenue); font-size: 16px; }
+#bateria { font-size: 16px; padding: 3px 12px; }
 #reloj { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
 body.viejo main { opacity: 0.45; }
 
@@ -60,11 +61,21 @@ main {
    con lo que sobra, recortado por abajo. Con `flex: 1` en las alertas, un Host largo las dejaba en
    cero (2026-10-19: WanCaida activa y el panel solo enseñaba el título). */
 .panel.prioridad { flex: none; }
-.panel.resto { flex: 1; overflow: hidden; }
+#host-frescura { color: var(--c); text-transform: none; letter-spacing: 0; font-size: 16px; }
+.panel.resto { flex: 1; overflow: hidden; position: relative; }
+[hidden] { display: none !important; }
 .panel.ancho { grid-column: 1 / -1; }
 
 .tarjeta { background: var(--tarjeta); border: 1px solid var(--borde); border-left: 6px solid var(--c); border-radius: 10px; padding: 12px 16px; }
+#wan { flex: 1; }
 #wan .tarjeta { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+/* Si la columna no da para las dos WAN, el hogar y Respaldos, las tarjetas se aprietan antes que
+   meterse debajo de Respaldos (así se perdía la línea del hogar en 0.5.12) */
+#wan.densa .tarjeta { padding: 6px 14px; }
+#wan.densa .tarjeta header { margin-bottom: 0; }
+#wan.densa .cifras b { font-size: 32px; }
+#wan.densa .velocidades { margin-top: 0; font-size: 22px; }
+#wan.densa .hogar { padding: 0 6px; }
 .tarjeta header { display: flex; align-items: center; margin-bottom: 8px; }
 .tarjeta header > * + * { margin-left: 12px; }
 .estado { font-weight: 700; color: var(--c); font-size: 20px; }
@@ -79,6 +90,7 @@ main {
 .vel.aviso { color: var(--aviso); }
 .velocidades > * + * { margin-left: 18px; }
 .velocidades .medido { margin-left: auto; }
+.velocidades.caida b { color: var(--critico); font-size: 26px; }
 .hogar { padding: 4px 6px; color: var(--tenue); }
 .hogar b { color: var(--c); }
 
@@ -90,7 +102,11 @@ main {
 .alertas li span { color: var(--tenue); font-size: 16px; }
 .alertas time { color: var(--tenue); font-size: 15px; white-space: nowrap; }
 .punto { width: 12px; height: 12px; margin-top: 6px; border-radius: 50%; background: var(--c); flex: none; }
-.alertas li.mas { background: none; border-left-color: transparent; color: var(--tenue); font-size: 16px; padding: 2px 10px; }
+.alertas li.compacta { padding: 4px 10px; }
+.alertas li.compacta .punto { margin-top: 7px; }
+.alertas li.mas { display: block; background: none; border-left-color: transparent; color: var(--tenue); font-size: 16px; padding: 2px 10px; }
+.alertas li.mas span { color: var(--c); font-weight: 600; }
+.alertas li.mas > * + * { margin-left: 0; }
 .vacio { margin: 8px 0; color: var(--c); font-size: 20px; }
 
 .fila > * + * { margin-left: 12px; }
@@ -98,9 +114,14 @@ main {
 .fila:last-child { border-bottom: 0; }
 .fila > span { width: 92px; flex: none; color: var(--tenue); }
 .fila > b { flex: 1; color: var(--c); font-size: 18px; }
-.respaldos > span + span { margin-left: 14px; }
-.respaldos > span { white-space: nowrap; color: var(--c); }
-.respaldos small { margin-right: 4px; }
+.lista > span { display: inline-block; margin-right: 14px; white-space: nowrap; color: var(--c); }
+.lista small { margin-right: 4px; }
+.panel.en-linea { flex: none; display: flex; align-items: baseline; }
+.panel.en-linea h3 { margin: 0 18px 0 0; }
+.en-linea .lista > span { font-size: 22px; font-weight: 600; }
+/* Pie del panel Host cuando ni la densidad más alta cabe: tapa la última línea y dice qué falta */
+.ocultas { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 16px; font-size: 16px; font-weight: 600;
+    color: var(--c); background: var(--tarjeta); border-top: 2px solid var(--c); border-radius: 0 0 10px 10px; }
 progress.barra { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 6px; margin-top: 4px; border: 0; border-radius: 3px; background: var(--borde); overflow: hidden; }
 progress.barra::-webkit-progress-bar { background: var(--borde); }
 progress.barra::-webkit-progress-value { background: var(--c); }
