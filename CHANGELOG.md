@@ -10,6 +10,18 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
 ### Añadido
+- **Saga, el almacén de trazas de la plataforma (ADR-0008).** Es Grafana Tempo 3.1.0 en modo monolítico.
+  - **Qué recibe y dónde guarda:** recibe OTLP/HTTP y guarda 15 días en el SSD (`/srv/rapido/saga`).
+  - **Si falta el SSD:** sin él montado, Saga no arranca en vez de escribir en el HDD. El compose monta el directorio
+    sin `create_host_path`, y `bootstrap-midgard.sh` solo lo crea si `/srv/rapido` está montado.
+  - **Redes:** no publica puertos. Los emisores entran por una red propia, `yggdrasil_saga`, que no alcanza a Mimir
+    ni a Odín. Odín la consulta y Mimir la lee por `heimdall`.
+  - **Endurecida como el resto:** `read_only`, sin capacidades y con `mem_limit: 512m`, con `automemlimit`.
+  - **En Odín:** la fuente de datos `Saga`, provisionada.
+  - **Vigilancia:** el job `saga` de Mimir y la alerta `SagaCaida` (warning, 5 min), con su prueba de `promtool`.
+  - **En el CI:** `tempo -config.verify` y Trivy sobre la imagen.
+  - **Probado en local:** un span del gateway llegó por OTLP y se recuperó por su id. La fuente de datos de Odín
+    pasó su comprobación. En reposo usa 21 MiB.
 - **Gate 4 abierto y fase 05 documentada.** Nuevos documentos:
   - `.ai-dlc/gates/gate-4-deployment.md`, el checklist, en curso;
   - `docs/05-deployment/deployment.md`, con C4 Deployment, pipeline y sus controles de seguridad,

@@ -31,6 +31,7 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 | **Ratatosk** | Mosquitto (MQTT) | La ardilla mensajera que recorre Yggdrasil → bus de eventos |
 | **Thor** | Métricas del host (recolector + httpd de busybox) | La fuerza de la máquina → salud del disco, espacio del NAS, qué WAN lleva el balanceador en la ruta (2026-10-16), estado de los servicios y último respaldo |
 | **Hlidskjalf** | Tablero de pared (página servida por Nornas + app Android kiosco en una tablet) | Hliðskjálf, el trono desde el que Odín ve todos los mundos → el estado de midgard de un vistazo (ADR-0007, 2026-10-16) |
+| **Saga** | Grafana Tempo (trazas) | La diosa de la historia, que cada día bebe con Odín en Sökkvabekkr → guarda la historia de cada mensaje y se consulta desde Odín (ADR-0008, 2026-10-19) |
 
 ## Otros servicios de midgard (fuera de Yggdrasil)
 Proyectos hermanos que corren en el mismo appliance; Yggdrasil vigila su arranque y su respaldo

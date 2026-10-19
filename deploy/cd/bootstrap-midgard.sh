@@ -120,6 +120,16 @@ systemctl daemon-reload
 systemctl start yggdrasil-thor.service || echo "   AVISO: la primera recolección de Thor falló"
 systemctl enable --now yggdrasil-thor.timer >/dev/null 2>&1 && echo "   yggdrasil-thor.timer habilitado"
 
+echo "== 5f. Saga: el almacén de trazas en el SSD (ADR-0008)"
+# Solo dentro del SSD: si /srv/rapido no está montado no se crea nada, y Saga no arranca en vez de escribir en el
+# HDD (el compose monta el directorio sin create_host_path). 10001 es el usuario de la imagen de Tempo.
+if findmnt -rn /srv/rapido >/dev/null 2>&1; then
+  install -d -o 10001 -g 10001 -m 0750 /srv/rapido/saga
+  echo "   /srv/rapido/saga listo ($(stat -c '%U:%G %a' /srv/rapido/saga 2>/dev/null))"
+else
+  echo "   AVISO: /srv/rapido no está montado; Saga no arrancará hasta que lo esté y se repita este paso"
+fi
+
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

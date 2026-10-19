@@ -79,6 +79,7 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Ratatosk | Mosquitto (MQTT) | Bus de eventos (`midgard/...`) |
 | Thor | Recolector en el host + httpd | Métricas del host: disco, NAS, ruta, servicios y respaldo |
 | Hlidskjalf | Página en Nornas + app Android kiosco | Tablero de pared con el estado de midgard (ADR-0007) |
+| Saga | Grafana Tempo | Trazas de los servicios de la plataforma, 15 días en el SSD (ADR-0008) |
 
 ## Anonimización
 

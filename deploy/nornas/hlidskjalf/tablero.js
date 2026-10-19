@@ -24,7 +24,8 @@
         "yggdrasil-grafana": "Odín",
         "yggdrasil-mosquitto": "Ratatosk",
         "yggdrasil-node-red": "Nornas",
-        "yggdrasil-host-metrics": "Thor"
+        "yggdrasil-host-metrics": "Thor",
+        "yggdrasil-tempo": "Saga"
     };
     var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD" };
     var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst", hermod: "Hermod", andvari: "Andvari" };

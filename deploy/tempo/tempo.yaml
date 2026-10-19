@@ -1,0 +1,42 @@
+# Saga — Grafana Tempo 3.1 en modo monolítico (-target=all, sin Kafka): las trazas de los servicios de la
+# plataforma (ADR-0008). Saga, diosa de la historia, bebe cada día con Odín: Tempo se consulta desde Grafana.
+#
+# - Solo recibe OTLP por HTTP (4318) y sirve consultas en el 3200, sin puertos publicados: los emisores entran por
+#   la red yggdrasil_saga; Odín y Mimir, por heimdall.
+# - Almacén local en /var/tempo, que es /srv/rapido/saga, en el SSD: Tempo no está probado en discos mecánicos.
+# - 15 días de retención (decisión del 2026-10-19).
+# - Sin metrics_generator: necesitaría escritura remota en Mimir, que no la tiene activada.
+# Validar: docker run --rm -v "$PWD/deploy/tempo:/etc/tempo:ro" grafana/tempo:3.1.0 -config.file=/etc/tempo/tempo.yaml -config.verify
+
+stream_over_http_enabled: true
+
+server:
+  http_listen_port: 3200
+  log_level: warn
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        http:
+          endpoint: "0.0.0.0:4318"
+
+# Go se ajusta al mem_limit del contenedor (80 % de él), en vez de crecer hasta que lo mate el OOM killer.
+memory:
+  automemlimit_enabled: true
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/tempo/wal
+    local:
+      path: /var/tempo/blocks
+
+overrides:
+  defaults:
+    compaction:
+      block_retention: 360h
+
+usage_report:
+  reporting_enabled: false
