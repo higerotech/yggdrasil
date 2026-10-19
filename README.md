@@ -39,8 +39,9 @@ discrepancia con el balanceador) y corrige las reglas de SLO; la `0.5.9` añade 
 tablero de pared en una tablet (ADR-0007), y la `0.5.10` calcula la pérdida de cada WAN con la
 mediana de tres objetivos y marca en la tablet las mediciones de Sleipnir; la `0.5.11` corrige
 los servicios fantasma de Thor durante un despliegue y los modos `speedtest` e `iperf3` de
-Sleipnir, y la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst. Gate 4 (Deployment)
-está por arrancar.
+Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, y la `0.5.13` hace que la
+tablet no pierda información (alertas siempre visibles, nada tapado sin avisar). Gate 4
+(Deployment) está por arrancar.
 
 ## Mapa del repo
 

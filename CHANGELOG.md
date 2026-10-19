@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.13] - 2026-10-19
+
+**Hliðskjálf no pierde información en la tablet:** las alertas activas se ven siempre y, con varios
+problemas a la vez, nada queda tapado sin avisar. Nombra los respaldos de Hermod y Andvari y avisa de
+la batería de la tablet.
+
 ### Añadido
 - **Hliðskjálf nombra los respaldos de Hermod y Andvari.** Thor ya publica los cuatro respaldos de midgard:
   Yggdrasil, Bifröst, Hermod y Andvari. Un respaldo sin nombre propio en el tablero sale con la inicial en
@@ -559,7 +565,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...HEAD
+[0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
