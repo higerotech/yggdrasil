@@ -1,9 +1,9 @@
 # Gate 1 — Design (checklist)
 
 * **Estado:** approved
-* **Fecha:** 2026-09-01
+* **Fecha:** 2026-09-01 (cerrado el 2026-09-05)
 * **Fase AI-DLC:** 02-design
-* **Versión:** 0.1.0
+* **Versión:** 0.2.0
 
 - [x] C4 Container + flujos (sequence) + entidad núcleo (state) + ER/class
 - [x] Threat model STRIDE + DREAD con controles trazables

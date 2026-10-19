@@ -54,7 +54,8 @@ Adoptar el receptor de `despliegue-continuo` como mecanismo de despliegue de Ygg
   del healthcheck del receptor (queda en `docker logs`); el bootstrap inicial del servidor requiere
   `sudo` (clon, `.env`, `apps.yml`, sysctl) y lo hace `deploy/cd/bootstrap-midgard.sh`.
 - Impacto en threat model: el webhook firmado y el receptor están cubiertos por el threat model de
-  `despliegue-continuo`; en Yggdrasil se añade el bind mount de escritura del clon (T6, Gate 3).
+  `despliegue-continuo`; en Yggdrasil se añade el bind mount de escritura del clon (T7 de `threat-model.md`; este ADR lo
+  llamaba T6, identificador que la revisión del 2026-10-16 dio al tablero de Hlidskjalf).
 - Condiciones de revisión: si el receptor incorpora hooks de pre-despliegue o `git sync` nativo,
   eliminar la tarea sync; si la latencia de "compose con un despliegue de retraso" molesta, mover el
   compose fuera del clon.

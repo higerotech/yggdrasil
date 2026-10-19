@@ -11,7 +11,7 @@ route:
   group_interval: 1m         # las resoluciones salen en el siguiente lote del grupo: con 5m el estado MQTT iba hasta 5 min por detras de Mimir (TA-14)
   repeat_interval: 4h
   routes:
-    # Throughput: receptor "nulo" hasta calibrar el techo de medición (Gate 3), luego "nornas".
+    # Throughput: THROUGHPUT_RECEIVER ("nornas" desde la calibración de Gate 3; "nulo" solo al calibrar una cadena nueva).
     - matchers:
         - alertname = WanThroughputBajo
       receiver: ${THROUGHPUT_RECEIVER}

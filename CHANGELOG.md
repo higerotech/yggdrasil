@@ -7,15 +7,48 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ## [Unreleased]
 
-> Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
+> Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
 ### Añadido
+- **Gate 4 abierto y fase 05 documentada.** Nuevos documentos:
+  - `.ai-dlc/gates/gate-4-deployment.md`, el checklist, en curso;
+  - `docs/05-deployment/deployment.md`, con C4 Deployment, pipeline y sus controles de seguridad,
+    rollback, runbook de recuperación e historial de despliegues;
+  - `docs/04-testing/inventario-pruebas.md`, con todas las pruebas automatizadas y manuales vigentes,
+    su trazabilidad y sus huecos.
+
+  Salen de una auditoría documental del repositorio (con Fable), revisada contra el código.
 - **Vista previa de Hliðskjálf en la tablet real** (`hlidskjalf/vista-previa.py` y `vista-previa.sh`).
   Sirve la página en desarrollo por `adb reverse`, con escenarios fijos en `hlidskjalf/escenarios/`
   (normal, wan2 caída, estrés y extremo). Un medidor en la página informa de cada fila recortada,
   tapada o fuera de la pantalla, y `probar` sale con 1 si se pierde algo. La URL de producción de la
   tablet se guarda y se restaura con `run-as`, sin imprimir el token. Es la herramienta con la que se
   midió la 0.5.13. El CI pasa ShellCheck al script y valida los escenarios.
+
+### Cambiado
+- **Documentación coherente con la v0.5.13** (auditoría documental del 2026-10-19). Los documentos
+  de diseño y requisitos describían Gate 1 y no lo construido después. Ahora:
+  - **Arquitectura y PRD.** El C4 incluye Thor, Bragi, ntfy y el host. Los objetivos de sondeo son 3
+    ICMP cada 5 s y 3 TCP+TLS cada 15 s, y el quórum de caída es solo TLS. Las tablas recogen las
+    alertas de Thor y Bragi y las recording rules que faltaban. RF04 adopta el SLO de alertado
+    aceptado en Gate 3.
+  - **ADR.** Notas de revisión en 0001-0006: Fenrir se integró y salió en la 0.5.3, sin el usuario
+    `frigate`; ADR-0005 supersede el CD de ADR-0002; blackbox sin `NET_RAW`; 1880 y 1883 publicados.
+  - **Threat model.** El DFD suma Thor, el NAS, ntfy, la tablet y `sync-host`. Se proponen T7-T10
+    (bind mount del clon, respaldo con secretos, tema de ntfy, datos del host), con su DREAD
+    pendiente de HITL. La clasificación de datos tiene sus filas.
+  - **Cifras.** La suma de `mem_limit` es 1680 MB con Thor, y la RAM media de TA-12, 406 MiB.
+  - **Nombres.** El repo del NVR es `higerotech/fenrir`. `naming.md` registra Bifröst, Hermod,
+    Andvari y Bragi como servicios hermanos y deja anotado el doble uso de «Bifröst».
+  - **Otros.** `repo-history.md` se regeneró: tenía 3 tags y ahora tiene 27. Las cabeceras de los
+    gates quedan con su versión. `deploy/README.md` y `deploy/cd/README.md` están al día; el push de
+    Nornas sí está conectado.
+  - **`THROUGHPUT_RECEIVER=nornas` por defecto** en `.env.example`. Con `nulo`, una instalación nueva
+    dejaba `WanThroughputBajo` en silencio. midgard ya usaba `nornas`.
+- **Pendientes que la auditoría deja anotados** (van en PR aparte):
+  - el jitter de RF01, que se implementa;
+  - el umbral fijo de 800 del panel de throughput de Odín;
+  - `SondaCaida`, que no cubre las sondas del hogar.
 
 ## [0.5.13] - 2026-10-19
 

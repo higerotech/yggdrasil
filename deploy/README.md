@@ -6,14 +6,17 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
 
 | Ruta | Servicio | Qué es |
 |---|---|---|
-| `docker-compose.yml` | todos | Imágenes pineadas (ver `imagenes.md`), `mem_limit` (RNF01, 1408 MB), `restart` (RNF02), host-mode solo en sondas (ADR-0003); incluye Ratatosk y Nornas (ADR-0006) |
+| `docker-compose.yml` | todos | Imágenes pineadas (ver `imagenes.md`), `mem_limit` (RNF01, 1680 MB de techo sumado), `restart` (RNF02), host-mode solo en sondas (ADR-0003); incluye Ratatosk y Nornas (ADR-0006) |
 | `blackbox/blackbox.yml.tmpl` | Huginn y Muninn | Módulos `icmp_wan1/2` y `tls_wan1/2` con `source_ip_address` por WAN |
-| `prometheus/` | Mimir | Scrape cada 15 s, recording rules y alertas del contrato |
+| `prometheus/` | Mimir | Scrape cada 15 s por defecto (ICMP cada 5 s, Bragi 30 s, Thor 60 s), recording rules y alertas (Heimdall, Thor y Bragi); `prometheus/tests/` con las pruebas de `promtool` |
 | `alertmanager/alertmanager.yml.tmpl` | Gjallarhorn | Rutas, inhibición y webhook a Nornas con token Bearer |
 | `grafana/` | Odín | Datasource y dashboard `heimdall-sla` provisionados |
 | `sleipnir/` | Sleipnir | Imagen propia: throughput con la CLI de Ookla, una WAN cada 3 h, `/metrics` en :9469 |
+| `cd/yggdrasil-thor.sh` y servicio `thor` | Thor | Recolector en el host (SMART, montajes, ruta, servicios, respaldos) y httpd en :9471 que sirve `host.prom`; ver `cd/README.md` |
+| `host/` | — | Scripts del host: `wan-balancer`, el guardián `wan-watchdog` y su instalación; ver `host/README.md` |
+| `tests/` | — | Pruebas de montaje de configuración que corre el CI |
 | `mosquitto/` | Ratatosk | Mosquitto 2 (servicio de plataforma, ADR-0006): auth por cliente y ACL por tópico; passwd generado al arrancar desde `.env` |
-| `nornas/settings.js`, `nornas/init/` | Nornas | Node-RED 4 (servicio de plataforma): editor autenticado; `nornas-init` importa el flujo por la Admin API con las credenciales MQTT |
+| `nornas/settings.js`, `nornas/init/` | Nornas | Node-RED 4 (servicio de plataforma): editor autenticado; `nornas-init` importa el flujo por la Admin API con las credenciales MQTT, y lo reimporta cuando cambia su revisión |
 | `nornas/flows/heimdall-alertas.json` | Nornas | Flujo de Heimdall; se genera con `nornas/generar-flujo.py` a partir del JavaScript revisable de `nornas/src/` |
 | `scripts/render.sh`, `scripts/deploy.sh` | — | Render de plantillas y despliegue manual de contingencia |
 | `docker-compose.cd.yml`, `sync/`, `cd/` | — | Despliegue continuo con el receptor de `despliegue-continuo` (ADR-0005): tareas sync, bootstrap del servidor e inventario; ver `cd/README.md` |
@@ -24,7 +27,7 @@ los archivos renderizados a partir de las plantillas `*.tmpl` también están ig
 - Docker Engine + Compose v2. Interfaces `wan1` y `wan2` con IPv4 y reglas `ip rule from <ip>`
   del proyecto de routing: las sondas fuerzan la IP de origen y esas reglas eligen la tabla.
 - ICMP sin root para blackbox: `sysctl -w net.ipv4.ping_group_range="0 2147483647"` (persistir
-  en `/etc/sysctl.d/`). El contenedor además lleva `cap_add: NET_RAW`.
+  en `/etc/sysctl.d/`). El contenedor corre como `nobody` con `cap_drop: [ALL]` (v0.4.8): no necesita `NET_RAW`.
 - nftables (segunda barrera, ADR-0003): las sondas escuchan en la IP de docker0 (`DOCKER_HOST_GW`,
   puertos 9115 y 9469). Permitir INPUT a esos puertos solo desde las redes de Docker
   (`172.16.0.0/12`) y denegarlos desde LAN/WAN. Permitir 3000 solo desde LAN y WireGuard.
@@ -45,7 +48,7 @@ docker compose exec mimir wget -qO- localhost:9090/-/ready
 Si una WAN no tiene IPv4 en el momento del render (ISP caído, adaptador ausente), `render.sh` conserva
 la última IP renderizada y avisa, para que un despliegue no falle justo cuando un enlace está fuera;
 solo aborta si tampoco hay render previo. Odín queda en `http://<HOST_LAN_IP>:3000` y el editor de Nornas en `http://<HOST_LAN_IP>:1880`, ambos con
-las cuentas de `.env`; `nornas-init` importa el flujo de Heimdall solo en el primer arranque. En midgard el despliegue es
+las cuentas de `.env`; `nornas-init` importa el flujo de Heimdall y lo reimporta cuando cambia su revisión. En midgard el despliegue es
 continuo (`cd/README.md`); `./scripts/deploy.sh` queda como vía manual de contingencia. Si un ISP cambia la IP, ejecutar `./scripts/render.sh` (idempotente; recarga
 blackbox y Alertmanager en caliente). Conviene engancharlo a `dhclient-exit-hooks.d` o
 `networkd-dispatcher` para que ocurra solo.
@@ -73,7 +76,7 @@ La misma batería corre en GitHub Actions (`validar-configs.yml`) en cada PR que
   `iperf3` siguen disponibles; `OOKLA_SERVER_ID` admite una lista de servidores y la sonda se queda con el máximo por sentido: la
   elección automática puede caer en un servidor lento (312 Mbps frente a 941 en la misma WAN).
 - **Sleipnir sirve su textfile por HTTP** (busybox httpd en :9469) en vez de pasar por
-  node_exporter, que llegará con Thor. Contrato de métricas intacto.
+  node_exporter. Thor siguió el mismo camino (recolector en el host + httpd), sin node_exporter. Contrato de métricas intacto.
 - **Latencia desde `probe_icmp_duration_seconds{phase="rtt"}`** (RTT real) y no desde
   `probe_duration_seconds`, que incluye resolución y setup.
 - **Puertos host-mode ligados a la IP de docker0,** no a 0.0.0.0: Mimir los alcanza por

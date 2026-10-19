@@ -5,8 +5,8 @@
 #
 # Presupuesto RNF01 (RAM real del stack ≤ 1.5 GB): el criterio del PRD y de TA-12 es el uso medido
 # con `docker stats`, no la suma de techos. Los `mem_limit` son límites por contenedor, no reservas,
-# y suman 64 + 128 + 512 + 128 + 512 (Heimdall) + 64 + 256 (Ratatosk y Nornas, ADR-0006) = 1664 MB.
-# Uso real medido en 24 h (TA-12): 397 MB de media, 554 MB de pico — un tercio del presupuesto.
+# y suman 64 + 128 + 16 + 512 + 128 + 512 (Heimdall y Thor) + 64 + 256 (Ratatosk y Nornas, ADR-0006) = 1680 MB.
+# Uso real medido en 24 h (TA-12, antes de Thor): 406 MiB de media, 554 de pico — un tercio del presupuesto.
 # Odín pasó de 256 a 512 MB el 2026-09-16: rozaba el 86 % de su techo (220 MiB) y un OOM kill
 # se lleva por delante el dashboard y la sesión de Grafana.
 # Puertos publicados, todos solo en la IP LAN (${HOST_LAN_IP}): Odín 3000, Ratatosk 1883 y el editor
@@ -134,7 +134,7 @@ services:
       - --web.listen-address=:9093
     networks: [heimdall]
 
-  # Odín — Grafana: dashboards comparativos; único puerto publicado, solo en la LAN
+  # Odín — Grafana: dashboards comparativos; puerto 3000 publicado solo en la LAN
   odin:
     <<: *comun
     image: grafana/grafana:12.4.10

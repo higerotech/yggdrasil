@@ -6,7 +6,7 @@
 * **Fase AI-DLC:** 04-testing
 * **Versión:** 0.5.0
 * **Gate:** 3 (cerrado)
-* **Alcance de prueba:** el sistema desplegado en midgard por el despliegue continuo (ADR-0005); no hay unidades de código que probar salvo dos scripts y dos nodos function
+* **Alcance de prueba:** el sistema desplegado en midgard por el despliegue continuo (ADR-0005); en Gate 3 no había unidades de código que probar salvo dos scripts y dos nodos function. Las pruebas automatizadas añadidas después están en `inventario-pruebas.md`
 * **Requisitos cubiertos:** RF01–RF09, RNF01–RNF02, RS01, escenarios de abuso del PRD, amenazas T1–T5
 
 ## Estrategia
@@ -362,7 +362,7 @@ stateDiagram-v2
 
 ## Rendimiento y calibración del techo de throughput
 - **RNF01** (TA-12): el criterio es la **RAM real del stack** medida con `docker stats` durante 24 h,
-  no la suma de `mem_limit` (techos de contención, no reservas), que es de 1664 MB desde el 2026-09-16.
+  no la suma de `mem_limit` (techos de contención, no reservas), que era de 1664 MB el 2026-09-16 y es de 1680 MB con Thor.
   Si Mimir supera 400 MB sostenidos, revisar cardinalidad y `retention` antes de tocar límites.
 - **Latencia de alertado** (TA-03/TA-04): el cronómetro arranca al inducir el fallo y termina cuando
   el push llega. Medido en Gate 3: 2 min 18–46 s para la caída y ≈ 6 min para la degradación

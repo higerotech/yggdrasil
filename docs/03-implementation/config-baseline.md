@@ -8,7 +8,7 @@
 * **Gate:** 2
 * **Rama principal:** main
 * **Estrategia de branching:** GitFlow (`develop` integra, `release/X.Y.Z` corta, `main` solo recibe PR con merge commit)
-* **ADRs relacionadas:** ADR-0001 (stack), ADR-0002 (placement y CD), ADR-0003 (red host-mode selectiva), ADR-0004 (frontera con Fenrir)
+* **ADRs relacionadas:** ADR-0001 (stack), ADR-0002 (placement), ADR-0003 (red host-mode selectiva), ADR-0004 (frontera con Fenrir), ADR-0005 (despliegue continuo, sustituye la sección de CD de ADR-0002)
 
 ## Qué significa "implementar" en este proyecto
 Heimdall es COTS configurado: blackbox_exporter, Prometheus, Alertmanager y Grafana no se
@@ -27,8 +27,8 @@ herramientas oficiales + cadena de suministro verificada + historial versionado*
 | Gjallarhorn (Alertmanager) | `deploy/alertmanager/alertmanager.yml.tmpl` | RF04 |
 | Odín (Grafana) | `deploy/grafana/provisioning/*`, `dashboards/heimdall-sla.json` | RF06, RS01 |
 | Nornas (puente MQTT y push) | `deploy/nornas/src/*.js` → `flows/heimdall-alertas.json` | RF04, RF05 |
-| Presupuesto y arranque | `mem_limit` (1664 MB de techo en total; RNF01 acota la RAM real, 554 MB de pico en TA-12), `restart: unless-stopped` | RNF01, RNF02 |
-| Despliegue (ADR-0002) | `deploy/scripts/render.sh`, `deploy/scripts/deploy.sh`, `deploy/.env.example` | — |
+| Presupuesto y arranque | `mem_limit` (1664 MB de techo en total en Gate 2; 1680 con Thor; RNF01 acota la RAM real, 554 MB de pico en TA-12), `restart: unless-stopped` | RNF01, RNF02 |
+| Despliegue (ADR-0005; contingencia manual) | `deploy/scripts/render.sh`, `deploy/scripts/deploy.sh`, `deploy/.env.example` | — |
 | Cadena de suministro | `deploy/imagenes.md`, `cadena-suministro.md` | A03 |
 
 ### Pipeline de render y despliegue

@@ -6,7 +6,7 @@
 * **Fase AI-DLC:** 02-design
 * **Versión:** 1.0.0
 * **ID:** ADR-0002
-* **Supersede / Superseded-by:** —
+* **Supersede / Superseded-by:** sección de despliegue continuo sustituida por ADR-0005
 * **Controles OWASP afectados:** A02
 
 ## Contexto
@@ -27,3 +27,8 @@ Todo el stack corre en el appliance (Ubuntu 24.04, Docker Compose). Candidato ú
 - Negativas / deuda asumida: la disponibilidad del monitoreo depende del propio appliance (se auto-observa; un fallo total del host es punto ciego — mitigable a futuro con un heartbeat externo mínimo).
 - Impacto en threat model: mantiene todos los datos dentro del trust boundary del hogar.
 - Condiciones de revisión: si se necesita observar el appliance desde fuera (dead-man switch), evaluar un heartbeat gratuito (p. ej. healthchecks.io) en una ADR nueva.
+
+> **Revisión 2026-10-19.** El placement (appliance local) sigue vigente. La forma de desplegar en
+> él la decide ADR-0005 (despliegue continuo con el receptor de `despliegue-continuo`), que
+> supersede la sección de CD de este ADR. El heartbeat externo (dead-man switch) sigue sin
+> implementar: es un pendiente del Gate 4.

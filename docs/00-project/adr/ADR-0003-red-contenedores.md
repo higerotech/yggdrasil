@@ -31,3 +31,10 @@ Topología mixta:
 - Impacto en threat model: reduce superficie de T2/T4; añade dependencia de la política INPUT del firewall.
 - Aceptada por el owner el 2026-09-05.
 - Nota de implementación (Gate 2, 2026-09-05): las sondas en host-mode (9115 blackbox, 9469 Sleipnir) escuchan solo en la IP de docker0 y Mimir las alcanza por `host.docker.internal`; la LAN no las ve aunque falle la política INPUT de nftables, que queda como segunda barrera.
+
+> **Revisión 2026-10-19 — lo que cambió al implementar.**
+> - Blackbox ya no lleva `cap_add: NET_RAW`: desde la v0.4.8 (TS-07) corre como `nobody` con
+>   `cap_drop: [ALL]`, y el ICMP sin privilegios sale de `net.ipv4.ping_group_range` del host.
+> - Grafana ya no es el único puerto publicado en la LAN: ADR-0006 añade Ratatosk (1883) y el
+>   editor de Nornas (1880), que sirve también Hlidskjalf (ADR-0007). Los tres escuchan solo en la
+>   IP LAN; Mimir y Gjallarhorn siguen sin puerto publicado.

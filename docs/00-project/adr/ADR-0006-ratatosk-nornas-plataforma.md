@@ -62,3 +62,14 @@ servicios de plataforma en su propio Compose, en midgard:
   ambos pueden convivir en puertos distintos.
 - Condiciones de revisión: si aparece un tercer proyecto que necesite el bus con ciclo de vida
   distinto, evaluar el stack aparte; si la superficie del editor preocupa, restringir 1880 a WireGuard.
+
+> **Revisión 2026-10-19 — sin el cliente `frigate`.** Con la salida de Fenrir de midgard (0.5.3,
+> 2026-09-11) se retiraron el usuario `frigate`, su ACL `frigate/#` y `MQTT_FRIGATE_PASSWORD`.
+> Ratatosk tiene hoy dos clientes: `nornas` (único que escribe `midgard/#`) e `iot`.
+>
+> Cifras de memoria corregidas:
+> - La suma de `mem_limit` es **1680 MB** con Thor (16 MB), no 1664.
+> - La RAM media de TA-12 es **406 MiB** (evidencia de `test-plan.md`), no 397 MB.
+>
+> `nornas-init` no importa el flujo solo en el primer arranque: lo reimporta cuando cambia su
+> revisión (hash de las fuentes, v0.4.x) y gestiona todas las pestañas.
