@@ -3,7 +3,7 @@
 * **Estado:** approved
 * **Fecha:** 2026-09-05
 * **Fase AI-DLC:** 03-implementation
-* **Versión:** 0.1.0
+* **Versión:** 0.3.0
 
 > Adaptación: Heimdall es COTS configurado (blackbox_exporter, Prometheus, Alertmanager, Grafana)
 > más dos piezas propias pequeñas (script de Sleipnir y flujo de Nornas). El equivalente a

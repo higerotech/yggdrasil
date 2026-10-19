@@ -30,3 +30,12 @@ Fenrir (Frigate NVR) se implementa y opera desde el proyecto independiente `nvr-
 - Negativas / deuda asumida: duplicidad temporal de piezas de observabilidad hasta la feature de integración; riesgo de contención de recursos si ambos proyectos crecen sin coordinar.
 - Impacto en threat model: ninguno nuevo en Yggdrasil; la integración futura añadirá el endpoint de métricas de Frigate como superficie y requerirá su propio ADR.
 - Condición de revisión: cuando `nvr-frigate` esté en producción (Gate 4/5) y se quiera un tablero único, abrir la feature de integración.
+
+> **Revisión 2026-10-19 — la integración existió y se deshizo.** El repositorio es
+> `higerotech/fenrir` (este ADR lo llama `nvr-frigate`, su nombre de entonces).
+> - La 0.5.1 y la 0.5.2 (2026-09-09) integraron sus métricas y alertas en Mimir.
+> - En la 0.5.3 (2026-09-11) Fenrir salió de midgard: el appliance promediaba demasiada CPU con el
+>   NVR. Se retiraron su job, sus 7 alertas y el usuario MQTT `frigate`.
+>
+> La frontera de este ADR vuelve a ser la vigente. El nombre Fenrir sigue reservado en `naming.md`.
+> El riesgo de contención de recursos con el NVR ya no aplica a midgard.

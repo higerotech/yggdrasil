@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi (owner)
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.1.3
+* **Versión:** 0.1.4
 * **Sponsor:** Jeremi
 * **Owner del proyecto:** Jeremi
 * **Nombre confirmado:** Yggdrasil (slug `yggdrasil`)
@@ -18,7 +18,7 @@ Plataforma demo de IoT y domótica sobre el appliance doméstico (Ubuntu Server 
   - Servicio de monitoreo SLA por WAN (latencia, pérdida, jitter, throughput, disponibilidad) para ISP1 e ISP2, con dashboards y alertas.
   - Bus de eventos MQTT (Ratatosk) como columna vertebral de la plataforma, desplegado por Yggdrasil como servicio de plataforma (ADR-0006).
   - Nornas (Node-RED) para notificaciones y automatizaciones derivadas, también servicio de plataforma.
-  - Base extensible para futuros servicios: integración con Fenrir (Frigate NVR, proyecto independiente `nvr-frigate`, ADR-0004), sensores IoT, métricas del host.
+  - Base extensible para futuros servicios: sensores IoT y otros proyectos de midgard. Ya construidas sobre esa base: métricas del host (Thor), tablero de pared (Hlidskjalf, ADR-0007) y la observabilidad de Bragi. Fenrir (Frigate NVR, `higerotech/fenrir`, ADR-0004) se integró y salió del appliance en la 0.5.3.
 - **No incluye (no-scope):**
   - Failover/enrutado dual-WAN (ya cubierto por el proyecto de routing nftables; aquí solo se observa).
   - Exposición de dashboards a internet público (solo LAN y WireGuard).
@@ -55,14 +55,14 @@ mindmap
 - Todo corre en Docker Compose sobre el appliance; sin dependencia de nube.
 
 ## Métricas de éxito del proyecto
-- Detección de caída de un ISP en < 2 min con notificación al móvil.
+- Detección de caída de un ISP en < 2 min con notificación al móvil (SLO de alertado aceptado en Gate 3: ≈ 2,5 min de punta a punta).
 - Evidencia histórica exportable para reclamos al proveedor (≥ 30 días de retención).
 - Media de disponibilidad mensual de internet del hogar (≥ 1 WAN operativa) y por ISP, calculada automáticamente.
 - Cada ISP sostiene p95 < 500 ms y throughput ≥ 80 % del nominal contratado por dirección (wan1 800↓/800↑, wan2 800↓/400↑ — ver revisión al pie); p95 < 200 ms como referencia para llamadas críticas.
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
-- Contención de recursos en el appliance compartido con `nvr-frigate` (Frigate); exige coordinar presupuestos entre proyectos (ADR-0004).
+- Contención de recursos en el appliance compartido con otros proyectos de midgard (Bragi, Bifröst, Hermod, Andvari). Con Frigate se materializó y Fenrir salió del appliance en la 0.5.3 (ADR-0004).
 - Conflicto Docker ↔ nftables con las reglas de routing existentes.
 - Fatiga de alertas por umbrales mal calibrados.
 
@@ -76,3 +76,10 @@ mindmap
 > codificados en la recording rule `wan:slo_throughput_mbps` en vez de escritos a mano en la
 > alerta. La alerta pasa además a vigilar la subida, que hasta esa fecha no miraba nadie.
 > Confirmado por el owner (Jeremi) el 2026-09-16.
+
+> **Revisión 2026-10-19 — coherencia con la v0.5.13.**
+> - El alcance recoge lo construido sobre la «base extensible»: Thor, Hlidskjalf y la
+>   observabilidad de Bragi.
+> - Fenrir se integró y salió de midgard (0.5.3).
+> - La métrica de caída cita el SLO de alertado aceptado en Gate 3.
+> - El jitter sigue en el alcance: se implementa tras la 0.5.13 (decisión de Jeremi, 2026-10-19).

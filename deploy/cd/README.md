@@ -14,8 +14,8 @@ sudo bash /tmp/bootstrap-midgard.sh
 ```
 
 Hace, de forma idempotente: `net.ipv4.ping_group_range` para ICMP sin root; clon del repo en
-`/srv/apps/yggdrasil` como usuario `deploy`; `deploy/.env` con la IP LAN, la IP de docker0, una
-contraseña de Grafana y un token de webhook aleatorios (0600, nunca se sobrescribe); render y
+`/srv/apps/yggdrasil` como usuario `deploy`; `deploy/.env` con la IP LAN, la IP de docker0 y todos los
+secretos que falten (`*_SECRET`, `*_TOKEN` y cualquier `CAMBIAR`) aleatorios (0600, nunca se sobrescribe); render y
 validación inicial; entrada de Yggdrasil en `/etc/cd-receiver/apps.yml` con recarga del receptor;
 e imprime las reglas nftables sugeridas sin aplicarlas. Revisa después `WAN1_IF`, `WAN2_IF` y
 `NORNAS_URL` en el `.env`.
@@ -149,8 +149,9 @@ Comprobación: `systemctl list-timers yggdrasil-respaldo.timer` y
 El vigía cubre lo que `OnFailure` no ve: un temporizador que no llega a dispararse o un respaldo
 que nunca termina. Si anoche falló, por la mañana llegan los dos: el segundo es el recordatorio.
 
-Van **directos del host a ntfy**, como `smartd-ntfy`, y no por Gjallarhorn → Nornas: la salida push
-de Nornas sigue sin conectar, y el aviso de un respaldo no debe depender del stack que respalda.
+Van **directos del host a ntfy**, como `smartd-ntfy`, y no por Gjallarhorn → Nornas: el aviso de un
+respaldo no debe depender del stack que respalda. (La salida push de Nornas sí está conectada: con
+`NTFY_URL` en el `.env`, publica las alertas en ntfy desde la 0.5.6.)
 
 El tema de ntfy **es** la credencial: quien lo conozca lee los avisos. Se lee de
 `/etc/yggdrasil-aviso.env` (`AVISO_URL=...`), que en midgard es un enlace a `/etc/smartd-aviso.env`,
