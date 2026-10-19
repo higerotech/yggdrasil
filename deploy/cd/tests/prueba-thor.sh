@@ -65,6 +65,8 @@ cat > "$T/bin/docker" <<'EOF'
 case "$1" in
   ps) awk '{print $1}' "$STUB/contenedores" ;;
   inspect) l=$(grep "^${*: -1} " "$STUB/contenedores") || exit 1; echo "${l#* }" ;;
+  # docker exec <andvari> bao status -format=json: $STUB/bao-status, con el codigo de $STUB/bao-rc
+  exec) [ -f "$STUB/bao-status" ] || exit 1; cat "$STUB/bao-status"; exit "$(cat "$STUB/bao-rc" 2>/dev/null || echo 0)" ;;
 esac
 EOF
 # systemctl show -p LoadState --value <u>  /  systemctl is-active --quiet <u>
@@ -207,6 +209,25 @@ no_tiene "respaldo sin marca: no se publica" 'respaldo="falta"'
 no_tiene "nombre de respaldo invalido: no se publica" 'respaldo="Mal'
 no_tiene "journalctl falla: no publica un 0 que diga que el disco esta bien" 'yggdrasil_disco_errores_kernel_15m{'
 tiene "journalctl falla: el tipo de disco sigue" 'yggdrasil_disco_rotacional{disco="sdb"} 0'
+
+rm "$T/journal-falla"
+
+# --- Contenedores de fuera del proyecto, y el sello de Andvari ---------------------------------------
+printf '{"initialized": true, "sealed": false}\n' > "$T/bao-status"
+THOR_CONTENEDORES="bifrost-nats" THOR_ANDVARI=andvari-openbao pasada
+tiene "contenedor de fuera del proyecto que no existe: 0" 'yggdrasil_servicio_ok{tipo="contenedor",nombre="bifrost-nats"} 0'
+tiene "Andvari abierto" 'yggdrasil_andvari_sellado 0'
+printf '{\n  "initialized": true,\n  "sealed": true\n}\n' > "$T/bao-status"; echo 2 > "$T/bao-rc"
+THOR_ANDVARI=andvari-openbao pasada
+tiene "Andvari sellado, aunque bao status salga con 2" 'yggdrasil_andvari_sellado 1'
+no_tiene "sin THOR_CONTENEDORES no entra nada de fuera" 'nombre="bifrost-nats"'
+rm "$T/bao-status" "$T/bao-rc"
+THOR_ANDVARI=andvari-openbao pasada
+no_tiene "Andvari sin respuesta: no se publica un 0 que diga que esta abierto" 'yggdrasil_andvari_sellado'
+printf '{"sealed": true}\n' > "$T/bao-status"
+pasada
+no_tiene "sin THOR_ANDVARI no se mira" 'yggdrasil_andvari_sellado'
+rm "$T/bao-status"
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
