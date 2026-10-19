@@ -77,7 +77,40 @@ case "$1" in
   is-active) [ "${l#* }" = activa ] ;;
 esac
 EOF
+# journalctl -k --since -15min ... : las lineas de $STUB/kernel
+cat > "$T/bin/journalctl" <<'EOF'
+#!/usr/bin/env bash
+[ -f "$STUB/journal-falla" ] && exit 1
+cat "$STUB/kernel"
+EOF
 chmod +x "$T/bin/"*
+
+# /sys simulado: sda mecanico en ata1, sdb SSD en ata6. THOR_DISCOS nombra el SSD por una ruta
+# estable (by-id), como en midgard.
+for d in "sda ata1 0 1" "sdb ata6 5 0"; do
+    read -r nombre ata host rota <<<"$d"
+    dev="$T/sys/devices/pci0000:00/0000:00:17.0/$ata/host$host/target$host:0:0/$host:0:0:0/block/$nombre"
+    mkdir -p "$dev/queue" "$T/sys/block"
+    echo "$rota" > "$dev/queue/rotational"
+    ln -s "$dev" "$T/sys/block/$nombre"
+done
+mkdir -p "$T/dev/disk/by-id"
+touch "$T/dev/sdb"
+ln -s "$T/dev/sdb" "$T/dev/disk/by-id/ata-SSD_DE_PRUEBA"
+# ata16 no es ata1; un disco que se cae del bus deja exception, failed command y resets, y despues
+# los errores de E/S y de ext4 del dispositivo
+cat > "$T/kernel" <<'EOF'
+ata1.00: configured for UDMA/133
+ata16: hard resetting link
+ata6.00: exception Emask 0x0 SAct 0x1f SErr 0x0 action 0x6 frozen
+ata6.00: failed command: WRITE FPDMA QUEUED
+ata6: hard resetting link
+ata6: SATA link up 3.0 Gbps (SStatus 123 SControl 300)
+ata6.00: configured for UDMA/133
+I/O error, dev sdb, sector 2048 op 0x1:(WRITE) flags 0x0 phys_seg 1 prio class 2
+EXT4-fs error (device sdb): ext4_find_entry:1455: inode #2: comm ls: reading directory lblock 0
+EOF
+
 echo "default via 192.168.1.1 dev wan1 " > "$T/ruta"
 touch "$T/nas-montado"
 printf '%s\n' "yggdrasil-grafana always running healthy" "yggdrasil-prometheus unless-stopped running -" \
@@ -89,7 +122,8 @@ printf '%s\n' "docker.service activa" "wan-balancer.service inactiva" > "$T/unid
 echo 1792180000 > "$T/ultimo-exito"
 
 export STUB="$T" PATH="$T/bin:$PATH" THOR_DIR="$T/pub" THOR_CACHE="$T/cache" THOR_SMART_CADA_S=600 \
-    THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito"
+    THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito" THOR_SYS="$T/sys" \
+    THOR_DISCOS="/dev/sda $T/dev/disk/by-id/ata-SSD_DE_PRUEBA"
 fallos=0
 ok()  { echo "ok   $1"; }
 mal() { echo "FALLO $1"; fallos=$((fallos + 1)); }
@@ -124,10 +158,17 @@ no_tiene "contenedor viejo renombrado por Compose al recrear fuera" 'nombre="545
 tiene "unidad activa" 'yggdrasil_servicio_ok{tipo="unidad",nombre="docker.service"} 1'
 tiene "unidad inactiva" 'yggdrasil_servicio_ok{tipo="unidad",nombre="wan-balancer.service"} 0'
 no_tiene "unidad no instalada se salta" 'nombre="dnsmasq.service"'
-tiene "ultimo respaldo" 'yggdrasil_respaldo_ultimo_exito_timestamp_seconds 1792180000'
+tiene "ultimo respaldo, por defecto el de yggdrasil" 'yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo="yggdrasil"} 1792180000'
+tiene "ruta by-id: la etiqueta es el nombre del kernel" 'yggdrasil_smart_lectura_ok{disco="sdb"} 1'
+[ -s "$T/cache/smart-sdb" ] && ok "ruta by-id: cache por nombre del kernel" || mal "ruta by-id: cache por nombre del kernel"
+no_tiene "ruta by-id: el nombre del enlace no sale" 'ata-SSD_DE_PRUEBA'
+tiene "mecanico" 'yggdrasil_disco_rotacional{disco="sda"} 1'
+tiene "SSD" 'yggdrasil_disco_rotacional{disco="sdb"} 0'
+tiene "errores del kernel del SSD: exception, failed command, reset, E/S y ext4" 'yggdrasil_disco_errores_kernel_15m{disco="sdb"} 5'
+tiene "ata16 y un configured no cuentan para sda" 'yggdrasil_disco_errores_kernel_15m{disco="sda"} 0'
 
 pasada
-[ "$(wc -l < "$T/smartctl.log")" = 1 ] && ok "segunda pasada: reutiliza la cache, no llama a smartctl" || mal "segunda pasada: reutiliza la cache"
+[ "$(wc -l < "$T/smartctl.log")" = 2 ] && ok "segunda pasada: reutiliza la cache, no llama a smartctl" || mal "segunda pasada: reutiliza la cache"
 
 printf 'default \n\tnexthop via 192.168.1.1 dev wan1 weight 1 \n\tnexthop via 192.168.2.1 dev wan2 weight 1 \n' > "$T/ruta"
 pasada
@@ -144,7 +185,7 @@ pasada
 tiene "df colgado (timeout): no montado" 'yggdrasil_fs_montado{punto="/mnt/nas/respaldos"} 0'
 rm "$T/df-cuelga"
 
-rm -f "$T/cache/smart-sda"; touch "$T/smartctl-falla"
+rm -f "$T/cache/smart-"*; touch "$T/smartctl-falla"
 pasada
 tiene "smartctl sin salida y sin cache: lectura fallida" 'yggdrasil_smart_lectura_ok{disco="sda"} 0'
 no_tiene "smartctl sin salida: no inventa atributos" 'yggdrasil_smart_atributo{'
@@ -155,6 +196,17 @@ no_tiene "docker caido: no publica contenedores" 'tipo="contenedor"'
 tiene "docker caido: las unidades siguen" 'yggdrasil_servicio_ok{tipo="unidad",nombre="docker.service"} 1'
 grep -q '^yggdrasil_respaldo_ultimo_exito_timestamp_seconds' "$T/pub/host.prom" \
     && mal "marca de respaldo no numerica: no se publica" || ok "marca de respaldo no numerica: no se publica"
+rm "$T/docker-caido"
+
+echo 1792180000 > "$T/ultimo-exito"; echo 1792190000 > "$T/bifrost-exito"
+touch "$T/journal-falla"
+THOR_RESPALDOS="yggdrasil=$T/ultimo-exito bifrost=$T/bifrost-exito falta=$T/no-existe Mal\"o=$T/bifrost-exito" pasada
+tiene "varios respaldos: yggdrasil" 'yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo="yggdrasil"} 1792180000'
+tiene "varios respaldos: bifrost" 'yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo="bifrost"} 1792190000'
+no_tiene "respaldo sin marca: no se publica" 'respaldo="falta"'
+no_tiene "nombre de respaldo invalido: no se publica" 'respaldo="Mal'
+no_tiene "journalctl falla: no publica un 0 que diga que el disco esta bien" 'yggdrasil_disco_errores_kernel_15m{'
+tiene "journalctl falla: el tipo de disco sigue" 'yggdrasil_disco_rotacional{disco="sdb"} 0'
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }

@@ -14,6 +14,7 @@ const SERIES = [
     "yggdrasil_wan_en_ruta", "yggdrasil_thor_timestamp_seconds",
     "yggdrasil_smart_atributo", "yggdrasil_smart_salud", "yggdrasil_smart_lectura_ok",
     "yggdrasil_fs_montado", "yggdrasil_fs_tamano_bytes", "yggdrasil_fs_libre_bytes",
+    "yggdrasil_disco_rotacional", "yggdrasil_disco_errores_kernel_15m",
     "yggdrasil_servicio_ok", "yggdrasil_respaldo_ultimo_exito_timestamp_seconds",
 ];
 // Atributos SMART que enseña el tablero (los que publica Thor y vigila DiscoEmpeora, más contexto).
@@ -57,6 +58,8 @@ const wan = wans.map((w) => {
 const discos = [...new Set(de("yggdrasil_smart_lectura_ok").map((s) => s.metric.disco))].sort().map((d) => {
     const disco = { disco: d, lectura_ok: valor("yggdrasil_smart_lectura_ok", { disco: d }), salud: valor("yggdrasil_smart_salud", { disco: d }) };
     for (const [id, clave] of Object.entries(SMART)) disco[clave] = valor("yggdrasil_smart_atributo", { disco: d, id });
+    disco.rotacional = valor("yggdrasil_disco_rotacional", { disco: d });
+    disco.errores_kernel = valor("yggdrasil_disco_errores_kernel_15m", { disco: d });
     return disco;
 });
 const fs = de("yggdrasil_fs_montado").map((s) => s.metric.punto).sort().map((p) => ({
@@ -65,7 +68,15 @@ const fs = de("yggdrasil_fs_montado").map((s) => s.metric.punto).sort().map((p) 
     tamano_bytes: valor("yggdrasil_fs_tamano_bytes", { punto: p }),
     libre_bytes: valor("yggdrasil_fs_libre_bytes", { punto: p }),
 }));
-const respaldo = valor("yggdrasil_respaldo_ultimo_exito_timestamp_seconds");
+// Un respaldo por etiqueta `respaldo` (Yggdrasil, Bifrost...). Sin etiqueta es el de Yggdrasil:
+// así lo publicaba Thor antes de admitir varios.
+const respaldos = de("yggdrasil_respaldo_ultimo_exito_timestamp_seconds")
+    .map((s) => {
+        const ts = num(s.value[1]);
+        return { nombre: s.metric.respaldo || "yggdrasil", ultimo_exito: ts, hace_h: ts === null ? null : Math.floor(hace(ts) / 3600) };
+    })
+    .sort((a, b) => (a.nombre === "yggdrasil" ? -1 : b.nombre === "yggdrasil" ? 1 : a.nombre.localeCompare(b.nombre)));
+const respaldo = respaldos.find((r) => r.nombre === "yggdrasil") || { ultimo_exito: null, hace_h: null };
 const servicios = de("yggdrasil_servicio_ok")
     .map((s) => ({ tipo: s.metric.tipo, nombre: s.metric.nombre, ok: num(s.value[1]) }))
     .sort((a, b) => (a.tipo === b.tipo ? a.nombre.localeCompare(b.nombre) : a.tipo === "contenedor" ? -1 : 1));
@@ -92,7 +103,9 @@ msg.payload = {
         thor_hace_s: hace(valor("yggdrasil_thor_timestamp_seconds")),
         discos,
         fs,
-        respaldo: { ultimo_exito: respaldo, hace_h: respaldo === null ? null : Math.floor(hace(respaldo) / 3600) },
+        // `respaldo` (solo el de Yggdrasil) queda para la tablet que aún tenga cargado el tablero viejo
+        respaldo: { ultimo_exito: respaldo.ultimo_exito, hace_h: respaldo.hace_h },
+        respaldos,
     },
     servicios,
 };

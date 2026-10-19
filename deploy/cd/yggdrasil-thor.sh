@@ -13,7 +13,15 @@
 #     permanentes del Compose, sacados del inventario que mantiene el vigia de servicios, y las
 #     unidades del host. Solo se publican; el aviso sigue siendo cosa del vigia, que no depende
 #     de la cadena de alertas.
-#   - Momento del ultimo respaldo completado (marca que deja yggdrasil-respaldar.sh).
+#   - Momento del ultimo respaldo completado de cada respaldo de THOR_RESPALDOS (nombre=marca): el de
+#     Yggdrasil (yggdrasil-respaldar.sh) y los de otros servicios del host, como Bifrost.
+#   - De cada disco, si es mecanico o SSD, y cuantos errores del enlace SATA o de E/S registro el
+#     kernel en los ultimos 15 min. smartctl no ve que un disco se caiga del bus: el SSD de datos
+#     se cayo asi el 2026-10-19 con SMART limpio.
+#
+# La configuracion de cada host (discos, puntos, respaldos) va en /etc/default/yggdrasil-thor, que
+# lee la unidad: este repositorio es publico y no debe llevar numeros de serie. THOR_DISCOS admite
+# rutas estables (/dev/disk/by-id/...): la etiqueta `disco` es el nombre del kernel al que apuntan.
 #
 # Escritura atomica (fichero temporal en el MISMO directorio + mv). El directorio se monta entero
 # en el contenedor: montar el fichero suelto dejaria al contenedor leyendo el inodo viejo tras cada
@@ -35,7 +43,10 @@ INVENTARIO=${THOR_INVENTARIO:-/var/lib/yggdrasil-vigia/.inventario}
 PROYECTO=${THOR_PROYECTO:-yggdrasil}
 UNIDADES=${THOR_UNIDADES:-docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer}
 RESPALDO_MARCA=${THOR_RESPALDO_MARCA:-/var/lib/yggdrasil-respaldo/ultimo-exito}
+RESPALDOS=${THOR_RESPALDOS:-yggdrasil=$RESPALDO_MARCA}
 DOCKER_TIMEOUT_S=${THOR_DOCKER_TIMEOUT_S:-10}
+JOURNAL_TIMEOUT_S=${THOR_JOURNAL_TIMEOUT_S:-10}
+SYS=${THOR_SYS:-/sys}
 AHORA=$(date +%s)
 
 mkdir -p "$DIR" "$CACHE"
@@ -59,7 +70,7 @@ echo "# TYPE yggdrasil_smart_salud gauge"
 echo "# HELP yggdrasil_smart_lectura_ok 1 si la ultima lectura de smartctl funciono."
 echo "# TYPE yggdrasil_smart_lectura_ok gauge"
 for disco in $DISCOS; do
-    nombre=$(basename "$disco")
+    nombre=$(basename "$(readlink -f "$disco")")
     cache="$CACHE/smart-$nombre"
     edad=$(( AHORA - $(stat -c %Y "$cache" 2>/dev/null || echo 0) ))
     if [ "$edad" -ge "$SMART_CADA_S" ]; then
@@ -78,6 +89,33 @@ for disco in $DISCOS; do
     else
         echo "yggdrasil_smart_lectura_ok{disco=\"$nombre\"} 0"
     fi
+done
+
+# --- Tipo de disco y errores del kernel ------------------------------------------------------
+# El puerto ATA sale de la ruta del dispositivo en /sys (.../ataN/...); sin el (NVMe, USB) solo se
+# cuentan los errores de E/S del propio disco.
+echo "# HELP yggdrasil_disco_rotacional 1 si el disco es mecanico, 0 si es SSD."
+echo "# TYPE yggdrasil_disco_rotacional gauge"
+echo "# HELP yggdrasil_disco_errores_kernel_15m Errores del enlace SATA o de E/S del disco en el registro del kernel en 15 min."
+echo "# TYPE yggdrasil_disco_errores_kernel_15m gauge"
+# Si journalctl falla no se publica el contador: un 0 diria que el disco esta bien sin saberlo.
+if kernel=$(timeout "$JOURNAL_TIMEOUT_S" journalctl -k -q --since "-15min" --no-pager -o cat 2>/dev/null); then
+    journal_ok=1
+else
+    journal_ok=0
+fi
+for disco in $DISCOS; do
+    nombre=$(basename "$(readlink -f "$disco")")
+    rotacional=$(cat "$SYS/block/$nombre/queue/rotational" 2>/dev/null)
+    if [[ "$rotacional" =~ ^[01]$ ]]; then echo "yggdrasil_disco_rotacional{disco=\"$nombre\"} $rotacional"; fi
+    [ "$journal_ok" = 1 ] || continue
+    ata=$(readlink -f "$SYS/block/$nombre" 2>/dev/null | grep -o -E '/ata[0-9]+/' | tr -d / | head -n 1)
+    patron="I/O error, dev ${nombre}[ ,]|EXT4-fs (error|warning) \(device $nombre"
+    if [ -n "$ata" ]; then
+        patron="$patron|$ata(\.[0-9]+)?: (exception|failed command|hard resetting link|link is slow|reset failed|disable device)"
+    fi
+    errores=$(printf '%s\n' "$kernel" | grep -c -E "$patron" || true)
+    echo "yggdrasil_disco_errores_kernel_15m{disco=\"$nombre\"} ${errores:-0}"
 done
 
 # --- Espacio en disco ------------------------------------------------------------------------
@@ -146,13 +184,17 @@ for u in $UNIDADES; do
     echo "yggdrasil_servicio_ok{tipo=\"unidad\",nombre=\"$u\"} $ok"
 done
 
-# --- Respaldo --------------------------------------------------------------------------------
+# --- Respaldos -------------------------------------------------------------------------------
 echo "# HELP yggdrasil_respaldo_ultimo_exito_timestamp_seconds Momento del ultimo respaldo completado."
 echo "# TYPE yggdrasil_respaldo_ultimo_exito_timestamp_seconds gauge"
-marca=$(cat "$RESPALDO_MARCA" 2>/dev/null)
-if [[ "$marca" =~ ^[0-9]+$ ]]; then
-    echo "yggdrasil_respaldo_ultimo_exito_timestamp_seconds $marca"
-fi
+for r in $RESPALDOS; do
+    nombre=${r%%=*}
+    [[ "$nombre" =~ ^[a-z0-9_-]+$ ]] || continue
+    marca=$(cat "${r#*=}" 2>/dev/null)
+    if [[ "$marca" =~ ^[0-9]+$ ]]; then
+        echo "yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo=\"$nombre\"} $marca"
+    fi
+done
 } > "$tmp"
 
 chmod 0644 "$tmp"

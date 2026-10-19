@@ -9,6 +9,25 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst.** El SSD se cayó
+  del bus el 2026-10-19 con SMART limpio: `smartctl` no lo habría visto.
+  - **Errores del kernel por disco:** `yggdrasil_disco_errores_kernel_15m` cuenta los errores del
+    enlace SATA del puerto del disco y los de E/S y ext4 del dispositivo. Probado contra el
+    registro real del incidente: 55 líneas.
+  - **Tipo de disco:** `yggdrasil_disco_rotacional` dice si es mecánico o SSD.
+  - **Varios respaldos:** `yggdrasil_respaldo_ultimo_exito_timestamp_seconds` lleva ahora la etiqueta
+    `respaldo`, uno por cada entrada de `THOR_RESPALDOS`.
+  - **Alertas nuevas:** `DiscoErroresKernel` (crítica), `PuntoNoMontado` (crítica, para el SSD) y
+    `RespaldoAtrasado` (30 h).
+  - **Configuración del host:** la unidad lee `/etc/default/yggdrasil-thor` (discos, puntos,
+    unidades y respaldos), que queda fuera del repositorio público. `THOR_DISCOS` admite rutas
+    `by-id`.
+  - **Hliðskjálf:** cada disco sale con su tipo, y en rojo si el kernel registra errores de su
+    enlace. `/srv/rapido` se llama «SSD» y hay una fila por respaldo. El resumen conserva `respaldo`
+    para la tablet que aún tenga el tablero viejo, y lee como `yggdrasil` la serie sin etiqueta de
+    un Thor anterior.
+
 ### Corregido
 - **El segundo despliegue de una release ya no recrea Sleipnir, Thor ni sync.** Cuando un commit
   cambia el Compose, el job `redespliegue` relanza `build` para que el receptor despliegue otra vez
