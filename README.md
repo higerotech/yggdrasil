@@ -39,8 +39,9 @@ discrepancia con el balanceador) y corrige las reglas de SLO; la `0.5.9` añade 
 tablero de pared en una tablet (ADR-0007), y la `0.5.10` calcula la pérdida de cada WAN con la
 mediana de tres objetivos y marca en la tablet las mediciones de Sleipnir; la `0.5.11` corrige
 los servicios fantasma de Thor durante un despliegue y los modos `speedtest` e `iperf3` de
-Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, y la `0.5.13` hace que la
-tablet no pierda información (alertas siempre visibles, nada tapado sin avisar). El sistema opera
+Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, la `0.5.13` hace que la
+tablet no pierda información (alertas siempre visibles, nada tapado sin avisar), y la `0.5.14` añade
+Saga, el almacén de trazas con Grafana Tempo en el SSD (ADR-0008). El sistema opera
 en producción con despliegue continuo desde la `0.4.0`. El Gate 4 (Deployment) se abrió formalmente
 el 2026-10-19 con su checklist (`.ai-dlc/gates/gate-4-deployment.md`); su cierre cortará la `0.6.0`.
 

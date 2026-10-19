@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.14] - 2026-10-19
+
+**Saga, el almacén de trazas de la plataforma** (Grafana Tempo 3.1, ADR-0008): 15 días en el SSD, consultadas
+desde Odín, con una red propia para quien envía trazas. Abre el Gate 4 con su checklist y la fase 05 documentada.
+
 ### Añadido
 - **Saga, el almacén de trazas de la plataforma (ADR-0008).** Es Grafana Tempo 3.1.0 en modo monolítico.
   - **Qué recibe y dónde guarda:** recibe OTLP/HTTP y guarda 15 días en el SSD (`/srv/rapido/saga`).
@@ -623,7 +628,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...HEAD
+[0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
 [0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
