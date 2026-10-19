@@ -45,6 +45,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
     Nornas sí está conectado.
   - **`THROUGHPUT_RECEIVER=nornas` por defecto** en `.env.example`. Con `nulo`, una instalación nueva
     dejaba `WanThroughputBajo` en silencio. midgard ya usaba `nornas`.
+- **DREAD de T7-T10 aceptado** (HITL del 2026-10-19). En T7 y T8 se corrigen las columnas de daño
+  y reproducibilidad, que estaban intercambiadas; la media no cambia. El threat model añade
+  «Detección en operación»: la señal de Thor y la alerta con que se medirá cada amenaza durante el
+  uso. Están por implementar, y las puntuaciones se revisarán con 30 días de datos. El Gate 4 lo
+  recoge como ítem pendiente.
 - **Pendientes que la auditoría deja anotados** (van en PR aparte):
   - el jitter de RF01, que se implementa;
   - el umbral fijo de 800 del panel de throughput de Odín;
