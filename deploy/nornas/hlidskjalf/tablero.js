@@ -25,7 +25,11 @@
         "yggdrasil-mosquitto": "Ratatosk",
         "yggdrasil-node-red": "Nornas",
         "yggdrasil-host-metrics": "Thor",
-        "yggdrasil-tempo": "Saga"
+        "yggdrasil-tempo": "Saga",
+        // De /srv/infra, fuera del proyecto: Thor los vigila con THOR_CONTENEDORES
+        "andvari-openbao": "Andvari",
+        "bifrost-nats": "Bifröst",
+        "hermod-rabbitmq": "Hermod"
     };
     var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD" };
     var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst", hermod: "Hermod", andvari: "Andvari" };
