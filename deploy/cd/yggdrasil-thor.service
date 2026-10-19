@@ -5,6 +5,9 @@ After=network-online.target remote-fs.target
 
 [Service]
 Type=oneshot
+# Discos, puntos y respaldos de este host (THOR_DISCOS, THOR_PUNTOS, THOR_UNIDADES, THOR_RESPALDOS).
+# Opcional: sin el, valen los de yggdrasil-thor.sh.
+EnvironmentFile=-/etc/default/yggdrasil-thor
 ExecStart=/usr/local/sbin/yggdrasil-thor.sh
 TimeoutStartSec=90
 Nice=10

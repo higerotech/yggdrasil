@@ -205,10 +205,12 @@ sirve a Mimir, job `thor`.
 |---|---|
 | `yggdrasil_smart_atributo{disco,id,nombre}` | RAW de los atributos 5, 9, 187, 188, 193, 194, 197, 198 y 199 (`smartctl` cada 10 min) |
 | `yggdrasil_smart_salud`, `yggdrasil_smart_lectura_ok` | `smartctl -H` da PASSED; la lectura funcionó |
-| `yggdrasil_fs_montado`, `_tamano_bytes`, `_libre_bytes{punto}` | `/` y `/mnt/nas/respaldos`; `df` con timeout por si el NFS se cuelga |
+| `yggdrasil_disco_rotacional{disco}` | 1 si es mecánico, 0 si es SSD (`/sys/block/<disco>/queue/rotational`) |
+| `yggdrasil_disco_errores_kernel_15m{disco}` | líneas del kernel de los últimos 15 min con errores del enlace SATA del puerto del disco (`exception`, `failed command`, resets, `disable device`) o de E/S y ext4 del dispositivo. Si `journalctl` falla no se publica |
+| `yggdrasil_fs_montado`, `_tamano_bytes`, `_libre_bytes{punto}` | `/` y `/mnt/nas/respaldos` por defecto; `df` con timeout por si el NFS se cuelga |
 | `yggdrasil_wan_en_ruta{wan}` | 1 si `wan-balancer` tiene esa WAN en la ruta por defecto |
 | `yggdrasil_servicio_ok{tipo,nombre}` | 1 si el contenedor permanente está en marcha y sano (`tipo="contenedor"`, inventario del vigía más los del proyecto) o la unidad del host activa (`tipo="unidad"`); solo para el tablero, el aviso es del vigía |
-| `yggdrasil_respaldo_ultimo_exito_timestamp_seconds` | último respaldo completado (`/var/lib/yggdrasil-respaldo/ultimo-exito`) |
+| `yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo}` | último respaldo completado de cada respaldo de `THOR_RESPALDOS`; por defecto solo `yggdrasil` (`/var/lib/yggdrasil-respaldo/ultimo-exito`) |
 | `yggdrasil_thor_timestamp_seconds` | última recolección |
 
 Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
@@ -220,10 +222,31 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 | `DiscoEmpeora` | sube en 24 h un atributo de los que anuncian fallo (5, 187, 197, 198); el 188 se publica pero no avisa: en Seagate su RAW empaqueta tres contadores |
 | `DiscoErroresDeCable` | suben en 24 h los errores CRC del cable SATA (199) |
 | `DiscoSmartFalla` | `smartctl -H` no pasa o no se puede leer, 30 min |
+| `DiscoErroresKernel` | el kernel registra errores del enlace o de E/S del disco, al momento (crítica): un disco que se cae del bus puede tener SMART limpio |
 | `NasSeLlena` | al ritmo de los últimos 7 días, el NAS se llena en menos de 14 |
 | `NasEspacioCritico` | menos del 3 % libre, 30 min |
 | `NasNoMontado` | el NAS no está montado o no responde, 30 min: el respaldo fallará |
+| `PuntoNoMontado` | un punto de datos (ni `/` ni el NAS, p. ej. el SSD) no está montado, 5 min (crítica) |
+| `RespaldoAtrasado` | un respaldo lleva más de 30 h sin completarse, 30 min; el aviso principal sigue siendo la vigía de cada respaldo |
 | `ThorSinMetricas` | Mimir no recibe métricas frescas de Thor, 5 min |
+
+### Configuración del host
+
+La unidad lee `/etc/default/yggdrasil-thor` si existe. Va en el host y no en el repositorio, que es
+público: ahí se nombran los discos, y un `by-id` lleva el número de serie. Sin el fichero, Thor
+vigila `/dev/sda`, `/` y el NAS. La etiqueta `disco` es siempre el nombre del kernel (`sda`, `sdb`),
+también con una ruta `by-id`. En midgard, con el SSD de datos y el respaldo de Bifröst:
+
+```sh
+# /etc/default/yggdrasil-thor (root, 644)
+THOR_DISCOS="/dev/sda /dev/sdb"
+THOR_PUNTOS="/ /mnt/nas/respaldos /srv/rapido"
+THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito bifrost=/var/lib/bifrost-respaldo/ultimo-exito"
+THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer bifrost-arranque.service bifrost-respaldo.timer bifrost-respaldo-vigia.timer vigilar-ssd.timer"
+```
+
+`THOR_UNIDADES` sustituye a la lista por defecto, no se suma: hay que repetirla entera. Hliðskjálf
+pinta cada disco con su tipo (HDD o SSD), `/srv/rapido` como «SSD» y una fila por respaldo.
 
 La salida de `smartctl` lleva el número de serie del disco: se guarda en
 `/var/cache/yggdrasil-thor` (0700), fuera del directorio que se sirve. El recolector escribe con `mv`

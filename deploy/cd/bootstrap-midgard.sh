@@ -105,6 +105,12 @@ systemctl enable --now yggdrasil-vigia-servicios.timer >/dev/null 2>&1 && echo "
 
 echo "== 5e. Thor: métricas del host (SMART, NAS, WAN en la ruta, servicios, respaldo) para Mimir"
 command -v smartctl >/dev/null || echo "   FALTA smartmontools: sin él Thor no publica el SMART del disco"
+# Discos, puntos y respaldos de este host: los escribe el operador (ver el README), no este script
+if [ -r /etc/default/yggdrasil-thor ]; then
+  echo "   /etc/default/yggdrasil-thor presente"
+else
+  echo "   sin /etc/default/yggdrasil-thor: Thor vigila solo /dev/sda, / y el NAS"
+fi
 install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-thor.sh" /usr/local/sbin/yggdrasil-thor.sh
 for u in yggdrasil-thor.service yggdrasil-thor.timer; do
   install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"

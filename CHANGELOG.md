@@ -9,6 +9,43 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+## [0.5.12] - 2026-10-19
+
+**Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst**, y el segundo
+despliegue de una release deja de recrear Sleipnir, Thor y sync.
+
+### Añadido
+- **Thor y Hliðskjálf vigilan el SSD de datos de midgard y el respaldo de Bifröst.** El SSD se cayó
+  del bus el 2026-10-19 con SMART limpio: `smartctl` no lo habría visto.
+  - **Errores del kernel por disco:** `yggdrasil_disco_errores_kernel_15m` cuenta los errores del
+    enlace SATA del puerto del disco y los de E/S y ext4 del dispositivo. Probado contra el
+    registro real del incidente: 55 líneas.
+  - **Tipo de disco:** `yggdrasil_disco_rotacional` dice si es mecánico o SSD.
+  - **Varios respaldos:** `yggdrasil_respaldo_ultimo_exito_timestamp_seconds` lleva ahora la etiqueta
+    `respaldo`, uno por cada entrada de `THOR_RESPALDOS`.
+  - **Alertas nuevas:** `DiscoErroresKernel` (crítica), `PuntoNoMontado` (crítica, para el SSD) y
+    `RespaldoAtrasado` (30 h).
+  - **Configuración del host:** la unidad lee `/etc/default/yggdrasil-thor` (discos, puntos,
+    unidades y respaldos), que queda fuera del repositorio público. `THOR_DISCOS` admite rutas
+    `by-id`.
+  - **Hliðskjálf:** cada disco sale con su tipo, y en rojo si el kernel registra errores de su
+    enlace. `/srv/rapido` se llama «SSD» y hay una fila por respaldo. El resumen conserva `respaldo`
+    para la tablet que aún tenga el tablero viejo, y lee como `yggdrasil` la serie sin etiqueta de
+    un Thor anterior.
+
+### Corregido
+- **El segundo despliegue de una release ya no recrea Sleipnir, Thor ni sync.** Cuando un commit
+  cambia el Compose, el job `redespliegue` relanza `build` para que el receptor despliegue otra vez
+  con el Compose nuevo. Ese relanzamiento reconstruía las imágenes y, como el build no es
+  reproducible (las etiquetas OCI llevan la fecha), subía otro digest con el mismo tag `sha-<7>`.
+  El receptor lo descargaba y recreaba todos los contenedores de esas imágenes.
+  - **Cuándo pasó:** en las releases 0.5.8, 0.5.9 y 0.5.11.
+  - **Efecto en la 0.5.11:** Sleipnir midió wan1 dos veces seguidas y `WanDegradada` llegó a
+    `pending`.
+
+  `build` comprueba ahora si la imagen del commit ya está en GHCR y, si está, no la reconstruye.
+  El segundo despliegue solo recrea los servicios cuya configuración cambió.
+
 ## [0.5.11] - 2026-10-18
 
 **Dos correcciones.** Thor deja de contar como servicios caídos los nombres temporales que Compose
@@ -497,7 +534,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...HEAD
+[0.5.12]: https://github.com/higerotech/yggdrasil/compare/v0.5.11...v0.5.12
 [0.5.11]: https://github.com/higerotech/yggdrasil/compare/v0.5.10...v0.5.11
 [0.5.10]: https://github.com/higerotech/yggdrasil/compare/v0.5.9...v0.5.10
 [0.5.9]: https://github.com/higerotech/yggdrasil/compare/v0.5.8...v0.5.9
