@@ -40,6 +40,7 @@ Trivy 0.66.0, CRITICAL/HIGH, `--ignore-unfixed`, en cada PR que toque `deploy/` 
 | `prom/alertmanager:v0.34.0` | 2 (`alertmanager`), 4 (`amtool`) | 1 | Ídem; `x/mod` solo en la CLI |
 | `prom/blackbox-exporter:v0.28.0` | 40 | 3 | Última release (2025-12); Go `stdlib`, `x/crypto`, `grpc`, `x/net`; mitigado por red |
 | `grafana/grafana:12.4.10` | 6 | 0 | OpenSSL pendiente de paquete Alpine; tempo/thrift no usados |
+| `grafana/tempo:3.1.0` | 4 (2026-10-19) | 0 | Go `stdlib` 1.27.1 y `x/net` 0.58.0: denegaciones de servicio en `net/http`, HTTP/2 y `crypto/tls`, corregidas en Go 1.27.2 y `x/net` 0.60.0. Mitigado por red: sin puertos publicados, solo la alcanzan servicios propios por `heimdall` y `yggdrasil_saga`, y no usa TLS. Revisar con la próxima release de Tempo |
 | `yggdrasil/sleipnir:0.1.1` | 2 | 0 | OpenSSL pendiente de paquete Alpine |
 
 El residual, su exposición real y la política de aceptación están en `docs/03-implementation/cadena-suministro.md`.
