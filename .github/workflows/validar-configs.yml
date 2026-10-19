@@ -109,7 +109,11 @@ jobs:
           export PATH="$JAVA_HOME_17_X64/bin:$PATH"
           bash hlidskjalf/construir.sh
       - name: ShellCheck de los scripts de la tablet
-        run: docker run --rm -v "$PWD/hlidskjalf:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/construir.sh /mnt/instalar.sh
+        run: docker run --rm -v "$PWD/hlidskjalf:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/construir.sh /mnt/instalar.sh /mnt/vista-previa.sh
+      - name: Vista previa (servidor y escenarios)
+        run: |
+          python3 -m py_compile hlidskjalf/vista-previa.py
+          for f in hlidskjalf/escenarios/*.json; do python3 -m json.tool "$f" > /dev/null || { echo "JSON inválido: $f"; exit 1; }; done
 
   secretos:
     name: "Secretos: gitleaks"
