@@ -38,6 +38,8 @@ igual si la columna izquierda no da para Respaldos.
 - `deploy/nornas/src/hlidskjalf-*.js`: autorización y resumen (nodos function de Nornas).
 - `hlidskjalf/app/`: la app Android (una actividad con WebView, `minSdk` 25).
 - `hlidskjalf/construir.sh` y `hlidskjalf/instalar.sh`.
+- `hlidskjalf/vista-previa.py`, `hlidskjalf/vista-previa.sh` y `hlidskjalf/escenarios/`: probar el diseño
+  en la tablet real con escenarios fijos (ver abajo).
 
 ## Tablet
 
@@ -98,3 +100,41 @@ sudo -u deploy sh -c 'cd /srv/apps/yggdrasil/deploy &&
 Node-RED local que importe el flujo (`deploy/nornas/init/importar-flujo.mjs`) y túneles SSH a Mimir
 y Gjallarhorn (`HLIDSKJALF_MIMIR_URL`, `HLIDSKJALF_GJALLARHORN_URL`), la tablet enseña datos reales
 servidos por la versión en desarrollo.
+
+## Probar el diseño en la tablet
+
+Para un cambio de la página (`deploy/nornas/hlidskjalf/`), sin Node-RED ni desplegar. `vista-previa.py`
+sirve la página tal como está en disco, con la CSP del flujo, y un escenario fijo como resumen. La
+página lleva además un medidor: a los 4 s informa de cada fila que queda recortada, tapada o fuera
+de la pantalla. La tablet llega al PC por `adb reverse`.
+
+```sh
+python3 hlidskjalf/vista-previa.py                       # en otra terminal; puerto 8099
+bash hlidskjalf/vista-previa.sh abrir                    # guarda la URL de producción y pasa a la vista previa
+bash hlidskjalf/vista-previa.sh probar hlidskjalf/escenarios/estres.json
+bash hlidskjalf/vista-previa.sh cerrar                   # restaura la URL (la compara por SHA-256)
+```
+
+`probar` recarga la tablet con el escenario y guarda la captura en `hlidskjalf/build/vista-previa/`.
+Imprime el alto de cada panel y lo que no se ve entero, y **sale con 1 si se pierde algo**.
+`abrir` copia `files/url`, que lleva el token, a `files/url.orig` con `run-as`, sin imprimirla.
+`cerrar` la devuelve. Sin `cerrar`, la tablet se queda en la vista previa.
+
+| Escenario | Qué tiene |
+|---|---|
+| `normal.json` | todo en orden |
+| `wan2-caida.json` | el resumen real del 2026-10-19, con wan2 caída |
+| `estres.json` | cinco alertas, errores del SSD, NAS al 2,8 %, Bifröst con 31 h, Thor sin datos y cinco servicios caídos. Con este escenario la 0.5.12 perdía cuatro filas de Host |
+| `extremo.json` | `estres.json` con once servicios caídos (cuatro filas de fichas) |
+
+Las alertas conservan su antigüedad: el servidor desplaza su `desde` lo mismo que `generado` hasta
+la hora actual. Para un escenario con datos de hoy, el resumen de midgard se guarda en `build/`, con el
+token dentro del contenedor:
+
+```sh
+ssh jalcala@midgard 'docker exec yggdrasil-node-red sh -c "wget -qO- --header \"Authorization: Bearer \$HLIDSKJALF_TOKEN\" http://127.0.0.1:1880/hlidskjalf/resumen"' \
+  > hlidskjalf/build/vista-previa/hoy.json
+```
+
+El medidor también funciona en Chrome de escritorio, pero la ventana sin interfaz da otro alto útil (1264×705
+con `--window-size=1280,800`). El tamaño que cuenta es el de la tablet.

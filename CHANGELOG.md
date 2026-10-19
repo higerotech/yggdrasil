@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) por arrancar sobre el sistema verificado en midgard.
 
+### Añadido
+- **Vista previa de Hliðskjálf en la tablet real** (`hlidskjalf/vista-previa.py` y `vista-previa.sh`).
+  Sirve la página en desarrollo por `adb reverse`, con escenarios fijos en `hlidskjalf/escenarios/`
+  (normal, wan2 caída, estrés y extremo). Un medidor en la página informa de cada fila recortada,
+  tapada o fuera de la pantalla, y `probar` sale con 1 si se pierde algo. La URL de producción de la
+  tablet se guarda y se restaura con `run-as`, sin imprimir el token. Es la herramienta con la que se
+  midió la 0.5.13. El CI pasa ShellCheck al script y valida los escenarios.
+
 ## [0.5.13] - 2026-10-19
 
 **Hliðskjálf no pierde información en la tablet:** las alertas activas se ven siempre y, con varios

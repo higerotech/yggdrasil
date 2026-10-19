@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "generado": 1792436842,
+  "fuentes": {
+    "mimir": true,
+    "gjallarhorn": true
+  },
+  "hogar": {
+    "up": 1,
+    "disponibilidad_30d": 0.9996783625730994
+  },
+  "wan": [
+    {
+      "wan": "wan1",
+      "up": 1,
+      "en_ruta": 1,
+      "perdida_pct": 3.2,
+      "latencia_p95_ms": 55.5,
+      "disponibilidad_30d": 0.970906432748538,
+      "bajada_mbps": 956.521232,
+      "subida_mbps": 941.014208,
+      "slo_bajada_mbps": 800,
+      "slo_subida_mbps": 800,
+      "medicion_hace_s": 12123,
+      "sleipnir_midiendo": 1
+    },
+    {
+      "wan": "wan2",
+      "up": 0,
+      "en_ruta": 0,
+      "perdida_pct": null,
+      "latencia_p95_ms": 0,
+      "disponibilidad_30d": 0.960379885262487,
+      "bajada_mbps": null,
+      "subida_mbps": null,
+      "slo_bajada_mbps": null,
+      "slo_subida_mbps": null,
+      "medicion_hace_s": 1258,
+      "sleipnir_midiendo": 0
+    }
+  ],
+  "alertas": [
+    {
+      "nombre": "WanCaida",
+      "severidad": "critical",
+      "wan": "wan2",
+      "resumen": "wan2 caída: el quórum de sondas no responde",
+      "desde": "2026-10-19T12:26:44.947Z"
+    },
+    {
+      "nombre": "DiscoErroresKernel",
+      "severidad": "critical",
+      "wan": null,
+      "resumen": "sdb: 42 errores del enlace SATA en 15 min, revisar el cable",
+      "desde": "2026-10-19T17:40:00Z"
+    },
+    {
+      "nombre": "NasEspacioCritico",
+      "severidad": "warning",
+      "wan": null,
+      "resumen": "NAS de respaldos con 2,8 % libre",
+      "desde": "2026-10-18T09:00:00Z"
+    },
+    {
+      "nombre": "RespaldoAtrasado",
+      "severidad": "warning",
+      "wan": null,
+      "resumen": "bifrost: el último respaldo correcto fue hace 31 h",
+      "desde": "2026-10-19T10:00:00Z"
+    },
+    {
+      "nombre": "ThorSinMetricas",
+      "severidad": "warning",
+      "wan": null,
+      "resumen": "host-metrics no escribe desde hace 12 min",
+      "desde": "2026-10-19T18:50:00Z"
+    }
+  ],
+  "host": {
+    "thor_hace_s": 720,
+    "discos": [
+      {
+        "disco": "sda",
+        "lectura_ok": 1,
+        "salud": 1,
+        "reasignados": 0,
+        "horas": 38056,
+        "no_corregidos": 1375,
+        "temperatura_c": 35,
+        "pendientes": 16,
+        "incorregibles": 16,
+        "errores_cable": 229963,
+        "rotacional": 1,
+        "errores_kernel": 0
+      },
+      {
+        "disco": "sdb",
+        "lectura_ok": 1,
+        "salud": 1,
+        "reasignados": 0,
+        "horas": 38312,
+        "no_corregidos": 0,
+        "temperatura_c": 43,
+        "pendientes": null,
+        "incorregibles": 0,
+        "errores_cable": 0,
+        "rotacional": 0,
+        "errores_kernel": 42
+      }
+    ],
+    "fs": [
+      {
+        "punto": "/",
+        "montado": 1,
+        "tamano_bytes": 489529827328,
+        "libre_bytes": 422939983872
+      },
+      {
+        "punto": "/mnt/nas/respaldos",
+        "montado": 1,
+        "tamano_bytes": 3932701982720,
+        "libre_bytes": 110115655516
+      },
+      {
+        "punto": "/srv/rapido",
+        "montado": 1,
+        "tamano_bytes": 983349346304,
+        "libre_bytes": 973330079744
+      }
+    ],
+    "respaldo": {
+      "ultimo_exito": 1792377470,
+      "hace_h": 16
+    },
+    "respaldos": [
+      {
+        "nombre": "yggdrasil",
+        "ultimo_exito": 1792377470,
+        "hace_h": 16
+      },
+      {
+        "nombre": "andvari",
+        "ultimo_exito": 1792378887,
+        "hace_h": 16
+      },
+      {
+        "nombre": "bifrost",
+        "ultimo_exito": 1792382888,
+        "hace_h": 31
+      },
+      {
+        "nombre": "hermod",
+        "ultimo_exito": 1792414370,
+        "hace_h": 6
+      }
+    ]
+  },
+  "servicios": [
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-alertmanager",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-blackbox-exporter",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-grafana",
+      "ok": 0
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-host-metrics",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-mosquitto",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-node-red",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-prometheus",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-throughput-probe",
+      "ok": 0
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "cd-receiver.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "dnsmasq.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "docker.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-respaldo-vigia.timer",
+      "ok": 0
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-respaldo.timer",
+      "ok": 0
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "vigilar-ssd.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "wan-balancer.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "wan-watchdog.timer",
+      "ok": 0
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-vigia-servicios.timer",
+      "ok": 1
+    }
+  ]
+}

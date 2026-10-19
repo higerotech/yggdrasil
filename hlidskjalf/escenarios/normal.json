@@ -1,0 +1,254 @@
+{
+  "version": 1,
+  "generado": 1792436842,
+  "fuentes": {
+    "mimir": true,
+    "gjallarhorn": true
+  },
+  "hogar": {
+    "up": 1,
+    "disponibilidad_30d": 0.9996783625730994
+  },
+  "wan": [
+    {
+      "wan": "wan1",
+      "up": 1,
+      "en_ruta": 1,
+      "perdida_pct": 0,
+      "latencia_p95_ms": 55.5,
+      "disponibilidad_30d": 0.970906432748538,
+      "bajada_mbps": 956.521232,
+      "subida_mbps": 941.014208,
+      "slo_bajada_mbps": 800,
+      "slo_subida_mbps": 800,
+      "medicion_hace_s": 12123,
+      "sleipnir_midiendo": 0
+    },
+    {
+      "wan": "wan2",
+      "up": 1,
+      "en_ruta": 1,
+      "perdida_pct": 0,
+      "latencia_p95_ms": 14.2,
+      "disponibilidad_30d": 0.960379885262487,
+      "bajada_mbps": 963.4,
+      "subida_mbps": 448.1,
+      "slo_bajada_mbps": 800,
+      "slo_subida_mbps": 400,
+      "medicion_hace_s": 5400,
+      "sleipnir_midiendo": 0
+    }
+  ],
+  "alertas": [],
+  "host": {
+    "thor_hace_s": 99,
+    "discos": [
+      {
+        "disco": "sda",
+        "lectura_ok": 1,
+        "salud": 1,
+        "reasignados": 0,
+        "horas": 38056,
+        "no_corregidos": 0,
+        "temperatura_c": 35,
+        "pendientes": 0,
+        "incorregibles": 0,
+        "errores_cable": 229963,
+        "rotacional": 1,
+        "errores_kernel": 0
+      },
+      {
+        "disco": "sdb",
+        "lectura_ok": 1,
+        "salud": 1,
+        "reasignados": 0,
+        "horas": 38312,
+        "no_corregidos": 0,
+        "temperatura_c": 43,
+        "pendientes": null,
+        "incorregibles": 0,
+        "errores_cable": 0,
+        "rotacional": 0,
+        "errores_kernel": 0
+      }
+    ],
+    "fs": [
+      {
+        "punto": "/",
+        "montado": 1,
+        "tamano_bytes": 489529827328,
+        "libre_bytes": 422939983872
+      },
+      {
+        "punto": "/mnt/nas/respaldos",
+        "montado": 1,
+        "tamano_bytes": 3932701982720,
+        "libre_bytes": 1219137614643
+      },
+      {
+        "punto": "/srv/rapido",
+        "montado": 1,
+        "tamano_bytes": 983349346304,
+        "libre_bytes": 973330079744
+      }
+    ],
+    "respaldo": {
+      "ultimo_exito": 1792377470,
+      "hace_h": 16
+    },
+    "respaldos": [
+      {
+        "nombre": "yggdrasil",
+        "ultimo_exito": 1792377470,
+        "hace_h": 16
+      },
+      {
+        "nombre": "andvari",
+        "ultimo_exito": 1792378887,
+        "hace_h": 16
+      },
+      {
+        "nombre": "bifrost",
+        "ultimo_exito": 1792382888,
+        "hace_h": 14
+      },
+      {
+        "nombre": "hermod",
+        "ultimo_exito": 1792414370,
+        "hace_h": 6
+      }
+    ]
+  },
+  "servicios": [
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-alertmanager",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-blackbox-exporter",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-grafana",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-host-metrics",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-mosquitto",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-node-red",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-prometheus",
+      "ok": 1
+    },
+    {
+      "tipo": "contenedor",
+      "nombre": "yggdrasil-throughput-probe",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "andvari-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "bifrost-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "cd-receiver.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "dnsmasq.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "docker.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-arranque.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "hermod-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "vigilar-ssd.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "wan-balancer.service",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "wan-watchdog.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-respaldo-vigia.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-respaldo.timer",
+      "ok": 1
+    },
+    {
+      "tipo": "unidad",
+      "nombre": "yggdrasil-vigia-servicios.timer",
+      "ok": 1
+    }
+  ]
+}
