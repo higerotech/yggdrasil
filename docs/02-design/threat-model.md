@@ -80,10 +80,28 @@ quadrantChart
 | T5 | Sonda de throughput degrada el servicio del hogar | 4 | 8 | 6 | 6 | 3 | 5.4 | Cada WAN cada 6 h (Sleipnir mide cada 3 h alternando), ~70 s por medición; Hlidskjalf y las reglas descuentan la pérdida que provoca. El «horario valle» previsto en Gate 1 no se implementó |
 | T6 | Lectura del estado de midgard por `/hlidskjalf/resumen` desde la LAN (patrones de presencia) | 3 | 7 | 5 | 4 | 5 | 4.8 | Token de solo lectura propio (`HLIDSKJALF_TOKEN`, ≥ 32 caracteres, comparación en tiempo constante); sin token, 503; solo LAN, sin puerto nuevo; la página escapa todo texto y lleva CSP por hash (ADR-0007) |
 
-| T7 | `sync-host` escribe en el clon del repo (bind mount `..:/repo`): un contenedor comprometido podría alterar el código que se despliega | 3 | 8 | 4 | 3 | 4 | 4.4 | Contenedor de un solo uso como el usuario `deploy` (no root), rootfs de solo lectura y `no-new-privileges`; hace checkout del commit `IMAGE_TAG`, que fija el receptor a partir del webhook firmado (ADR-0005). Corre en host-mode (necesita ver las WAN para el render), así que tiene red. **Propuesto, pendiente de HITL** |
-| T8 | Archivo de respaldo en el NAS: lleva el `.env` y la configuración renderizada (secretos) | 3 | 9 | 4 | 3 | 4 | 4.6 | Directorio 700 y ficheros 600; el export `respaldos` solo admite a midgard; retención 14 días. **Propuesto, pendiente de HITL** |
-| T9 | El tema de ntfy es la credencial: quien lo conozca lee los avisos (incluidas caídas y respaldos) | 4 | 6 | 7 | 3 | 4 | 4.8 | Tema aleatorio en `/etc/yggdrasil-aviso.env` y en `.env` (600), fuera del repo; un solo fichero que rotar. **Propuesto, pendiente de HITL** |
-| T10 | Datos del host (Thor): número de serie de los discos e inventario de servicios | 2 | 4 | 4 | 3 | 3 | 3.2 | La salida de `smartctl` se guarda en `/var/cache/yggdrasil-thor` (0700), fuera de lo que se sirve; el contenedor monta el directorio en solo lectura y no publica puerto. **Propuesto, pendiente de HITL** |
+| T7 | `sync-host` escribe en el clon del repo (bind mount `..:/repo`): un contenedor comprometido podría alterar el código que se despliega | 8 | 3 | 4 | 3 | 4 | 4.4 | Contenedor de un solo uso como el usuario `deploy` (no root), rootfs de solo lectura y `no-new-privileges`; hace checkout del commit `IMAGE_TAG`, que fija el receptor a partir del webhook firmado (ADR-0005). Corre en host-mode (necesita ver las WAN para el render), así que tiene red. Aceptado (HITL 2026-10-19) |
+| T8 | Archivo de respaldo en el NAS: lleva el `.env` y la configuración renderizada (secretos) | 9 | 3 | 4 | 3 | 4 | 4.6 | Directorio 700 y ficheros 600; el export `respaldos` solo admite a midgard; retención 14 días. Aceptado (HITL 2026-10-19) |
+| T9 | El tema de ntfy es la credencial: quien lo conozca lee los avisos (incluidas caídas y respaldos) | 4 | 6 | 7 | 3 | 4 | 4.8 | Tema aleatorio en `/etc/yggdrasil-aviso.env` y en `.env` (600), fuera del repo; un solo fichero que rotar. Aceptado (HITL 2026-10-19) |
+| T10 | Datos del host (Thor): número de serie de los discos e inventario de servicios | 2 | 4 | 4 | 3 | 3 | 3.2 | La salida de `smartctl` se guarda en `/var/cache/yggdrasil-thor` (0700), fuera de lo que se sirve; el contenedor monta el directorio en solo lectura y no publica puerto. Aceptado (HITL 2026-10-19) |
+
+## Detección en operación (T7-T10)
+
+Las puntuaciones de T7-T10 son una estimación de diseño: se revisarán con lo que mida el monitoreo
+durante el uso. Cada amenaza tiene una señal que Thor publicará y una alerta. Estado: **por
+implementar** (PR de código siguiente).
+
+| Amenaza | Qué se vigila | Métrica prevista (Thor) | Alerta prevista |
+|---|---|---|---|
+| T7 | El clon de `/srv/apps/yggdrasil` no tiene cambios fuera de lo ignorado (`git status --porcelain` vacío) y su `HEAD` es el commit que el receptor dice haber desplegado (`current_tag`) | `yggdrasil_clon_coherente` (1/0) | `ClonAlterado` (critical, 10 min: tolera la ventana de un despliegue) |
+| T8 | El directorio de respaldos del NAS sigue en 700 y cada archivo en 600 | `yggdrasil_respaldo_permisos_ok{respaldo}` (1/0) | `RespaldoPermisosAbiertos` (critical) |
+| T9 | Nadie puede saber desde midgard quién lee un tema de ntfy: no hay detección técnica. Se mide la antigüedad del tema para rotarlo según una política | `yggdrasil_aviso_tema_edad_dias` | Ninguna; la rotación es manual. Revisar si el tema se ha compartido |
+| T10 | La caché de `smartctl` sigue en 0700, y `host.prom`, que se sirve, no contiene números de serie | `yggdrasil_thor_cache_permisos_ok` (1/0) | `ThorCacheExpuesta` (warning) |
+
+Criterio de revisión: con 30 días de estas series, cada amenaza conserva su puntuación o se
+reevalúa. Algunos ejemplos: un `ClonAlterado` que salte fuera de un despliegue sube la
+reproducibilidad de T7; unos permisos que se pierdan en el NAS (si el NAS fuerza el modo, por
+ejemplo) suben la explotabilidad de T8.
 
 ## Controles y trazabilidad
 - T1 → RS01 (PRD) · ASVS V2 · verificación por inspección en Gate 3.
@@ -101,3 +119,9 @@ quadrantChart
 > - Blackbox ya no lleva `NET_RAW` (v0.4.8).
 > - Ratatosk ya no tiene el cliente `frigate` (0.5.3).
 > - T5 deja de prometer un horario valle que nunca se implementó.
+
+> **Revisión 2026-10-19 — DREAD de T7-T10 aceptado.** Jeremi acepta las puntuaciones. En T7 y T8 se
+> corrigen las columnas de daño y reproducibilidad, que estaban intercambiadas (la media no
+> cambia): alterar el código que se despliega y filtrar todos los secretos son daños altos (8 y 9),
+> y los dos exigen un compromiso previo (reproducibilidad 3). Las puntuaciones se revisarán con las
+> señales de «Detección en operación» tras 30 días de datos.
