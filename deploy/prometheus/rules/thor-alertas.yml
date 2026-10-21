@@ -5,11 +5,18 @@ groups:
   - name: thor_alertas
     rules:
       # --- Heimdall frente a wan-balancer (RCA del 2026-10-06, acción 6) -----------------------
-      # Los dos deciden con el mismo criterio (mayoría de 3 destinos TCP), así que una discrepancia
-      # sostenida no es de criterio: es una IP desfasada, un balanceador colgado o un fallo de una
-      # de las dos mediciones. 10 min absorben la histéresis del balanceador y el `for` de WanCaida.
+      # Los dos dan una WAN por viva con el mismo criterio (mayoría de 3 destinos TCP), así que una
+      # discrepancia sostenida no es de criterio: es una IP desfasada, un balanceador colgado o un
+      # fallo de una de las dos mediciones. 10 min absorben la histéresis del balanceador y el `for`
+      # de WanCaida.
+      #
+      # Desde 2026-10-21 el balanceador saca además una WAN viva que pierde paquetes (ventana de
+      # 2 min, ~6 %). Eso no es una discrepancia: `unless` descarta la WAN con pérdida ≥ 1 % en los
+      # últimos 15 min. Pasado ese margen, si sigue fuera, sí avisa.
       - alert: WanSanaFueraDeRuta
-        expr: wan:up == 1 and on (wan) yggdrasil_wan_en_ruta == 0
+        expr: >-
+          wan:up == 1 and on (wan) yggdrasil_wan_en_ruta == 0
+          unless on (wan) max_over_time(wan:perdida_pct:5m[15m]) >= 1
         for: 10m
         labels:
           severity: warning
