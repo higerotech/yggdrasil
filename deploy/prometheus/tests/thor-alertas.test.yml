@@ -36,6 +36,33 @@ tests:
         alertname: WanCaidaEnRuta
         exp_alerts: []
 
+  - name: una WAN viva que pierde paquetes, fuera de la ruta, no es una discrepancia
+    interval: 1m
+    input_series:
+      - series: 'wan:up{wan="wan2"}'
+        values: '1x50'
+      - series: 'yggdrasil_wan_en_ruta{job="thor", wan="wan2"}'
+        values: '0x50'
+      # 20 % de pérdida 10 min (caso 2026-10-21) y después limpia
+      - series: 'wan:perdida_pct:5m{wan="wan2"}'
+        values: '20x10 0x40'
+      - series: 'hogar:up'
+        values: '1x50'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: WanSanaFueraDeRuta
+        exp_alerts: []          # con pérdida, el balanceador hace bien en sacarla
+      - eval_time: 30m
+        alertname: WanSanaFueraDeRuta
+        exp_alerts: []          # 15 min de margen tras la pérdida y luego el for de 10 min
+      - eval_time: 40m
+        alertname: WanSanaFueraDeRuta
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, wan: wan2}
+            exp_annotations:
+              resumen: "wan2 sana según Heimdall pero fuera de la ruta del balanceador"
+              descripcion: "Se está perdiendo la capacidad de wan2. Revisar `journalctl -t wan-balancer` y `ip route show default`."
+
   - name: una WAN caída que el balanceador mantiene en la ruta
     interval: 1m
     input_series:
@@ -278,3 +305,43 @@ tests:
               resumen: "bifrost-nats está caído o no sano"
               descripcion: "Revisar `docker ps -a --filter name=bifrost-nats` y `docker logs bifrost-nats`. Sin Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe."
 
+
+  - name: el túnel PIA sin desvío y el servicio parado
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_pia_desvio_activo{job="thor", instance="thor:9471"}'
+        values: '1x2 0x10'
+      - series: 'yggdrasil_pia_equipos{job="thor", instance="thor:9471"}'
+        values: '1x12'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="unidad", nombre="pia-tunel.service"}'
+        values: '1x2 0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: TunelPiaSinDesvio
+        exp_alerts: []          # aún dentro del for de 5 min
+      - eval_time: 9m
+        alertname: TunelPiaSinDesvio
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: pia, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Los equipos del túnel PIA salen directo, sin PIA"
+              descripcion: "El túnel no responde o PIA rechaza la clave. Revisar `journalctl -t pia-tunel` y `wg show pia0`; las credenciales están en /etc/yggdrasil-pia.env."
+      - eval_time: 9m
+        alertname: TunelPiaCaido
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: pia, job: thor, instance: "thor:9471", tipo: unidad, nombre: pia-tunel.service}
+            exp_annotations:
+              resumen: "pia-tunel.service está parado: los equipos del túnel salen directo"
+              descripcion: "Revisar `systemctl status pia-tunel` y `journalctl -t pia-tunel`. Sin /etc/yggdrasil-pia.env la unidad no arranca."
+
+  - name: el túnel PIA sin equipos configurados no avisa
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_pia_desvio_activo{job="thor", instance="thor:9471"}'
+        values: '0x12'
+      - series: 'yggdrasil_pia_equipos{job="thor", instance="thor:9471"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TunelPiaSinDesvio
+        exp_alerts: []

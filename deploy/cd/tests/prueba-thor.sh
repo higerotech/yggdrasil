@@ -229,5 +229,30 @@ pasada
 no_tiene "sin THOR_ANDVARI no se mira" 'yggdrasil_andvari_sellado'
 rm "$T/bao-status"
 
+# --- Tunel PIA (ADR-0009) ---
+pasada
+no_tiene "sin estado de pia-tunel no se publica el tunel" 'yggdrasil_pia_'
+printf '%s\n' "tunel 1" "desvio 1" "equipos 1" "handshake 1792000000" "region us_florida" > "$T/pia-estado"
+THOR_PIA_ESTADO="$T/pia-estado" pasada
+tiene "tunel PIA arriba" 'yggdrasil_pia_tunel_up 1'
+tiene "desvio PIA activo" 'yggdrasil_pia_desvio_activo 1'
+tiene "equipos por PIA" 'yggdrasil_pia_equipos 1'
+tiene "ultimo handshake" 'yggdrasil_pia_handshake_timestamp_seconds 1792000000'
+tiene "region de PIA" 'yggdrasil_pia_region_info{region="us_florida"} 1'
+printf '%s\n' "tunel 1" "desvio x" "equipos 1" "handshake 0" "region us_florida" > "$T/pia-estado"
+THOR_PIA_ESTADO="$T/pia-estado" pasada
+no_tiene "estado de PIA ilegible: no se publica nada" 'yggdrasil_pia_'
+printf '%s\n' "tunel 0" "desvio 0" "equipos 1" "handshake 0" 'region "x' > "$T/pia-estado"
+THOR_PIA_ESTADO="$T/pia-estado" pasada
+tiene "region con caracteres raros: desconocida" 'yggdrasil_pia_region_info{region="desconocida"} 1'
+rm "$T/pia-estado"
+cp "$T/unidades" "$T/unidades.antes"
+echo "pia-tunel.service inactiva" >> "$T/unidades"
+pasada
+tiene "pia-tunel instalado y parado: unidad a 0" 'yggdrasil_servicio_ok{tipo="unidad",nombre="pia-tunel.service"} 0'
+mv "$T/unidades.antes" "$T/unidades"
+pasada
+no_tiene "pia-tunel sin instalar: no se publica" 'nombre="pia-tunel.service"'
+
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }

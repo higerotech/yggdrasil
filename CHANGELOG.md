@@ -9,6 +9,57 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.16] - 2026-10-21
+
+**Una WAN que pierde paquetes sale de la ruta, y el PC de Jeremi sale por PIA:** wan-balancer mide la pérdida y ya
+no deja en el multipath una WAN que responde por TCP pero pierde un 20 % (ADR-0009, túnel WireGuard desde midgard).
+
+### Añadido
+- **ADR-0009 (propuesta): túnel para las llamadas.** Fase 1: WireGuard a PIA desde midgard, solo para el tráfico
+  de tiempo real (Chime, Teams, Meet y Zoom), con su salida por la mejor WAN y vuelta a la salida directa si el
+  túnel cae. Fase 2, solo si los datos lo piden: un VPS propio en Miami con engarde, que duplica cada paquete por
+  las dos WAN, con PIA de respaldo y segunda región. Matriz PxD con cinco candidatos.
+  - La medición del 2026-10-21 a seis regiones de PIA muestra que cada WAN tiene una región cercana distinta:
+    wan1 está a 21 ms de Bogotá y wan2 a 33 ms de Miami.
+  - La llamada de ese día ya iba por PIA desde el PC, como un único flujo UDP que el multipath puso en wan2.
+  - Herramienta de solo lectura `deploy/host/medir-tuneles.sh`, en el ShellCheck del CI.
+- **ADR-0009 aceptada (HITL 2026-10-21) y túnel PIA en midgard (`pia-tunel`).** Jeremi cambia el alcance de la
+  Fase 1: todo el tráfico de su PC, elegido por MAC, sale por PIA, no solo las llamadas. Acepta T12 y deja de usar
+  la app de PIA en el PC.
+  - `deploy/host/pia-tunel.sh` y `pia-tunel.service` hacen el trabajo:
+    - WireGuard `pia0` con MTU 1380.
+    - Tabla propia `inet yggdrasil_pia`: marca por MAC, DNS al de PIA, IPv6 hacia fuera descartado y masquerade.
+    - Reglas 87/88: la LAN y Docker siguen en local.
+    - Sonda cada 5 s por el túnel: con 3 fallos los equipos salen directo y el túnel se rehace con otra clave.
+  - Las credenciales viven en `/etc/yggdrasil-pia.env` (root 600) y las escribe Jeremi. Usuario, contraseña,
+    token y clave privada llegan por descriptor, nunca como argumento ni al journal.
+  - Prueba nueva `deploy/host/tests/prueba-pia.sh`, 48 comprobaciones más `nft -c` de la tabla real en el CI.
+  - `install-host.sh` instala el túnel y el certificado de PIA, y solo arranca el servicio si existen las
+    credenciales.
+- **Thor publica el estado del túnel** (`yggdrasil_pia_*`) y vigila `pia-tunel.service`. Alertas nuevas
+  `TunelPiaSinDesvio` y `TunelPiaCaido`, con dos grupos nuevos en `thor-alertas.test.yml`.
+- **Threat model:** T11 (credenciales de PIA en midgard) y T12 (PIA ve los metadatos del PC, riesgo aceptado),
+  con puntuaciones propuestas. `data-classification.md` añade las credenciales, el token, la clave y los
+  metadatos.
+
+### Cambiado
+- **`wan-balancer` saca una WAN que pierde paquetes, aunque responda por TCP.** Del 19 al 21 de octubre wan2
+  perdía un 15-30 % de los ping y solo fallaba el 2 % de las comprobaciones HTTPS. Nunca sumaba 3 fallos
+  seguidos, así que se quedó en el multipath con la mitad de los flujos de la casa, una llamada de Slack entre
+  ellos.
+  - **Ventana de pérdida:** en cada chequeo, un ping a cada objetivo ICMP de Heimdall. La WAN sale si pierde
+    ≥ 3 de 48 en 2 min, contando los dos mejores objetivos, y vuelve con ≤ 1 y la ventana llena.
+  - **Menos tolerancia:** sale con 2 fallos TCP seguidos (eran 3) y vuelve con 6 aciertos (eran 3).
+  - **Las dos fuera:** la ruta va por la menos mala, en vez de conservar la última. Cuatro veces un corte de
+    segundos en wan1 había mandado la casa entera por wan2.
+  - Umbrales calibrados con 7 días de sondas de Heimdall. Prueba nueva `deploy/host/tests/prueba-perdida.sh`
+    en el CI; detalle en `deploy/host/README.md`.
+- **`WanSanaFueraDeRuta`** no avisa de una WAN que el balanceador saca por pérdida: exige 15 min sin pérdida
+  ≥ 1 % antes de contar los 10 min (grupo nuevo en `thor-alertas.test.yml`).
+
+### Corregido
+- `inventario-pruebas.md`: las referencias de línea a `validar-configs.yml` estaban desfasadas desde la 0.5.14.
+
 ## [0.5.15] - 2026-10-19
 
 **Andvari vigilado:** un Andvari sellado, o cualquier contenedor de `/srv/infra` caído (Andvari, Bifröst, Hermod),
@@ -644,7 +695,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...HEAD
+[0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13

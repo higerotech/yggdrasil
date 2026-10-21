@@ -72,12 +72,34 @@ else
 fi
 
 echo
+echo "== Tunel PIA (pia-tunel, ADR-0009) =="
+cambio_pia=0
+ejecutar install -d -m 0755 /usr/local/share/yggdrasil
+copiar_si_cambia "$ORIGEN/pia/ca.rsa.4096.crt" /usr/local/share/yggdrasil/pia-ca.rsa.4096.crt 0644 || true
+copiar_si_cambia "$ORIGEN/pia-tunel.sh"      "$DESTINO_BIN/pia-tunel.sh"           0755 && cambio_pia=1 || true
+copiar_si_cambia "$ORIGEN/pia-tunel.service" "$DESTINO_UNIDADES/pia-tunel.service" 0644 && cambio_pia=1 || true
+[[ $cambio_pia == 1 ]] && ejecutar systemctl daemon-reload
+if [[ -f /etc/yggdrasil-pia.env ]]; then
+    ejecutar systemctl enable pia-tunel.service
+    if [[ $cambio_pia == 1 ]] || ! systemctl is-active --quiet pia-tunel.service; then
+        echo "  arrancando pia-tunel"
+        ejecutar systemctl restart pia-tunel.service
+    fi
+else
+    # Las credenciales las escribe Jeremi: este script nunca las ve (deploy/host/README.md)
+    echo "  sin /etc/yggdrasil-pia.env: pia-tunel instalado pero sin arrancar"
+fi
+
+echo
 echo "== Comprobacion =="
 if [[ $DRY_RUN == 1 ]]; then
     echo "  [dry-run] no se comprueba nada"
 else
     systemctl is-active wan-balancer >/dev/null && echo "  wan-balancer: activo" || echo "  wan-balancer: NO ACTIVO"
     systemctl is-active wan-watchdog.timer >/dev/null && echo "  wan-watchdog.timer: activo" || echo "  wan-watchdog.timer: NO ACTIVO"
+    if [[ -f /etc/yggdrasil-pia.env ]]; then
+        systemctl is-active pia-tunel >/dev/null && echo "  pia-tunel: activo" || echo "  pia-tunel: NO ACTIVO"
+    fi
     echo
     "$DESTINO_BIN/wan-watchdog.sh" --estado || true
 fi
