@@ -9,6 +9,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **ADR-0009 (propuesta): túnel para las llamadas.** Fase 1: WireGuard a PIA desde midgard, solo para el tráfico
+  de tiempo real (Chime, Teams, Meet y Zoom), con su salida por la mejor WAN y vuelta a la salida directa si el
+  túnel cae. Fase 2, solo si los datos lo piden: un VPS propio en Miami con engarde, que duplica cada paquete por
+  las dos WAN, con PIA de respaldo y segunda región. Matriz PxD con cinco candidatos.
+  - La medición del 2026-10-21 a seis regiones de PIA muestra que cada WAN tiene una región cercana distinta:
+    wan1 está a 21 ms de Bogotá y wan2 a 33 ms de Miami.
+  - La llamada de ese día ya iba por PIA desde el PC, como un único flujo UDP que el multipath puso en wan2.
+  - Herramienta de solo lectura `deploy/host/medir-tuneles.sh`, en el ShellCheck del CI.
+
 ### Cambiado
 - **`wan-balancer` saca una WAN que pierde paquetes, aunque responda por TCP.** Del 19 al 21 de octubre wan2
   perdía un 15-30 % de los ping y solo fallaba el 2 % de las comprobaciones HTTPS. Nunca sumaba 3 fallos
