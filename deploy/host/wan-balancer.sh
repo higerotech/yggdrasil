@@ -3,7 +3,9 @@
 # Balanceo dual-WAN con failover automático.
 # - Mantiene tablas de policy routing (respuestas salen por donde entraron)
 # - Mantiene la ruta default multipath según salud de cada WAN
-# - Hysteresis: FAIL_N fallos seguidos = caída, OK_N éxitos seguidos = retorno
+# - Hysteresis: FAIL_N fallos TCP seguidos o PERDIDA_SALIDA ping perdidos en la ventana = fuera;
+#   OK_N éxitos TCP seguidos y la ventana limpia = retorno
+# - Con las dos WAN fuera, la ruta va por la menos mala (menos_mala)
 
 set -u
 
@@ -38,11 +40,36 @@ CHECK_ICMP=()
 CHECK_TLS=("https://www.gstatic.com/generate_204" "https://1.1.1.1/cdn-cgi/trace" "https://8.8.8.8/")
 CHECK_TIMEOUT=3          # segundos por destino (se sondean en paralelo)
 INTERVAL=5               # segundos entre chequeos
-FAIL_N=3                 # fallos consecutivos para marcar caída
-OK_N=3                   # éxitos consecutivos para restaurar
+FAIL_N=2                 # chequeos TCP seguidos sin mayoría para sacar la WAN (era 3 hasta 2026-10-21)
+OK_N=6                   # chequeos TCP seguidos con mayoría para devolverla (30 s; eran 3)
+
+# Calidad = pérdida de paquetes (2026-10-21). La mayoría TCP dice si la WAN está viva, no si
+# sirve: TCP retransmite y una comprobación HTTPS pasa en 3 s con mucha pérdida. Del 19 al 21 de
+# octubre wan2 perdió un 15-30 % de los ping con solo un 2 % de comprobaciones TLS fallidas; nunca
+# sumaba 3 fallos seguidos, se quedó en el multipath y le tocaba la mitad de los flujos de la casa
+# (una llamada de Slack, entre ellos). Ahora cada chequeo manda además un ping a cada objetivo ICMP
+# de Heimdall y la WAN sale si pierde demasiados en la ventana.
+#
+# Se cuentan los perdidos de los DOS MEJORES objetivos: así uno solo que no conteste (Google descarta
+# ping a 8.8.8.8 a ratos) no saca la WAN, igual que la mediana de wan:perdida_pct:5m. La pérdida del
+# enlace la ven todos los objetivos.
+#
+# Umbrales calibrados con 7 días de sondas ICMP de Heimdall (una cada 5 s por objetivo, el mismo
+# ritmo que este bucle), ventanas de 24 chequeos y 48 ping de los dos mejores objetivos:
+#   wan1 (sana):      ≤ 1 perdido en el 99,77 % de las ventanas; ≥ 3 en el 0,18 %, cortes reales incluidos
+#   wan2 (21-oct):    mediana 8 perdidos, p10 5, mínimo 2 en las últimas 6 h
+PERDIDA_ICMP=("1.1.1.1" "8.8.8.8" "208.67.222.222")   # los objetivos ICMP de Heimdall
+PERDIDA_TIMEOUT=2        # segundos de espera de cada ping
+VENTANA=24               # chequeos en la ventana de pérdida (2 min a INTERVAL=5)
+PERDIDA_SALIDA=3         # perdidos en la ventana (de 48) para sacar la WAN: ~6 %
+PERDIDA_RETORNO=1        # como mucho estos perdidos, con la ventana llena, para devolverla
+MARGEN_MENOS_MALA=2      # con las dos fuera, cambiar de WAN solo si la otra pierde 2 ping menos
 
 fail1=0; ok1=0; up1=-1   # -1 = estado desconocido, fuerza primera aplicación
 fail2=0; ok2=0; up2=-1
+declare -A ventana=()    # "<iface>|<objetivo>" -> últimos VENTANA resultados (1 = perdido)
+last_state=""            # ruta aplicada ("11", "10", "01" o "00")
+preferida=""             # WAN que lleva la ruta mientras las dos están fuera
 
 log() { logger -t wan-balancer "$*"; }
 
@@ -151,8 +178,9 @@ check() {  # check <iface>: 0 si responde la MAYORIA de los destinos de salud
     # Atar a la IP de origen (no a la interfaz): así el lookup de ruta
     # pasa por la regla "from <ip>" -> tabla wanX, que siempre tiene default.
     # Atar a interfaz falla cuando aun no hay default en la tabla main.
-    local ip d i ok=0 falla=""
-    local -a destinos=() pids=()
+    # Ademas apunta en la ventana de perdida un ping a cada objetivo de PERDIDA_ICMP.
+    local ip d i r ok=0 mayoria=0 falla=""
+    local -a destinos=() pids=() pids_perdida=()
     ip=$(wan_ip "$1")
     [[ -n "$ip" ]] || return 1
     # En paralelo: con destinos caidos, en serie el bucle de INTERVAL s se alargaria
@@ -162,8 +190,19 @@ check() {  # check <iface>: 0 si responde la MAYORIA de los destinos de salud
     for d in "${CHECK_TLS[@]}"; do
         curl -fsS -o /dev/null -m "$CHECK_TIMEOUT" --interface "$ip" "$d" >/dev/null 2>&1 & pids+=($!); destinos+=("$d")
     done
+    for d in "${PERDIDA_ICMP[@]}"; do
+        ping -c1 -W"$PERDIDA_TIMEOUT" -n -I "$ip" "$d" >/dev/null 2>&1 & pids_perdida+=($!)
+    done
     for i in "${!pids[@]}"; do
         if wait "${pids[$i]}"; then ok=$((ok + 1)); else falla+="${destinos[$i]} "; fi
+    done
+    (( ok * 2 > ${#destinos[@]} )) && mayoria=1
+    # Los ping solo cuentan si TCP tiene mayoria. Un corte ya lo detecta FAIL_N, y con sus ping en
+    # la ventana una WAN que vuelve de un corte de segundos se quedaria fuera 2 min mas. La ventana
+    # mide la calidad de una WAN que funciona.
+    for i in "${!pids_perdida[@]}"; do
+        if wait "${pids_perdida[$i]}"; then r=0; else r=1; fi
+        (( mayoria )) && registrar_ping "$1" "${PERDIDA_ICMP[$i]}" "$r"
     done
     # Solo se registra cuando cambia el conjunto de destinos que fallan: un fallo parcial del
     # ISP queda en el journal aunque la WAN siga dentro del multipath.
@@ -175,10 +214,69 @@ check() {  # check <iface>: 0 si responde la MAYORIA de los destinos de salud
         fi
         ultima_falla[$1]="$falla"
     fi
-    (( ok * 2 > ${#destinos[@]} ))
+    (( mayoria ))
 }
 
-apply_default() {  # apply_default <up1> <up2>
+registrar_ping() {  # registrar_ping <iface> <objetivo> <1 si se perdio, 0 si no>
+    local k="$1|$2" s
+    s="${ventana[$k]:-}$3"
+    # ${s: -N} da vacio si s es mas corta que N: recortar solo cuando sobra
+    (( ${#s} > VENTANA )) && s="${s:${#s}-VENTANA}"
+    ventana[$k]="$s"
+}
+
+perdidos() {  # perdidos <iface>: ping perdidos en la ventana de los dos mejores objetivos
+    local d s unos a=999999 b=999999 n
+    for d in "${PERDIDA_ICMP[@]}"; do
+        s="${ventana[$1|$d]:-}"; unos="${s//0/}"; n=${#unos}
+        if (( n < a )); then b=$a; a=$n; elif (( n < b )); then b=$n; fi
+    done
+    (( b == 999999 )) && b=0
+    echo $((a + b))
+}
+
+ventana_llena() {  # ventana_llena <iface>: 0 si todos los objetivos tienen VENTANA resultados
+    local d s
+    for d in "${PERDIDA_ICMP[@]}"; do
+        s="${ventana[$1|$d]:-}"
+        (( ${#s} >= VENTANA )) || return 1
+    done
+}
+
+# estado_wan <up actual> <fallos TCP seguidos> <exitos TCP seguidos> <perdidos> <ventana llena 0|1>
+# Imprime el estado nuevo: 0 fuera, 1 dentro, o el actual si no hay motivo para cambiar.
+estado_wan() {
+    if (( $2 >= FAIL_N || $4 >= PERDIDA_SALIDA )); then
+        echo 0
+    elif (( $3 >= OK_N && $4 <= PERDIDA_RETORNO && $5 == 1 )); then
+        echo 1
+    else
+        echo "$1"
+    fi
+}
+
+# menos_mala <preferida actual: 1|2|""> <perdidos1> <perdidos2> <tcp1 0|1> <tcp2 0|1>
+# Con las dos WAN fuera, cual lleva la ruta. Antes se conservaba la ultima ruta, y cuatro veces
+# del 20 al 21 de octubre un corte de segundos en wan1 mando la casa entera por wan2, que perdia un
+# 20 %. Ahora gana la que tiene mayoria TCP en el ultimo chequeo; si las dos la tienen, la que pierde
+# menos ping, y solo se cambia de la actual si la otra pierde MARGEN_MENOS_MALA menos (evita el
+# vaiven). Sin TCP en ninguna es un corte de las dos: se queda la actual. Imprime 1, 2 o "".
+menos_mala() {
+    local actual="$1" p1="$2" p2="$3" t1="$4" t2="$5"
+    if (( t1 != t2 )); then
+        (( t1 )) && echo 1 || echo 2
+    elif (( ! t1 )); then
+        echo "$actual"
+    elif [[ "$actual" == 1 ]]; then
+        (( p2 + MARGEN_MENOS_MALA <= p1 )) && echo 2 || echo 1
+    elif [[ "$actual" == 2 ]]; then
+        (( p1 + MARGEN_MENOS_MALA <= p2 )) && echo 1 || echo 2
+    else
+        (( p2 < p1 )) && echo 2 || echo 1
+    fi
+}
+
+apply_default() {  # apply_default <up1> <up2> [motivo]
     if [[ "$1" == 1 && "$2" == 1 ]]; then
         ip route replace default \
             nexthop via "$WAN1_GW" dev "$WAN1_IF" weight "$WAN1_W" \
@@ -186,10 +284,10 @@ apply_default() {  # apply_default <up1> <up2>
         log "default: multipath wan1+wan2"
     elif [[ "$1" == 1 ]]; then
         ip route replace default via "$WAN1_GW" dev "$WAN1_IF"
-        log "default: solo wan1 (wan2 caida)"
+        log "default: solo wan1 (${3:-wan2 fuera})"
     elif [[ "$2" == 1 ]]; then
         ip route replace default via "$WAN2_GW" dev "$WAN2_IF"
-        log "default: solo wan2 (wan1 caida)"
+        log "default: solo wan2 (${3:-wan1 fuera})"
     else
         log "ALERTA: ambas WAN caidas, se conserva la ultima ruta"
     fi
@@ -244,52 +342,72 @@ setup_pins() {  # setup_pins <up1> <up2>
     done
 }
 
-# Las pruebas (tests/prueba-quorum.sh) cargan las funciones sin entrar en el bucle.
+# decidir <tcp1 0|1> <tcp2 0|1>: con el resultado de los chequeos de la vuelta (la mayoria TCP;
+# los ping ya estan en la ventana), actualiza contadores, up1/up2 y preferida, y deja la ruta
+# efectiva en ruta1/ruta2 y su motivo en `motivo`. Separada del bucle para poder probarla
+# (tests/prueba-perdida.sh).
+decidir() {
+    tcp1=$1; tcp2=$2
+    if (( tcp1 )); then ok1=$((ok1+1)); fail1=0; else fail1=$((fail1+1)); ok1=0; fi
+    if (( tcp2 )); then ok2=$((ok2+1)); fail2=0; else fail2=$((fail2+1)); ok2=0; fi
+    p1=$(perdidos "$WAN1_IF"); ventana_llena "$WAN1_IF" && l1=1 || l1=0
+    p2=$(perdidos "$WAN2_IF"); ventana_llena "$WAN2_IF" && l2=1 || l2=0
+
+    new1=$(estado_wan "$up1" "$fail1" "$ok1" "$p1" "$l1")
+    new2=$(estado_wan "$up2" "$fail2" "$ok2" "$p2" "$l2")
+    # Primer arranque: aplica lo que responda al primer chequeo
+    [[ $up1 -eq -1 ]] && new1=$(( ok1 > 0 ? 1 : 0 ))
+    [[ $up2 -eq -1 ]] && new2=$(( ok2 > 0 ? 1 : 0 ))
+    # El motivo de cada cambio queda en el journal: con la ventana de perdida, "fuera" ya no
+    # siempre es "caida"
+    [[ $up1 -ne -1 && $new1 -ne $up1 ]] && log "$WAN1_IF: $( ((new1)) && echo dentro || echo fuera) (TCP $ok1 ok/$fail1 fallos seguidos, perdidos $p1/$((2 * VENTANA)) ping en la ventana)"
+    [[ $up2 -ne -1 && $new2 -ne $up2 ]] && log "$WAN2_IF: $( ((new2)) && echo dentro || echo fuera) (TCP $ok2 ok/$fail2 fallos seguidos, perdidos $p2/$((2 * VENTANA)) ping en la ventana)"
+    up1=$new1; up2=$new2
+
+    # Ruta efectiva: con las dos fuera, la menos mala
+    ruta1=$new1; ruta2=$new2; motivo=""
+    if [[ $new1 -eq 0 && $new2 -eq 0 ]]; then
+        if [[ -z "$preferida" ]]; then
+            case "$last_state" in 10) preferida=1 ;; 01) preferida=2 ;; esac
+        fi
+        preferida=$(menos_mala "$preferida" "$p1" "$p2" "$tcp1" "$tcp2")
+        [[ "$preferida" == 1 ]] && ruta1=1
+        [[ "$preferida" == 2 ]] && ruta2=1
+        motivo="las dos fuera; la menos mala: perdidos wan1 $p1, wan2 $p2"
+    else
+        preferida=""
+    fi
+}
+
+# Las pruebas (tests/prueba-quorum.sh y tests/prueba-perdida.sh) cargan las funciones sin entrar
+# en el bucle.
 [[ "${WAN_BALANCER_SIN_BUCLE:-0}" == 1 ]] && return 0
 
 log "iniciando wan-balancer"
 setup_tables
-last_state=""
 
 while true; do
     # Refresca reglas por si DHCP renovó con otra IP
     setup_tables
     setup_tables_v6
 
-    if check "$WAN1_IF"; then
-        ok1=$((ok1+1)); fail1=0
-    else
-        fail1=$((fail1+1)); ok1=0
-    fi
-    if check "$WAN2_IF"; then
-        ok2=$((ok2+1)); fail2=0
-    else
-        fail2=$((fail2+1)); ok2=0
-    fi
+    check "$WAN1_IF" && t1=1 || t1=0
+    check "$WAN2_IF" && t2=1 || t2=0
+    decidir "$t1" "$t2"
 
-    new1=$up1; new2=$up2
-    [[ $fail1 -ge $FAIL_N ]] && new1=0
-    [[ $ok1   -ge $OK_N   ]] && new1=1
-    [[ $fail2 -ge $FAIL_N ]] && new2=0
-    [[ $ok2   -ge $OK_N   ]] && new2=1
-    # Primer arranque: aplica lo que responda al primer chequeo
-    [[ $up1 -eq -1 ]] && new1=$(( ok1 > 0 ? 1 : 0 ))
-    [[ $up2 -eq -1 ]] && new2=$(( ok2 > 0 ? 1 : 0 ))
-
-    state="${new1}${new2}"
+    state="${ruta1}${ruta2}"
     if [[ "$state" != "$last_state" ]]; then
-        up1=$new1; up2=$new2
-        apply_default "$up1" "$up2"
+        apply_default "$ruta1" "$ruta2" "$motivo"
         last_state="$state"
-    elif ! main_default_ok "$new1" "$new2"; then
+    elif ! main_default_ok "$ruta1" "$ruta2"; then
         # El estado no cambio, pero `main` no tiene la ruta que deberia: la borro un flush,
         # una renovacion de DHCP u otro proceso. `ip route replace` es idempotente, asi que
         # reaplicar es seguro; solo se registra cuando de verdad hubo que reparar algo, para
         # no llenar el journal en el caso normal.
         log "main sin la ruta esperada para el estado $state; reaplicando"
-        apply_default "$new1" "$new2"
+        apply_default "$ruta1" "$ruta2" "$motivo"
     fi
-    setup_pins "$new1" "$new2"
+    setup_pins "$ruta1" "$ruta2"
 
     sleep "$INTERVAL"
 done

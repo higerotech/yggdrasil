@@ -85,6 +85,46 @@ Cuando cambia el conjunto de destinos que fallan, `wan-balancer` lo registra
 aunque la WAN siga dentro. `tests/prueba-quorum.sh` prueba el criterio y exige que los tres
 componentes usen los mismos destinos.
 
+## Calidad de cada WAN: ventana de pérdida (2026-10-21)
+
+La mayoría TCP dice si una WAN **está viva**, no si **sirve**. TCP retransmite, y una comprobación
+HTTPS pasa en 3 s aunque el enlace pierda muchos paquetes. Del 19 al 21 de octubre wan2 perdió un
+15-30 % de los ping y solo falló el 2 % de las comprobaciones TLS. Nunca sumaba los 3 fallos
+seguidos que la sacaban, así que se quedó en el multipath con la mitad de los flujos de la casa,
+una llamada de Slack entre ellos. Además, cuatro veces un corte de segundos en wan1 mandó la casa
+entera por wan2.
+
+Desde entonces, en cada chequeo (cada 5 s) `wan-balancer`:
+
+- Manda un ping a cada objetivo ICMP de Heimdall (`1.1.1.1`, `8.8.8.8` y `208.67.222.222`) y lo
+  apunta en una **ventana de 24 chequeos** (2 min). Solo cuenta si ese chequeo tuvo mayoría TCP:
+  un corte ya lo detectan los fallos TCP, y sus ping retrasarían la vuelta.
+- Cuenta los perdidos de los **dos mejores** objetivos (48 ping): uno solo que no conteste no saca
+  la WAN, igual que la mediana de `wan:perdida_pct:5m`.
+
+| Decisión | Antes | Ahora |
+|---|---|---|
+| Sacar la WAN | 3 chequeos TCP seguidos sin mayoría (15 s) | 2 chequeos TCP seguidos sin mayoría (10 s) **o** ≥ 3 ping perdidos de 48 en la ventana (~6 %) |
+| Devolverla | 3 chequeos TCP con mayoría (15 s) | 6 chequeos TCP con mayoría (30 s) **y** ≤ 1 perdido con la ventana llena |
+| Las dos fuera | se conservaba la última ruta | la menos mala: la que responde por TCP; si responden las dos, la que pierde menos (solo se cambia si la otra pierde 2 ping menos); en un corte de las dos, la actual |
+
+Umbrales calibrados con 7 días de sondas ICMP de Heimdall, que van al mismo ritmo de 5 s. wan1
+sana tiene ≤ 1 perdido en el 99,77 % de las ventanas y ≥ 3 en el 0,18 %, cortes reales incluidos.
+wan2 el 21 de octubre tenía una mediana de 8 perdidos y un mínimo de 2.
+
+El journal dice por qué entra o sale cada WAN
+(`wan2: fuera (TCP 9 ok/0 fallos seguidos, perdidos 4/48 ping en la ventana)`), y cuándo la ruta va
+por la menos mala (`default: solo wan1 (las dos fuera; la menos mala: perdidos wan1 0, wan2 8)`).
+
+Consecuencia para Heimdall: una WAN viva que pierde paquetes está fuera de la ruta aunque
+`wan:up = 1`. `WanSanaFueraDeRuta` no la cuenta como discrepancia mientras tenga pérdida ≥ 1 % en
+los últimos 15 min. `tests/prueba-perdida.sh` prueba la ventana, los umbrales, la WAN menos mala y
+que `PERDIDA_ICMP` coincide con los objetivos de Heimdall.
+
+Límite conocido: quitar una WAN de la ruta no mueve los flujos que ya salían por ella. Su NAT
+apunta a la IP de esa WAN, así que esas conexiones se cortan y la aplicación reconecta por la otra.
+Una llamada se recupera en unos segundos.
+
 ## Recorte de MSS (en `/etc/nftables.conf`, fuera de este repo)
 
 El firewall vive en `/etc/nftables.conf` (proyecto de routing, con copia de trabajo idéntica en

@@ -218,7 +218,7 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 
 | Alerta | Cuándo |
 |---|---|
-| `WanSanaFueraDeRuta` | Heimdall ve la WAN sana y el balanceador la tiene fuera, 10 min |
+| `WanSanaFueraDeRuta` | Heimdall ve la WAN sana y el balanceador la tiene fuera, 10 min; no cuenta si ha perdido ≥ 1 % en los últimos 15 min (el balanceador la saca por pérdida) |
 | `WanCaidaEnRuta` | Heimdall la ve caída y el balanceador la mantiene, 10 min (salvo con las dos caídas) |
 | `DiscoEmpeora` | sube en 24 h un atributo de los que anuncian fallo (5, 187, 197, 198); el 188 se publica pero no avisa: en Seagate su RAW empaqueta tres contadores |
 | `DiscoErroresDeCable` | suben en 24 h los errores CRC del cable SATA (199) |

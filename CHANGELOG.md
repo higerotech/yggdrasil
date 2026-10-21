@@ -9,6 +9,24 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Cambiado
+- **`wan-balancer` saca una WAN que pierde paquetes, aunque responda por TCP.** Del 19 al 21 de octubre wan2
+  perdía un 15-30 % de los ping y solo fallaba el 2 % de las comprobaciones HTTPS. Nunca sumaba 3 fallos
+  seguidos, así que se quedó en el multipath con la mitad de los flujos de la casa, una llamada de Slack entre
+  ellos.
+  - **Ventana de pérdida:** en cada chequeo, un ping a cada objetivo ICMP de Heimdall. La WAN sale si pierde
+    ≥ 3 de 48 en 2 min, contando los dos mejores objetivos, y vuelve con ≤ 1 y la ventana llena.
+  - **Menos tolerancia:** sale con 2 fallos TCP seguidos (eran 3) y vuelve con 6 aciertos (eran 3).
+  - **Las dos fuera:** la ruta va por la menos mala, en vez de conservar la última. Cuatro veces un corte de
+    segundos en wan1 había mandado la casa entera por wan2.
+  - Umbrales calibrados con 7 días de sondas de Heimdall. Prueba nueva `deploy/host/tests/prueba-perdida.sh`
+    en el CI; detalle en `deploy/host/README.md`.
+- **`WanSanaFueraDeRuta`** no avisa de una WAN que el balanceador saca por pérdida: exige 15 min sin pérdida
+  ≥ 1 % antes de contar los 10 min (grupo nuevo en `thor-alertas.test.yml`).
+
+### Corregido
+- `inventario-pruebas.md`: las referencias de línea a `validar-configs.yml` estaban desfasadas desde la 0.5.14.
+
 ## [0.5.15] - 2026-10-19
 
 **Andvari vigilado:** un Andvari sellado, o cualquier contenedor de `/srv/infra` caído (Andvari, Bifröst, Hermod),
