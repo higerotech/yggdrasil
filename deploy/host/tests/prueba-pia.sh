@@ -81,7 +81,8 @@ esac
 EOF
 cat > "$T/bin/ping" <<'EOF'
 #!/usr/bin/env bash
-[ -f "$STUB/ping-falla" ] && exit 1; exit 0
+[ -f "$STUB/ping-falla" ] && exit 1
+echo '64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=61.2 ms'
 EOF
 cat > "$T/bin/logger" <<'EOF'
 #!/usr/bin/env bash
@@ -130,6 +131,9 @@ es "estado: desvio activo" "$(estado desvio)" 1
 es "estado: un equipo" "$(estado equipos)" 1
 es "estado: region" "$(estado region)" us_florida
 es "estado: ultimo handshake" "$(estado handshake)" 1792000000
+es "estado: RTT de la ultima sonda" "$(estado rtt_ms)" 61.2
+es "estado: un levantamiento" "$(estado levantamientos)" 1
+es "estado: sin desvio aun, la sonda no cuenta" "$(estado sondas)" 0
 hay "la MAC entra en el set, en minusculas" "$T/nft-tabla" "elements = { 30:9c:23:e0:fb:a3 }"
 hay "todo su IPv4 se marca" "$T/nft-tabla" 'ether saddr @equipos meta nfproto ipv4 meta mark set 0x10'
 hay "su IPv6 hacia fuera se descarta" "$T/nft-tabla" 'meta nfproto ipv6 ip6 daddr != { fe80::/10, ff00::/8 } drop'
@@ -145,6 +149,9 @@ vuelta; vuelta
 es "dos sondas fallidas: el desvio sigue" "$(estado desvio)" 1
 vuelta
 es "tres sondas fallidas: desvio retirado" "$(estado desvio)" 0
+es "las tres sondas con desvio cuentan" "$(estado sondas)" 3
+es "y las tres se cuentan como perdidas" "$(estado perdidas)" 3
+es "el tunel se rehace: segundo levantamiento" "$(estado levantamientos)" 2
 [ -f "$T/nft-tabla" ] && mal "sin tunel no queda la tabla del desvio" || ok "sin tunel no queda la tabla del desvio"
 es "sin tunel no quedan reglas" "$(wc -l < "$T/reglas" | tr -d ' ')" 0
 hay "la retirada se registra" "$T/log" "desvio retirado (el tunel no responde)"
@@ -179,6 +186,7 @@ es "addKey rechazado: el token se descarta para pedir otro" "$token" ""
 rm "$T/addkey-falla"; touch "$T/token-falla"
 vuelta
 hay "sin token: se registra sin mostrar nada" "$T/log" "PIA no dio token"
+es "addKey y token rechazados se cuentan" "$(estado rechazos)" 2
 rm "$T/token-falla"
 vuelta
 es "PIA vuelve a responder: tunel y desvio" "$(estado tunel)$(estado desvio)" 11

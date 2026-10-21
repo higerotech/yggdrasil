@@ -1,0 +1,10 @@
+[Unit]
+Description=Yggdrasil: revision a 30 dias de la ADR-0009 (tunel PIA)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/docs/00-project/adr/ADR-0009-tunel-llamadas.md
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/revisar-adr-0009.sh --aviso
+TimeoutStartSec=300

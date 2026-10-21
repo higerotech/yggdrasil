@@ -232,8 +232,14 @@ rm "$T/bao-status"
 # --- Tunel PIA (ADR-0009) ---
 pasada
 no_tiene "sin estado de pia-tunel no se publica el tunel" 'yggdrasil_pia_'
-printf '%s\n' "tunel 1" "desvio 1" "equipos 1" "handshake 1792000000" "region us_florida" > "$T/pia-estado"
+printf '%s\n' "tunel 1" "desvio 1" "equipos 1" "handshake 1792000000" "region us_florida" \
+    "sondas 120" "perdidas 3" "rtt_ms 61.2" "levantamientos 2" "rechazos 1" > "$T/pia-estado"
 THOR_PIA_ESTADO="$T/pia-estado" pasada
+tiene "sondas por el tunel" 'yggdrasil_pia_sondas_total 120'
+tiene "sondas perdidas" 'yggdrasil_pia_sondas_perdidas_total 3'
+tiene "levantamientos" 'yggdrasil_pia_levantamientos_total 2'
+tiene "rechazos de PIA" 'yggdrasil_pia_rechazos_total 1'
+tiene "RTT del tunel" 'yggdrasil_pia_rtt_ms 61.2'
 tiene "tunel PIA arriba" 'yggdrasil_pia_tunel_up 1'
 tiene "desvio PIA activo" 'yggdrasil_pia_desvio_activo 1'
 tiene "equipos por PIA" 'yggdrasil_pia_equipos 1'
@@ -242,6 +248,11 @@ tiene "region de PIA" 'yggdrasil_pia_region_info{region="us_florida"} 1'
 printf '%s\n' "tunel 1" "desvio x" "equipos 1" "handshake 0" "region us_florida" > "$T/pia-estado"
 THOR_PIA_ESTADO="$T/pia-estado" pasada
 no_tiene "estado de PIA ilegible: no se publica nada" 'yggdrasil_pia_'
+printf '%s\n' "tunel 1" "desvio 1" "equipos 1" "handshake 0" "region us_florida" "sondas x" "rtt_ms 0" > "$T/pia-estado"
+THOR_PIA_ESTADO="$T/pia-estado" pasada
+tiene "estado de una version anterior (sin contadores): el resto se publica" 'yggdrasil_pia_desvio_activo 1'
+no_tiene "contadores ilegibles: no se publican" 'yggdrasil_pia_sondas_total'
+no_tiene "RTT 0 (sin sonda que respondiera): no se publica" 'yggdrasil_pia_rtt_ms'
 printf '%s\n' "tunel 0" "desvio 0" "equipos 1" "handshake 0" 'region "x' > "$T/pia-estado"
 THOR_PIA_ESTADO="$T/pia-estado" pasada
 tiene "region con caracteres raros: desconocida" 'yggdrasil_pia_region_info{region="desconocida"} 1'

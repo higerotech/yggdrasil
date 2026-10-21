@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 0.2.1 (revisiones 2026-10-19 y 2026-10-21, al pie)
+* **Versión:** 0.2.2 (revisiones 2026-10-19 y 2026-10-21, al pie)
 * **Gate:** 1
 * **Alcance:** Servicio Monitor SLA (sondas, TSDB, dashboards, puente MQTT), tablero de pared, métricas del host (Thor), despliegue continuo, respaldo y avisos
 * **Metodología:** STRIDE + DREAD
@@ -84,8 +84,8 @@ quadrantChart
 | T8 | Archivo de respaldo en el NAS: lleva el `.env` y la configuración renderizada (secretos) | 9 | 3 | 4 | 3 | 4 | 4.6 | Directorio 700 y ficheros 600; el export `respaldos` solo admite a midgard; retención 14 días. Aceptado (HITL 2026-10-19) |
 | T9 | El tema de ntfy es la credencial: quien lo conozca lee los avisos (incluidas caídas y respaldos) | 4 | 6 | 7 | 3 | 4 | 4.8 | Tema aleatorio en `/etc/yggdrasil-aviso.env` y en `.env` (600), fuera del repo; un solo fichero que rotar. Aceptado (HITL 2026-10-19) |
 | T10 | Datos del host (Thor): número de serie de los discos e inventario de servicios | 2 | 4 | 4 | 3 | 3 | 3.2 | La salida de `smartctl` se guarda en `/var/cache/yggdrasil-thor` (0700), fuera de lo que se sirve; el contenedor monta el directorio en solo lectura y no publica puerto. Aceptado (HITL 2026-10-19) |
-| T11 | Credenciales de PIA en midgard (`/etc/yggdrasil-pia.env`): quien las lea usa la cuenta de PIA de Jeremi | 5 | 3 | 3 | 2 | 3 | 3.2 | Fichero de root 600 que escribe Jeremi; `pia-tunel.sh` lo lee sin `source` y pasa usuario, contraseña y token a curl por descriptor, nunca como argumento; token y clave privada solo en memoria; `prueba-pia.sh` comprueba que no aparecen en la línea de órdenes ni en el journal (ADR-0009). **Propuesto, pendiente de HITL** |
-| T12 | PIA ve los metadatos de todo el tráfico del PC (destinos, volumen, horario) | 4 | 9 | 2 | 1 | 3 | 3.8 | Riesgo **aceptado** por Jeremi (HITL 2026-10-21, ADR-0009). El contenido sigue cifrado por cada aplicación (TLS). Puntuación propuesta, pendiente de HITL |
+| T11 | Credenciales de PIA en midgard (`/etc/yggdrasil-pia.env`): quien las lea usa la cuenta de PIA de Jeremi | 5 | 3 | 3 | 2 | 3 | 3.2 | Fichero de root 600 que escribe Jeremi; `pia-tunel.sh` lo lee sin `source` y pasa usuario, contraseña y token a curl por descriptor, nunca como argumento; token y clave privada solo en memoria; `prueba-pia.sh` comprueba que no aparecen en la línea de órdenes ni en el journal (ADR-0009). Aceptado (HITL 2026-10-21) |
+| T12 | PIA ve los metadatos de todo el tráfico del PC (destinos, volumen, horario) | 4 | 9 | 2 | 1 | 3 | 3.8 | Riesgo **aceptado** por Jeremi (HITL 2026-10-21, ADR-0009). El contenido sigue cifrado por cada aplicación (TLS). Puntuación aceptada (HITL 2026-10-21) |
 
 ## Detección en operación (T7-T10)
 
@@ -132,3 +132,6 @@ ejemplo) suben la explotabilidad de T8.
 > **Revisión 2026-10-21 — túnel PIA (ADR-0009).** Se añaden T11, las credenciales de PIA en midgard, y T12,
 > PIA como observador del tráfico del PC. Jeremi acepta el riesgo de T12. Las dos puntuaciones DREAD son
 > propuestas y quedan pendientes de su confirmación.
+
+> **Revisión 2026-10-21 (2) — DREAD de T11 y T12 aceptado.** Jeremi acepta las puntuaciones propuestas:
+> T11 3,2 y T12 3,8.

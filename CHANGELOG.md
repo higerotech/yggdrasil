@@ -9,6 +9,24 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **Revisión a 30 días de la ADR-0009, programada.**
+  - `pia-tunel.sh` cuenta las sondas por el túnel (solo con el desvío activo), las perdidas, el RTT, los
+    levantamientos y los rechazos de PIA. Thor los publica como `yggdrasil_pia_sondas_total`,
+    `yggdrasil_pia_sondas_perdidas_total`, `yggdrasil_pia_rtt_ms`, `yggdrasil_pia_levantamientos_total` y
+    `yggdrasil_pia_rechazos_total`.
+  - `deploy/cd/revisar-adr-0009.sh` aplica las condiciones de revisión de la ADR sobre 30 días de Mimir.
+    - Compara con la WAN directa que menos pierde y con el mismo destino, `1.1.1.1`.
+    - Propone mantener la Fase 1, pasar a la Fase 2, revertir, o esperar si faltan datos.
+    - El informe llega por ntfy y se guarda en `/var/lib/yggdrasil-revisiones/`.
+  - `yggdrasil-revision-adr-0009.timer` lo ejecuta el 2026-11-20 a las 09:00 (Caracas) y lo instala
+    `bootstrap-midgard.sh`.
+  - Seguimiento en la issue #88, del milestone «Revisión ADR-0009 (2026-11-20)».
+  - Prueba nueva: `deploy/cd/tests/prueba-revision.sh`, con 21 comprobaciones.
+
+### Cambiado
+- **Threat model:** DREAD de T11 (3,2) y T12 (3,8) aceptado (HITL 2026-10-21).
+
 ## [0.5.16] - 2026-10-21
 
 **Una WAN que pierde paquetes sale de la ruta, y el PC de Jeremi sale por PIA:** wan-balancer mide la pérdida y ya

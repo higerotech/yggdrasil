@@ -279,6 +279,20 @@ Un estado ilegible no publica nada. Avisan dos alertas warning:
 
 Detalle del túnel en `deploy/host/README.md`.
 
+Para la revisión a 30 días de la ADR-0009, Thor publica además estos contadores:
+
+- `yggdrasil_pia_sondas_total` y `yggdrasil_pia_sondas_perdidas_total`: solo cuentan con el desvío activo.
+- `yggdrasil_pia_rtt_ms`.
+- `yggdrasil_pia_levantamientos_total` y `yggdrasil_pia_rechazos_total`.
+
+**Revisiones programadas de decisiones.** `bootstrap-midgard.sh` instala `revisar-adr-0009.sh` y su temporizador
+`yggdrasil-revision-adr-0009.timer`, que se ejecuta el 2026-11-20 a las 09:00 (Caracas), con `Persistent`.
+
+- Lee 30 días de Mimir, propone mantener la Fase 1, pasar a la Fase 2 o revertir, y lo manda por ntfy.
+- También lo guarda en `/var/lib/yggdrasil-revisiones/`.
+- Para verlo antes, sin efectos: `sudo /usr/local/sbin/revisar-adr-0009.sh`.
+- Seguimiento en la issue #88.
+
 La salida de `smartctl` lleva el número de serie del disco: se guarda en
 `/var/cache/yggdrasil-thor` (0700), fuera del directorio que se sirve. El recolector escribe con `mv`
 atómico y el contenedor monta el **directorio**, no el fichero (ver la 0.5.7).
