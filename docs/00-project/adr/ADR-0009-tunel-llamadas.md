@@ -1,13 +1,13 @@
 # ADR-0009: Túnel para las llamadas, con PIA en midgard y un VPS propio como evolución multirregión
 
-* **Estado:** proposed
+* **Estado:** accepted
 * **Fecha:** 2026-10-21
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 0.1.0
+* **Versión:** 1.0.0
 * **ID:** ADR-0009
 * **Supersede / Superseded-by:** —
-* **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA y claves del túnel en Andvari, nunca en el repo ni en `.env`), A09 (estado del túnel en Heimdall)
+* **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA en un fichero de root 600 que escribe Jeremi, nunca en el repo; clave privada y token solo en memoria), A09 (estado del túnel en Heimdall)
 
 ## Contexto
 
@@ -123,10 +123,31 @@ quadrantChart
 ```
 *Eje decisión · fase 02 · performance (Score_perf) frente a costo incremental.*
 
-## Decisión (propuesta)
+## Decisión
 
 **Por fases. La Fase 1 es C2, el mayor PxD. La Fase 2 es C4 y solo se activa si los datos de la Fase 1 lo
 justifican.**
+
+### Decisión de Jeremi (HITL 2026-10-21)
+
+Jeremi acepta la ADR con un cambio en el alcance de la Fase 1:
+
+- **Por equipo, no por tipo de tráfico.** Todo el tráfico del PC de Jeremi sale por el túnel, no solo el de
+  llamadas. El equipo se elige por su MAC, que vive en `/etc/yggdrasil-pia.conf` y no en el repositorio, que es
+  público. Elegirlo por MAC sigue funcionando aunque DHCP le cambie la IP.
+  - Su DNS va al de PIA, así que el ISP deja de ver sus consultas.
+  - Su IPv6 hacia fuera se descarta, porque PIA solo da IPv4. Hoy la LAN no tiene IPv6 global.
+  - La clasificación `rt_media` queda **aplazada**. Se retoma si hace falta para otros equipos.
+- **T12 aceptada:** PIA puede ver los metadatos del tráfico del PC.
+- **El PC deja de usar la app de PIA** una vez configurado el túnel en midgard.
+- **R4 se mantiene:** si el túnel no responde, el PC sale directo. No hay kill switch.
+- **Credenciales en `/etc/yggdrasil-pia.env`** (root, 600), que escribe Jeremi y no Claude, en vez de en
+  Andvari. Andvari todavía no tiene cómo entregar secretos a los servicios del host; cuando lo tenga, se migran.
+- **Región inicial `us_florida`**, la que ya usaba la app del PC. Se cambia con `PIA_REGION`.
+- **Implementación:** `deploy/host/pia-tunel.sh` y `pia-tunel.service`, documentados en `deploy/host/README.md`
+  («Túnel PIA»).
+  - El camino exterior del túnel sigue la ruta por defecto que mantiene wan-balancer, sin reglas propias.
+  - Thor publica el estado del túnel, y hay dos alertas: `TunelPiaSinDesvio` y `TunelPiaCaido`.
 
 ```mermaid
 flowchart LR
@@ -158,7 +179,9 @@ flowchart LR
 ```
 *Eje comportamiento · fase 02 · camino del tráfico de llamadas.*
 
-### Fase 1: PIA en midgard (C2)
+### Fase 1: PIA en midgard (C2), diseño propuesto
+
+Lo que sigue es el diseño de la propuesta. Donde difiere, manda la decisión HITL de arriba.
 
 - **Interfaz `pia0`** (WireGuard) hacia una sola región de PIA.
   - Un temporizador systemd pide el token y registra la clave por la API de PIA, partiendo de
@@ -219,12 +242,12 @@ Las cinco de la matriz más las descartadas. Tres variantes de C2:
   - Una IP compartida puede traer captchas.
   - Hay código nuevo en el host: el temporizador de PIA y la tabla del túnel.
   - La Fase 2 añade un servidor que mantener.
-- **Threat model** (se añade al aceptar):
+- **Threat model:** T11 y T12 añadidas a `threat-model.md` el 2026-10-21; T13, con la Fase 2.
 
   | ID | Amenaza | Control previsto |
   |---|---|---|
-  | T11 | Las credenciales de PIA en midgard | Andvari, sin imprimir |
-  | T12 | PIA como observador de los metadatos de las llamadas | Riesgo aceptado o no; lo decide Jeremi |
+  | T11 | Las credenciales de PIA en midgard | Fichero de root 600, leído sin `source`, pasado a curl por descriptor; token y clave privada nunca en disco |
+  | T12 | PIA como observador de los metadatos del tráfico del PC | Riesgo aceptado por Jeremi (HITL 2026-10-21) |
   | T13 | Un VPS comprometido (Fase 2) | Solo transporta tráfico ya cifrado por la aplicación: SRTP o DTLS en las llamadas |
 
 - **No cubre los cortes de las dos WAN a la vez.** Para eso sigue pendiente el SAI de midgard y de los dos módems.

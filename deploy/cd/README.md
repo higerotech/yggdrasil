@@ -264,6 +264,21 @@ Mimir avisa con dos alertas críticas:
 
 Sin respuesta legible de `bao status` no se publica el sello: un 0 diría que está abierto.
 
+**El túnel PIA (ADR-0009).** Con `pia-tunel.service` en marcha, Thor lee `/run/yggdrasil-pia/estado` y publica:
+
+- `yggdrasil_pia_tunel_up`: si el túnel responde.
+- `yggdrasil_pia_desvio_activo`: si los equipos de `PIA_MACS` salen por el túnel.
+- `yggdrasil_pia_equipos`: cuántos equipos hay configurados.
+- `yggdrasil_pia_handshake_timestamp_seconds`: el último handshake con PIA.
+- `yggdrasil_pia_region_info{region}`: la región del túnel.
+
+Un estado ilegible no publica nada. Avisan dos alertas warning:
+
+- **`TunelPiaSinDesvio`:** hay equipos configurados, pero salen directo, durante 5 min.
+- **`TunelPiaCaido`:** la unidad, que está en la lista por defecto de `THOR_UNIDADES`, lleva 5 min parada.
+
+Detalle del túnel en `deploy/host/README.md`.
+
 La salida de `smartctl` lleva el número de serie del disco: se guarda en
 `/var/cache/yggdrasil-thor` (0700), fuera del directorio que se sirve. El recolector escribe con `mv`
 atómico y el contenedor monta el **directorio**, no el fichero (ver la 0.5.7).
