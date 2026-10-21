@@ -1,0 +1,11 @@
+[Unit]
+Description=Yggdrasil: revision a 30 dias de la ADR-0009 (tunel PIA)
+
+[Timer]
+# 30 dias despues de activar la Fase 1 (2026-10-21 17:35 UTC), a hora de leerlo. Persistent: si
+# midgard esta apagado ese dia (no tiene SAI), la revision corre al arrancar.
+OnCalendar=2026-11-20 09:00 America/Caracas
+Persistent=true
+
+[Install]
+WantedBy=timers.target

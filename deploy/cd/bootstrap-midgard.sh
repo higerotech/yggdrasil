@@ -130,6 +130,13 @@ else
   echo "   AVISO: /srv/rapido no está montado; Saga no arrancará hasta que lo esté y se repita este paso"
 fi
 
+echo "== 5g. Revisiones programadas de decisiones (ADR-0009: tunel PIA, 2026-11-20)"
+install -m 0755 "$APP_DIR/deploy/cd/revisar-adr-0009.sh" /usr/local/sbin/revisar-adr-0009.sh
+for u in yggdrasil-revision-adr-0009.service yggdrasil-revision-adr-0009.timer; do
+  install -m 0644 "$APP_DIR/deploy/cd/$u" "/etc/systemd/system/$u"
+done
+systemctl daemon-reload
+systemctl enable --now yggdrasil-revision-adr-0009.timer >/dev/null 2>&1 && echo "   yggdrasil-revision-adr-0009.timer habilitado"
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

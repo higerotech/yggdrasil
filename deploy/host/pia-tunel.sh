@@ -41,6 +41,9 @@ TABLA_NFT=yggdrasil_pia
 token=""; token_desde=0
 srv_ip=""; srv_cn=""; srv_region=""; dns_pia=""
 tunel=0; desvio=0; fallos=0; ultimo_intento=0; macs_aplicadas=""
+# Contadores para la revision de la ADR-0009 (deploy/cd/revisar-adr-0009.sh), que Thor publica. Las
+# sondas solo cuentan con el desvio activo: miden lo que vive el equipo, no un tunel sin usar.
+sondas=0; perdidas=0; rtt_ms=0; levantamientos=0; rechazos=0
 
 log() { logger -t pia-tunel "$*"; }
 
@@ -77,6 +80,7 @@ pedir_token() {  # deja el token en `token`; 0 si lo consiguio
     unset r
     if [[ -z "$token" ]]; then
         log "PIA no dio token: revisar las credenciales de $CREDENCIALES"
+        rechazos=$((rechazos + 1))
         return 1
     fi
     token_desde=$(date +%s)
@@ -110,6 +114,7 @@ levantar() {  # registra una clave nueva en PIA y monta pia0; 0 si quedo arriba
         # Un token caducado o revocado da error aqui: el siguiente intento pide otro
         log "PIA rechazo la clave en $srv_cn ($srv_region)"
         token=""
+        rechazos=$((rechazos + 1))
         return 1
     fi
     clave_srv=$(printf '%s' "$r" | jq -r '.server_key'); puerto=$(printf '%s' "$r" | jq -r '.server_port')
@@ -131,11 +136,16 @@ levantar() {  # registra una clave nueva en PIA y monta pia0; 0 si quedo arriba
     # Respuestas de internet que entran por pia0: con rp_filter estricto el kernel las tiraria
     sysctl -qw "net.ipv4.conf.$IFACE.rp_filter=2"
     ip route replace default dev "$IFACE" table "$TABLA"
+    levantamientos=$((levantamientos + 1))
     log "tunel arriba: region $srv_region ($srv_cn), DNS $dns_pia"
 }
 
-tunel_responde() {
-    ping -c1 -W2 -n -I "$IFACE" "$SONDA" >/dev/null 2>&1
+tunel_responde() {  # 0 si la sonda responde por el tunel; deja su RTT en rtt_ms
+    local salida r
+    salida=$(ping -c1 -W2 -n -I "$IFACE" "$SONDA" 2>/dev/null) || return 1
+    r=$(printf '%s' "$salida" | awk -F'time=' 'NF > 1 {split($2, a, " "); print a[1]; exit}')
+    [[ "$r" =~ ^[0-9]+([.][0-9]+)?$ ]] && rtt_ms=$r
+    return 0
 }
 
 # reglas_nft <macs>: la tabla propia del desvio, para `nft -f -`. Se declara y se borra antes de
@@ -208,6 +218,11 @@ escribir_estado() {
         echo "equipos $(macs | awk -F', ' 'NF {print NF; exit} END {if (!NR) print 0}')"
         echo "handshake ${hs:-0}"
         echo "region ${srv_region:-ninguna}"
+        echo "sondas $sondas"
+        echo "perdidas $perdidas"
+        echo "rtt_ms $rtt_ms"
+        echo "levantamientos $levantamientos"
+        echo "rechazos $rechazos"
     } > "$t"
     chmod 0644 "$t"
     mv -f "$t" "$ESTADO_DIR/estado"
@@ -233,7 +248,15 @@ vuelta() {
         fi
     fi
 
-    if ip link show "$IFACE" >/dev/null 2>&1 && tunel_responde; then
+    local responde=0
+    if ip link show "$IFACE" >/dev/null 2>&1; then
+        tunel_responde && responde=1
+        if (( desvio )); then
+            sondas=$((sondas + 1))
+            (( responde )) || perdidas=$((perdidas + 1))
+        fi
+    fi
+    if (( responde )); then
         fallos=0; tunel=1
     else
         fallos=$((fallos + 1))

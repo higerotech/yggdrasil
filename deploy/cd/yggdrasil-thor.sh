@@ -236,6 +236,27 @@ if [ -r "$PIA_ESTADO" ]; then
         echo "# HELP yggdrasil_pia_region_info Region de PIA del tunel."
         echo "# TYPE yggdrasil_pia_region_info gauge"
         echo "yggdrasil_pia_region_info{region=\"$pia_r\"} 1"
+        # Contadores para la revision de la ADR-0009: se reinician con el servicio (increase() lo absorbe)
+        pia_s=$(pia sondas); pia_p=$(pia perdidas); pia_l=$(pia levantamientos); pia_x=$(pia rechazos); pia_rtt=$(pia rtt_ms)
+        if [[ "$pia_s" =~ ^[0-9]+$ && "$pia_p" =~ ^[0-9]+$ && "$pia_l" =~ ^[0-9]+$ && "$pia_x" =~ ^[0-9]+$ ]]; then
+            echo "# HELP yggdrasil_pia_sondas_total Sondas por el tunel con el desvio activo."
+            echo "# TYPE yggdrasil_pia_sondas_total counter"
+            echo "yggdrasil_pia_sondas_total $pia_s"
+            echo "# HELP yggdrasil_pia_sondas_perdidas_total Sondas por el tunel sin respuesta, con el desvio activo."
+            echo "# TYPE yggdrasil_pia_sondas_perdidas_total counter"
+            echo "yggdrasil_pia_sondas_perdidas_total $pia_p"
+            echo "# HELP yggdrasil_pia_levantamientos_total Veces que el tunel se ha levantado con una clave nueva."
+            echo "# TYPE yggdrasil_pia_levantamientos_total counter"
+            echo "yggdrasil_pia_levantamientos_total $pia_l"
+            echo "# HELP yggdrasil_pia_rechazos_total Veces que PIA no dio token o rechazo la clave."
+            echo "# TYPE yggdrasil_pia_rechazos_total counter"
+            echo "yggdrasil_pia_rechazos_total $pia_x"
+        fi
+        if [[ "$pia_rtt" =~ ^[0-9]+([.][0-9]+)?$ && "$pia_rtt" != 0 ]]; then
+            echo "# HELP yggdrasil_pia_rtt_ms RTT de la ultima sonda que respondio por el tunel."
+            echo "# TYPE yggdrasil_pia_rtt_ms gauge"
+            echo "yggdrasil_pia_rtt_ms $pia_rtt"
+        fi
     fi
 fi
 
