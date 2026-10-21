@@ -20,6 +20,8 @@
 #   - De cada disco, si es mecanico o SSD, y cuantos errores del enlace SATA o de E/S registro el
 #     kernel en los ultimos 15 min. smartctl no ve que un disco se caiga del bus: el SSD de datos
 #     se cayo asi el 2026-10-19 con SMART limpio.
+#   - El tunel a PIA (ADR-0009), si pia-tunel.sh esta en marcha: si responde, si los equipos de
+#     PIA_MACS salen por el, cuantos son, el ultimo handshake y la region.
 #
 # La configuracion de cada host (discos, puntos, respaldos) va en /etc/default/yggdrasil-thor, que
 # lee la unidad: este repositorio es publico y no debe llevar numeros de serie. THOR_DISCOS admite
@@ -48,12 +50,13 @@ PROYECTO=${THOR_PROYECTO:-yggdrasil}
 CONTENEDORES=${THOR_CONTENEDORES:-}
 # El contenedor de Andvari (OpenBao): ademas de su salud, si esta sellado. Vacio, no se mira.
 ANDVARI=${THOR_ANDVARI:-}
-UNIDADES=${THOR_UNIDADES:-docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer}
+UNIDADES=${THOR_UNIDADES:-docker.service wan-balancer.service pia-tunel.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer}
 RESPALDO_MARCA=${THOR_RESPALDO_MARCA:-/var/lib/yggdrasil-respaldo/ultimo-exito}
 RESPALDOS=${THOR_RESPALDOS:-yggdrasil=$RESPALDO_MARCA}
 DOCKER_TIMEOUT_S=${THOR_DOCKER_TIMEOUT_S:-10}
 JOURNAL_TIMEOUT_S=${THOR_JOURNAL_TIMEOUT_S:-10}
 SYS=${THOR_SYS:-/sys}
+PIA_ESTADO=${THOR_PIA_ESTADO:-/run/yggdrasil-pia/estado}   # lo escribe pia-tunel.sh (ADR-0009)
 AHORA=$(date +%s)
 
 mkdir -p "$DIR" "$CACHE"
@@ -207,6 +210,32 @@ if [ -n "$ANDVARI" ]; then
         echo "# HELP yggdrasil_andvari_sellado 1 si Andvari (OpenBao) esta sellado y no abre ninguna clave."
         echo "# TYPE yggdrasil_andvari_sellado gauge"
         echo "yggdrasil_andvari_sellado $sellado"
+    fi
+fi
+
+# --- Tunel PIA (ADR-0009) --------------------------------------------------------------------
+# pia-tunel.sh deja su estado en /run/yggdrasil-pia/estado. El fichero desaparece con el servicio
+# (RuntimeDirectory): entonces no se publica nada y avisa la unidad (yggdrasil_servicio_ok).
+if [ -r "$PIA_ESTADO" ]; then
+    pia() { awk -v k="$1" '$1 == k {print $2; exit}' "$PIA_ESTADO"; }
+    pia_t=$(pia tunel); pia_d=$(pia desvio); pia_e=$(pia equipos); pia_h=$(pia handshake); pia_r=$(pia region)
+    if [[ "$pia_t" =~ ^[01]$ && "$pia_d" =~ ^[01]$ && "$pia_e" =~ ^[0-9]+$ && "$pia_h" =~ ^[0-9]+$ ]]; then
+        [[ "$pia_r" =~ ^[a-z0-9_-]+$ ]] || pia_r=desconocida
+        echo "# HELP yggdrasil_pia_tunel_up 1 si el tunel a PIA responde."
+        echo "# TYPE yggdrasil_pia_tunel_up gauge"
+        echo "yggdrasil_pia_tunel_up $pia_t"
+        echo "# HELP yggdrasil_pia_desvio_activo 1 si los equipos de PIA_MACS salen por el tunel."
+        echo "# TYPE yggdrasil_pia_desvio_activo gauge"
+        echo "yggdrasil_pia_desvio_activo $pia_d"
+        echo "# HELP yggdrasil_pia_equipos Equipos configurados para salir por el tunel (PIA_MACS)."
+        echo "# TYPE yggdrasil_pia_equipos gauge"
+        echo "yggdrasil_pia_equipos $pia_e"
+        echo "# HELP yggdrasil_pia_handshake_timestamp_seconds Ultimo handshake de WireGuard con PIA."
+        echo "# TYPE yggdrasil_pia_handshake_timestamp_seconds gauge"
+        echo "yggdrasil_pia_handshake_timestamp_seconds $pia_h"
+        echo "# HELP yggdrasil_pia_region_info Region de PIA del tunel."
+        echo "# TYPE yggdrasil_pia_region_info gauge"
+        echo "yggdrasil_pia_region_info{region=\"$pia_r\"} 1"
     fi
 fi
 

@@ -146,6 +146,34 @@ groups:
         annotations:
           resumen: "El respaldo {{ $labels.respaldo }} lleva más de 30 h sin completarse"
 
+      # --- Túnel PIA (ADR-0009) -------------------------------------------------------------------
+      # Con el túnel sin respuesta, pia-tunel.sh retira el desvío y los equipos de PIA_MACS salen directo:
+      # siguen teniendo internet, pero por la IP del ISP y con su DNS. 5 min: el servicio reintenta cada 60 s.
+      - alert: TunelPiaSinDesvio
+        expr: yggdrasil_pia_desvio_activo == 0 and on () yggdrasil_pia_equipos > 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: pia
+        annotations:
+          resumen: "Los equipos del túnel PIA salen directo, sin PIA"
+          descripcion: >-
+            El túnel no responde o PIA rechaza la clave. Revisar `journalctl -t pia-tunel` y
+            `wg show pia0`; las credenciales están en /etc/yggdrasil-pia.env.
+
+      - alert: TunelPiaCaido
+        # El estado del túnel desaparece con el servicio: quien avisa entonces es la unidad.
+        expr: yggdrasil_servicio_ok{tipo="unidad",nombre="pia-tunel.service"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: pia
+        annotations:
+          resumen: "pia-tunel.service está parado: los equipos del túnel salen directo"
+          descripcion: >-
+            Revisar `systemctl status pia-tunel` y `journalctl -t pia-tunel`. Sin /etc/yggdrasil-pia.env
+            la unidad no arranca.
+
       # --- Infraestructura de midgard (THOR_CONTENEDORES, THOR_ANDVARI) ---------------------------
       # Andvari guarda la clave maestra del gateway: sellado, el gateway responde 503 a todo lo cifrado. Pasa si el
       # contenedor arranca sin su clave de sello (/srv/infra/andvari/secretos/sello.key) o con otra.

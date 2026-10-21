@@ -305,3 +305,43 @@ tests:
               resumen: "bifrost-nats está caído o no sano"
               descripcion: "Revisar `docker ps -a --filter name=bifrost-nats` y `docker logs bifrost-nats`. Sin Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe."
 
+
+  - name: el túnel PIA sin desvío y el servicio parado
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_pia_desvio_activo{job="thor", instance="thor:9471"}'
+        values: '1x2 0x10'
+      - series: 'yggdrasil_pia_equipos{job="thor", instance="thor:9471"}'
+        values: '1x12'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="unidad", nombre="pia-tunel.service"}'
+        values: '1x2 0x10'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: TunelPiaSinDesvio
+        exp_alerts: []          # aún dentro del for de 5 min
+      - eval_time: 9m
+        alertname: TunelPiaSinDesvio
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: pia, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Los equipos del túnel PIA salen directo, sin PIA"
+              descripcion: "El túnel no responde o PIA rechaza la clave. Revisar `journalctl -t pia-tunel` y `wg show pia0`; las credenciales están en /etc/yggdrasil-pia.env."
+      - eval_time: 9m
+        alertname: TunelPiaCaido
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: pia, job: thor, instance: "thor:9471", tipo: unidad, nombre: pia-tunel.service}
+            exp_annotations:
+              resumen: "pia-tunel.service está parado: los equipos del túnel salen directo"
+              descripcion: "Revisar `systemctl status pia-tunel` y `journalctl -t pia-tunel`. Sin /etc/yggdrasil-pia.env la unidad no arranca."
+
+  - name: el túnel PIA sin equipos configurados no avisa
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_pia_desvio_activo{job="thor", instance="thor:9471"}'
+        values: '0x12'
+      - series: 'yggdrasil_pia_equipos{job="thor", instance="thor:9471"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TunelPiaSinDesvio
+        exp_alerts: []

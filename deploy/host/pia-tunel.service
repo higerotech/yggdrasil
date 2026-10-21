@@ -1,0 +1,24 @@
+# /etc/systemd/system/pia-tunel.service
+# Tunel WireGuard a PIA para los equipos de PIA_MACS (ADR-0009). Al pararse retira el desvio:
+# los equipos vuelven a salir directo.
+[Unit]
+Description=Tunel WireGuard a PIA para equipos de la LAN (ADR-0009)
+After=network-online.target nftables.service wan-balancer.service
+Wants=network-online.target
+ConditionPathExists=/etc/yggdrasil-pia.env
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/pia-tunel.sh
+Restart=always
+RestartSec=10
+RuntimeDirectory=yggdrasil-pia
+RuntimeDirectoryMode=0755
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target

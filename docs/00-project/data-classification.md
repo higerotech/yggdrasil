@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.1.1
+* **Versión:** 0.1.2
 * **Owner de datos (DPO):** Jeremi
 * **Regulación aplicable:** Ninguna formal (uso doméstico); criterio de privacidad del hogar
 
@@ -20,7 +20,13 @@
 | Archivo de respaldo en el NAS (volúmenes, `.env` y configuración renderizada) | Restringido | — | No (directorio 700, ficheros 600; export solo para midgard) | NFS en la LAN | 14 días |
 | Salida de `smartctl` (número de serie de los discos) | Confidencial | — | No (`/var/cache/yggdrasil-thor`, 0700, fuera de lo servido) | No sale del host | Se sobrescribe en cada pasada |
 | Métricas del host (Thor: discos, espacio, servicios, respaldos) | Interno | — | No | Red interna de Compose | 30 días |
+| Credenciales de PIA (`PIA_USER`, `PIA_PASS`) | Restringido | — | Sí (`/etc/yggdrasil-pia.env`, root 600; las escribe Jeremi) | HTTPS hacia la API de PIA | Hasta rotación |
+| Token de PIA y clave privada del túnel `pia0` | Restringido | — | No se escriben: solo en memoria de `pia-tunel.sh` | HTTPS (token) / no sale del host (clave) | Token 24 h; clave hasta el siguiente arranque del túnel |
+| Metadatos del tráfico del PC que sale por PIA (destinos, volumen, horario) | Confidencial | — | Fuera de nuestro control (PIA) | WireGuard hasta PIA | La que aplique PIA. Riesgo aceptado por Jeremi (T12, ADR-0009) |
 
 Niveles: Público < Interno < Confidencial < Restringido.
 
 Nota: las métricas agregadas de WAN pueden revelar patrones de presencia en casa; no exponerlas fuera de LAN/WireGuard.
+
+> **Revisión 2026-10-21 — túnel PIA (ADR-0009).** Se añaden las credenciales y el token de PIA, la clave
+> privada del túnel y los metadatos del tráfico del PC que pasan a ser visibles para PIA (T12, aceptado).

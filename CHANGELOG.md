@@ -18,6 +18,24 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
     wan1 está a 21 ms de Bogotá y wan2 a 33 ms de Miami.
   - La llamada de ese día ya iba por PIA desde el PC, como un único flujo UDP que el multipath puso en wan2.
   - Herramienta de solo lectura `deploy/host/medir-tuneles.sh`, en el ShellCheck del CI.
+- **ADR-0009 aceptada (HITL 2026-10-21) y túnel PIA en midgard (`pia-tunel`).** Jeremi cambia el alcance de la
+  Fase 1: todo el tráfico de su PC, elegido por MAC, sale por PIA, no solo las llamadas. Acepta T12 y deja de usar
+  la app de PIA en el PC.
+  - `deploy/host/pia-tunel.sh` y `pia-tunel.service` hacen el trabajo:
+    - WireGuard `pia0` con MTU 1380.
+    - Tabla propia `inet yggdrasil_pia`: marca por MAC, DNS al de PIA, IPv6 hacia fuera descartado y masquerade.
+    - Reglas 87/88: la LAN y Docker siguen en local.
+    - Sonda cada 5 s por el túnel: con 3 fallos los equipos salen directo y el túnel se rehace con otra clave.
+  - Las credenciales viven en `/etc/yggdrasil-pia.env` (root 600) y las escribe Jeremi. Usuario, contraseña,
+    token y clave privada llegan por descriptor, nunca como argumento ni al journal.
+  - Prueba nueva `deploy/host/tests/prueba-pia.sh`, 48 comprobaciones más `nft -c` de la tabla real en el CI.
+  - `install-host.sh` instala el túnel y el certificado de PIA, y solo arranca el servicio si existen las
+    credenciales.
+- **Thor publica el estado del túnel** (`yggdrasil_pia_*`) y vigila `pia-tunel.service`. Alertas nuevas
+  `TunelPiaSinDesvio` y `TunelPiaCaido`, con dos grupos nuevos en `thor-alertas.test.yml`.
+- **Threat model:** T11 (credenciales de PIA en midgard) y T12 (PIA ve los metadatos del PC, riesgo aceptado),
+  con puntuaciones propuestas. `data-classification.md` añade las credenciales, el token, la clave y los
+  metadatos.
 
 ### Cambiado
 - **`wan-balancer` saca una WAN que pierde paquetes, aunque responda por TCP.** Del 19 al 21 de octubre wan2

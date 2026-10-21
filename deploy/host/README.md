@@ -147,6 +147,71 @@ Son complementarios y el orden importa. El guardián corre cada minuto y remedia
 arregla **antes** de que la alerta salte, y no molesta a nadie. Si la alerta llega igualmente, es
 que el remedio automático no funcionó — y eso es exactamente cuando quieres que te avisen.
 
+## Túnel PIA (`pia-tunel`, ADR-0009)
+
+Todo el tráfico de los equipos elegidos sale por un túnel WireGuard a Private Internet Access, abierto desde
+midgard y no desde el equipo. Hoy solo está el PC de Jeremi (decisión HITL del 2026-10-21).
+
+**Por qué en midgard y no con la app en el PC.** La app envuelve todo en un único flujo UDP. El 21 de octubre
+el multipath lo puso en wan2, que perdía un 20 %, y la llamada entera viajó por ahí. Desde midgard, los
+paquetes exteriores del túnel salen por la ruta por defecto que mantiene `wan-balancer`. Si la WAN cambia,
+WireGuard sigue al nuevo origen y la IP de salida, la de PIA, no cambia: las conexiones del equipo no se cortan.
+
+| Pieza | Qué hace |
+|---|---|
+| `pia0` | WireGuard a una región de PIA, con MTU 1380 por el agujero negro de MTU de wan2 |
+| Tabla `inet yggdrasil_pia` | Propia del servicio: no toca las del router ni las de Docker |
+| Marca `0x10` | Todo el IPv4 de las MAC de `PIA_MACS` |
+| Regla 87 (`lookup main suppress_prefixlength 0`) | La LAN y las redes de Docker siguen en local |
+| Regla 88 (`lookup 300`) | El resto de lo marcado, al túnel |
+| DNAT del puerto 53 al DNS de PIA | El ISP deja de ver las consultas DNS del equipo |
+| `masquerade` por `pia0` | La salida a internet lleva la IP del túnel |
+| Descarte de IPv6 hacia fuera | PIA solo da IPv4 |
+| Sonda a `1.1.1.1` por `pia0` cada 5 s | 3 fallos seguidos: el desvío se retira y los equipos salen directo; se rehace el túnel con una clave nueva |
+
+No hay kill switch: sin túnel, el equipo sale directo (R4 de la ADR). Cuando el desvío entra o sale, las
+conexiones abiertas se cortan una vez, porque su NAT cambia, y las aplicaciones reconectan.
+
+**Configuración** (no está en el repositorio, que es público):
+
+- **`/etc/yggdrasil-pia.conf`** (644):
+  - `PIA_MACS`: MAC de los equipos, separadas por comas o espacios.
+  - `PIA_REGION`: un `id` de `serverlist.piaservers.net/vpninfo/servers/v6`. Por defecto, `us_florida`.
+- **`/etc/yggdrasil-pia.env`** (root 600): `PIA_USER` y `PIA_PASS`.
+  - **Lo escribe Jeremi**, desde su terminal; Claude nunca ve la contraseña:
+
+    ```bash
+    ssh -t jalcala@192.168.10.1 'read -rp "Usuario PIA: " U; read -rsp "Contraseña PIA: " P; echo;
+      sudo install -m 600 -o root -g root /dev/null /etc/yggdrasil-pia.env;
+      { echo "PIA_USER=$U"; echo "PIA_PASS=$P"; } | sudo tee /etc/yggdrasil-pia.env >/dev/null; unset U P'
+    ```
+
+  - Comprobación sin revelar nada: `sudo awk -F= '{print $1, length($2)}' /etc/yggdrasil-pia.env`.
+  - `pia-tunel.sh` lee el fichero sin `source`, porque la contraseña puede llevar cualquier carácter.
+  - Usuario, contraseña y token llegan a curl por descriptores, y la clave privada a `wg` también: nunca van
+    como argumento, que se ve con `ps`. Ni el token ni la clave se escriben en disco ni en el journal.
+    `tests/prueba-pia.sh` lo comprueba.
+- **Firewall:** `/etc/nftables.conf` necesita en `chain forward` la línea `iifname "lan" oifname "pia0" accept`.
+  La vuelta ya la cubre `ct state established,related accept`.
+
+**Estado y alertas.**
+- `pia-tunel.sh` escribe `/run/yggdrasil-pia/estado` (túnel, desvío, equipos, último handshake y región).
+- Thor lo publica como `yggdrasil_pia_*`.
+- `TunelPiaSinDesvio`: hay equipos configurados, pero salen directo.
+- `TunelPiaCaido`: la unidad está parada.
+
+```bash
+sudo wg show pia0                       # handshake y tráfico
+journalctl -t pia-tunel -n 20           # arriba / desvío activo / retirado, y por qué
+cat /run/yggdrasil-pia/estado
+sudo nft list table inet yggdrasil_pia
+ip rule show priority 88
+```
+
+**Quitarlo:**
+- Para dejar de usarlo: `sudo systemctl disable --now pia-tunel`. Al pararse retira el desvío y borra `pia0`.
+- Para sacar un solo equipo: quita su MAC de `PIA_MACS`. El servicio lo nota en la siguiente vuelta, en 5 s.
+
 ## Instalación
 
 ```bash
