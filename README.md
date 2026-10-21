@@ -41,8 +41,9 @@ mediana de tres objetivos y marca en la tablet las mediciones de Sleipnir; la `0
 los servicios fantasma de Thor durante un despliegue y los modos `speedtest` e `iperf3` de
 Sleipnir; la `0.5.12` vigila el SSD de datos y el respaldo de Bifröst, la `0.5.13` hace que la
 tablet no pierda información (alertas siempre visibles, nada tapado sin avisar), la `0.5.14` añade
-Saga, el almacén de trazas con Grafana Tempo en el SSD (ADR-0008), y la `0.5.15` vigila Andvari
-y el resto de `/srv/infra`. El sistema opera
+Saga, el almacén de trazas con Grafana Tempo en el SSD (ADR-0008), la `0.5.15` vigila Andvari
+y el resto de `/srv/infra`, y la `0.5.16` saca de la ruta una WAN que pierde paquetes y lleva un
+equipo de la LAN por un túnel WireGuard a PIA (ADR-0009). El sistema opera
 en producción con despliegue continuo desde la `0.4.0`. El Gate 4 (Deployment) se abrió formalmente
 el 2026-10-19 con su checklist (`.ai-dlc/gates/gate-4-deployment.md`); su cierre cortará la `0.6.0`.
 
