@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.16] - 2026-10-21
+
+**Una WAN que pierde paquetes sale de la ruta, y el PC de Jeremi sale por PIA:** wan-balancer mide la pérdida y ya
+no deja en el multipath una WAN que responde por TCP pero pierde un 20 % (ADR-0009, túnel WireGuard desde midgard).
+
 ### Añadido
 - **ADR-0009 (propuesta): túnel para las llamadas.** Fase 1: WireGuard a PIA desde midgard, solo para el tráfico
   de tiempo real (Chime, Teams, Meet y Zoom), con su salida por la mejor WAN y vuelta a la salida directa si el
@@ -690,7 +695,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...HEAD
+[0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
 [0.5.13]: https://github.com/higerotech/yggdrasil/compare/v0.5.12...v0.5.13
