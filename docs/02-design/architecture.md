@@ -25,7 +25,7 @@ C4Container
     System_Ext(tablet, "Hlidskjalf", "Tablet Android en la pared, WebView kiosco", "Tablero de solo lectura (ADR-0007)")
     System_Ext(ntfy, "ntfy", "Servicio de push", "Avisos al movil por un tema privado")
     System_Ext(bragi, "Bragi", "Jellyfin, repo higerotech/bragi", "Expone sus metricas en bragi-metricas:9470")
-    System_Ext(gateway, "Gateway de mensajeria", "jeremialcala/wh-python-fastapi-messenger", "Emite sus trazas por OTLP")
+    System_Ext(gateway, "Gateway de mensajeria", "jeremialcala/hive", "Emite sus trazas por OTLP")
     System_Ext(host, "Host midgard", "Ubuntu 24.04, systemd", "yggdrasil-thor.sh escribe host.prom: SMART, montajes, ruta, servicios, respaldos")
     System_Boundary(yggdrasil, "Yggdrasil — Docker Compose") {
         Container_Boundary(heimdall, "Heimdall — Monitor SLA") {
