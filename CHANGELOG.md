@@ -30,7 +30,8 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   en `192.168.10.1:5354`): los nombres de la casa y la inversa de la LAN van al dnsmasq de midgard, y el resto
   va al DNS de PIA por el túnel, así que el ISP sigue sin ver las consultas. Si el reenviador no arranca, el
   DNS vuelve directo al de PIA. `/etc/nftables.conf` abre el puerto 5354 solo a lo que llega por ese DNAT
-  (`ct status dnat`). ADR-0009 1.1.1; `prueba-pia.sh` pasa de 55 a 69 comprobaciones.
+  (`ct status dnat`), y `pia-tunel.service` suma `CAP_SETUID` y `CAP_SETGID` para que dnsmasq baje a su usuario.
+  ADR-0009 1.1.1; `prueba-pia.sh` pasa de 55 a 69 comprobaciones.
 
 ### Cambiado
 - **Threat model:** DREAD de T11 (3,2) y T12 (3,8) aceptado (HITL 2026-10-21).
