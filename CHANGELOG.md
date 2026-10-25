@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.17] - 2026-10-25
+
+**Hlidskjalf y las alertas ven también nidavellir, y el PC desviado por PIA vuelve a resolver la casa:** Thor corre
+en el segundo servidor de la LAN y avisa si se cuelga o se reinicia (ADR-0007 1.1.0); la revisión a 30 días de
+la ADR-0009 queda programada.
+
 ### Añadido
 - **Hlidskjalf y las alertas de Thor ven también nidavellir** (ADR-0007 1.1.0).
   - Thor corre en nidavellir con su propia configuración. Lo sirve en la LAN `yggdrasil-thor-http.service`, solo
@@ -39,6 +45,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   - Prueba nueva: `deploy/cd/tests/prueba-revision.sh`, con 21 comprobaciones.
 
 ### Corregido
+- **`hlidskjalf/vista-previa.sh` restaura la URL de producción.** En la tablet, `run-as <paquete> test -f` sale con 1
+  aunque el fichero exista: `probar` no medía y `cerrar` habría dejado la tablet en la vista previa. La comprobación
+  va dentro de `sh -c`.
 - **El PC desviado por PIA vuelve a resolver los nombres de la casa.** El DNAT del túnel llevaba todo su DNS al
   de PIA, también `casa.lan`, que PIA no conoce. Ahora `pia-tunel.sh` arranca un reenviador (un dnsmasq aparte
   en `192.168.10.1:5354`): los nombres de la casa y la inversa de la LAN van al dnsmasq de midgard, y el resto
@@ -739,7 +748,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...HEAD
+[0.5.17]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14
