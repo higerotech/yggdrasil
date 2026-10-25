@@ -27,7 +27,10 @@ const SMART = { 5: "reasignados", 187: "no_corregidos", 197: "pendientes", 198: 
 const GRAVEDAD = { critical: 0, warning: 1, info: 2 };
 
 // `up` de Thor: un host colgado no tiene series (caducan a los 5 min), pero su `up` sigue, a 0.
-const consulta = `{__name__=~"${SERIES.join("|")}"} or up{job="thor"}`;
+// `or` compara las etiquetas sin el nombre: `up{instance,job}` coincide con
+// `yggdrasil_thor_timestamp_seconds{instance,job}` y se descartaba justo con el host en marcha (0.5.17).
+// La etiqueta `serie` lo hace distinto.
+const consulta = `{__name__=~"${SERIES.join("|")}"} or label_replace(up{job="thor"}, "serie", "up", "", "")`;
 const [prom, am] = await Promise.allSettled([
     consultar(`${MIMIR}/api/v1/query?query=${encodeURIComponent(consulta)}`, 5000),
     consultar(`${GJALLARHORN}/api/v2/alerts?active=true&silenced=false&inhibited=false`, 5000),

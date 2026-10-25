@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.18] - 2026-10-25
+
+### Corregido
+- **Hlidskjalf no mostraba nidavellir mientras estaba en marcha.** El resumen pedía
+  `{__name__=~"…"} or up{job="thor"}`, y `or` compara las etiquetas sin el nombre: el `up` de un host coincidía
+  con su `yggdrasil_thor_timestamp_seconds` y se descartaba. Solo habría aparecido al colgarse. Ahora el `up` lleva
+  la etiqueta `serie="up"` (`label_replace`). Comprobado contra el Mimir de midgard: 130 series, con los dos `up`.
+
 ## [0.5.17] - 2026-10-25
 
 **Hlidskjalf y las alertas ven también nidavellir, y el PC desviado por PIA vuelve a resolver la casa:** Thor corre
@@ -748,7 +756,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...HEAD
+[0.5.18]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15

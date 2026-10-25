@@ -145,7 +145,8 @@ test("resumen: una sola consulta a Mimir con todas las series y las alertas acti
     await nodo("hlidskjalf-resumen.js", { globales: f }).ejecutar({});
     assert.equal(f.urls.length, 2);
     const q = decodeURIComponent(f.urls[0].split("query=")[1]);
-    assert.match(q, /^\{__name__=~".*wan:up.*yggdrasil_servicio_ok.*"\} or up\{job="thor"\}$/);
+    // `or` compara sin el nombre: sin la etiqueta `serie`, el `up` de un host en marcha se perdía (0.5.17)
+    assert.match(q, /^\{__name__=~".*wan:up.*yggdrasil_servicio_ok.*"\} or label_replace\(up\{job="thor"\}, "serie", "up", "", ""\)$/);
     assert.ok(f.urls[0].startsWith("http://mimir:9090/"));
     assert.equal(f.urls[1], "http://gjallarhorn:9093/api/v2/alerts?active=true&silenced=false&inhibited=false");
 });
