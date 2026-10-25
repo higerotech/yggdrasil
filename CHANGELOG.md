@@ -10,6 +10,20 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
 ### Añadido
+- **Hlidskjalf y las alertas de Thor ven también nidavellir** (ADR-0007 1.1.0).
+  - Thor corre en nidavellir con su propia configuración. Lo sirve en la LAN `yggdrasil-thor-http.service`, solo
+    para midgard (`IPAddressAllow`), y Mimir lo recoge en el job `thor` con la etiqueta `host="nidavellir"`. Las
+    series de midgard no cambian.
+  - Métricas nuevas de Thor, en todos los hosts: `yggdrasil_arranque_timestamp_seconds` y
+    `yggdrasil_cpu_temperatura_celsius`. `THOR_WANS` admite estar vacía, para un host sin balanceador.
+  - Alertas nuevas: `HostReiniciado` (arranque en los últimos 15 min: apagón o cuelgue resuelto por el watchdog)
+    y `ServicioDeHostCaido` (un servicio de otro host, que no tiene el vigía de midgard). Las alertas de discos,
+    puntos y Thor nombran el host cuando no es midgard; las de las WAN y el espacio del NAS solo miran midgard.
+  - El tablero pinta cada host como un bloque en el panel de midgard (antes «Host»): cabecera con su estado y la
+    CPU, y debajo sus discos, volúmenes y servicios. Un host colgado sale «NO RESPONDE», y la cabecera de la
+    página lo dice.
+  - Pruebas: `prueba-thor.sh` pasa de 74 a 81 comprobaciones, `thor-alertas.test.yml` de 15 a 21 grupos y
+    `hlidskjalf.test.mjs` de 23 a 27 `test()`. Los escenarios de la vista previa llevan a nidavellir.
 - **Revisión a 30 días de la ADR-0009, programada.**
   - `pia-tunel.sh` cuenta las sondas por el túnel (solo con el desvío activo), las perdidas, el RTT, los
     levantamientos y los rechazos de PIA. Thor los publica como `yggdrasil_pia_sondas_total`,

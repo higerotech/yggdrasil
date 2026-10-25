@@ -145,7 +145,7 @@ test("resumen: una sola consulta a Mimir con todas las series y las alertas acti
     await nodo("hlidskjalf-resumen.js", { globales: f }).ejecutar({});
     assert.equal(f.urls.length, 2);
     const q = decodeURIComponent(f.urls[0].split("query=")[1]);
-    assert.match(q, /^\{__name__=~".*wan:up.*yggdrasil_servicio_ok.*"\}$/);
+    assert.match(q, /^\{__name__=~".*wan:up.*yggdrasil_servicio_ok.*"\} or up\{job="thor"\}$/);
     assert.ok(f.urls[0].startsWith("http://mimir:9090/"));
     assert.equal(f.urls[1], "http://gjallarhorn:9093/api/v2/alerts?active=true&silenced=false&inhibited=false");
 });
@@ -189,6 +189,47 @@ test("resumen: el respaldo sin etiqueta de un Thor anterior es el de Yggdrasil",
     assert.equal(r.host.respaldo.hace_h, 7);
 });
 
+test("resumen: otro host con Thor va aparte y no se mezcla con midgard (los dos tienen un sda)", async () => {
+    const n = { job: "thor", host: "nidavellir" };
+    const series = SERIES.concat([
+        s("up", { job: "thor", instance: "thor:9471" }, 1),
+        s("up", { ...n, instance: "192.168.10.2:9471" }, 1),
+        s("yggdrasil_thor_timestamp_seconds", n, AHORA - 20),
+        s("yggdrasil_arranque_timestamp_seconds", n, AHORA - 7 * 3600),
+        s("yggdrasil_arranque_timestamp_seconds", { job: "thor" }, AHORA - 9 * 86400),
+        s("yggdrasil_cpu_temperatura_celsius", n, 41.5),
+        s("yggdrasil_smart_lectura_ok", { ...n, disco: "sda" }, 1), s("yggdrasil_smart_salud", { ...n, disco: "sda" }, 1),
+        s("yggdrasil_smart_atributo", { ...n, disco: "sda", id: "197", nombre: "Current_Pending_Sector" }, 8),
+        s("yggdrasil_disco_rotacional", { ...n, disco: "sda" }, 1),
+        s("yggdrasil_fs_montado", { ...n, punto: "/srv/medios/wd" }, 1),
+        s("yggdrasil_fs_tamano_bytes", { ...n, punto: "/srv/medios/wd" }, 1e12),
+        s("yggdrasil_fs_libre_bytes", { ...n, punto: "/srv/medios/wd" }, 7.5e11),
+        s("yggdrasil_servicio_ok", { ...n, tipo: "unidad", nombre: "docker.service" }, 0),
+    ]);
+    const { payload: r } = await nodo("hlidskjalf-resumen.js", { globales: fuentes({ series }) }).ejecutar({});
+    assert.equal(r.host.discos.find((d) => d.disco === "sda").pendientes, 16, "el sda de midgard sigue siendo el suyo");
+    assert.deepEqual(r.host.fs.map((f) => f.punto), ["/", "/mnt/nas/respaldos", "/srv/rapido"]);
+    assert.deepEqual(r.servicios.map((x) => x.nombre), ["yggdrasil-grafana", "yggdrasil-prometheus", "docker.service"]);
+    casi(r.host.arranque_hace_s, 9 * 86400, "arranque de midgard");
+    assert.equal(r.hosts.length, 1, "midgard no se cuenta como otro host");
+    const [h] = r.hosts;
+    assert.equal(h.nombre, "nidavellir");
+    assert.equal(h.up, 1);
+    casi(h.thor_hace_s, 20, "thor_hace_s de nidavellir");
+    casi(h.arranque_hace_s, 7 * 3600, "arranque de nidavellir");
+    assert.equal(h.cpu_temperatura_c, 42);
+    assert.deepEqual(h.discos.map((d) => [d.disco, d.pendientes, d.rotacional]), [["sda", 8, 1]]);
+    assert.deepEqual(h.fs.map((f) => [f.punto, f.libre_bytes]), [["/srv/medios/wd", 7.5e11]]);
+    assert.deepEqual(h.servicios, [{ tipo: "unidad", nombre: "docker.service", ok: 0 }]);
+});
+
+test("resumen: un host colgado sigue en la lista por su up, sin datos viejos", async () => {
+    const series = SERIES.concat([s("up", { job: "thor", host: "nidavellir", instance: "192.168.10.2:9471" }, 0)]);
+    const { payload: r } = await nodo("hlidskjalf-resumen.js", { globales: fuentes({ series }) }).ejecutar({});
+    assert.deepEqual(r.hosts, [{ nombre: "nidavellir", up: 0, thor_hace_s: null, arranque_hace_s: null,
+        cpu_temperatura_c: null, discos: [], fs: [], servicios: [] }]);
+});
+
 test("resumen: si una fuente cae, su sección va vacía, fuentes lo dice y el aviso sale una vez", async () => {
     const n = nodo("hlidskjalf-resumen.js", { globales: fuentes({ mimir: false }) });
     const { payload: r } = await n.ejecutar({});
@@ -217,6 +258,57 @@ test("tablero: estado general, del peor caso al mejor", () => {
     assert.deepEqual(e({ alertas: [{ severidad: "warning" }] }), { nivel: "aviso", texto: "1 alerta activa" });
     assert.equal(e({ alertas: [{ severidad: "info" }] }).nivel, "ok", "info no cambia el semáforo");
     assert.equal(e({ fuentes: { mimir: true, gjallarhorn: false } }).texto, "Sin datos de Gjallarhorn");
+});
+
+test("tablero: otro host, del que no responde al que está bien", () => {
+    const bien = { nombre: "nidavellir", up: 1, thor_hace_s: 20, arranque_hace_s: 7 * 3600 };
+    assert.deepEqual(tablero.estadoHost(bien), { nivel: "ok", texto: "encendido 7 h" });
+    assert.deepEqual(tablero.estadoHost({ ...bien, arranque_hace_s: 240 }), { nivel: "aviso", texto: "arrancó hace 4 min" });
+    assert.deepEqual(tablero.estadoHost({ ...bien, thor_hace_s: 720 }), { nivel: "aviso", texto: "datos de hace 12 min" });
+    assert.deepEqual(tablero.estadoHost({ ...bien, thor_hace_s: null }), { nivel: "critico", texto: "SIN DATOS" });
+    assert.deepEqual(tablero.estadoHost({ ...bien, up: 0 }), { nivel: "critico", texto: "NO RESPONDE" });
+    assert.deepEqual(tablero.estadoHost({ ...bien, arranque_hace_s: null }), { nivel: "ok", texto: "en línea" });
+
+    const e = (hosts) => tablero.estadoGeneral({ ...base, hosts });
+    assert.deepEqual(e([bien]), { nivel: "ok", texto: "Todo en orden" });
+    assert.deepEqual(e([{ ...bien, up: 0 }]), { nivel: "critico", texto: "Nidavellir no responde" });
+    assert.deepEqual(e([{ ...bien, servicios: [{ tipo: "unidad", nombre: "docker.service", ok: 0 }] }]),
+        { nivel: "critico", texto: "1 servicio caído" }, "sus servicios cuentan como los de midgard");
+});
+
+test("tablero: otro host es un bloque en el panel de midgard, con su cabecera y su detalle", () => {
+    const h = {
+        nombre: "nidavellir", up: 1, thor_hace_s: 20, arranque_hace_s: 7 * 3600, cpu_temperatura_c: 41,
+        discos: [{ disco: "sdb", lectura_ok: 1, salud: 1, rotacional: 0, temperatura_c: 46 },
+            { disco: "sdc", lectura_ok: 1, salud: 1, rotacional: 1, pendientes: 1, temperatura_c: 41 }],
+        fs: [{ punto: "/srv/medios/wd", montado: 1, tamano_bytes: 1e12, libre_bytes: 7.5e11 }, { punto: "/mnt/nas/media", montado: 0 }],
+        servicios: [{ tipo: "unidad", nombre: "docker.service", ok: 1 }, { tipo: "unidad", nombre: "cd-receiver.service", ok: 0 }],
+    };
+    const midgard = { discos: [{ disco: "sda", lectura_ok: 1, salud: 1, rotacional: 1 }] };
+    const html = tablero.vistaHost(midgard, 0, [h]);
+    assert.ok(html.indexOf("HDD sda") < html.indexOf("Nidavellir"), "midgard primero");
+    assert.match(html, /<div class="fila ok otro-host"><span>Nidavellir<\/span><b>encendido 7 h · CPU 41 °C<\/b><\/div>/);
+    assert.match(html, /<div class="fila ok"><span>SSD sdb<\/span><b>SMART sano · 46 °C<\/b><\/div>/);
+    assert.match(html, /<div class="fila aviso"><span>HDD sdc<\/span><b>1 pendientes · 41 °C<\/b><\/div>/);
+    assert.match(html, /<div class="fila critico"><span>NAS<\/span><b>NO MONTADO<\/b><\/div>/);
+    assert.match(html, /<span>Medios<\/span><b>75,0 % libre/);
+    assert.match(html, /<div class="fila critico"><span>Caído<\/span><b>cd-receiver<\/b><\/div>/);
+    assert.match(html, /<div class="fila ok"><span>Servicios<\/span><b>1 en orden<\/b><\/div>/);
+    assert.equal(tablero.vistaHost(midgard, 0), tablero.vistaHost(midgard, 0, []), "sin otros hosts, el panel de siempre");
+
+    // Apretado, cada host agrupa lo suyo y la cabecera sigue diciendo de quién son las filas
+    const denso = tablero.vistaHost(midgard, 1, [h]);
+    assert.match(denso, /fila ok otro-host"><span>Nidavellir/);
+    assert.equal((denso.match(/En orden/g) || []).length, 2, "un «En orden» por host");
+    assert.ok(denso.indexOf("HDD sdc") > denso.indexOf("Nidavellir"), "el aviso de nidavellir, en su bloque");
+
+    const calor = tablero.vistaHost(midgard, 0, [{ ...h, cpu_temperatura_c: 85 }]);
+    assert.match(calor, /fila aviso otro-host"><span>Nidavellir<\/span><b>encendido 7 h · CPU 85 °C/, "la CPU caliente tiñe la otro-host");
+
+    const mudo = tablero.vistaHost(midgard, 0, [{ ...h, up: 0 }]);
+    assert.match(mudo, /<div class="fila critico otro-host"><span>Nidavellir<\/span><b>NO RESPONDE<\/b><\/div>/);
+    assert.ok(!/CPU|sdb|Medios|Servicios/.test(mudo), "sin respuesta no enseña datos viejos");
+    assert.match(tablero.vistaHost(midgard, 0, [{ ...h, nombre: "<b>x" }]), /otro-host"><span>&lt;b&gt;x<\/span>/, "el nombre se escapa");
 });
 
 test("tablero: niveles de WAN, NAS, disco y respaldo", () => {

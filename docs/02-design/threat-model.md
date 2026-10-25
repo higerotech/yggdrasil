@@ -110,7 +110,7 @@ ejemplo) suben la explotabilidad de T8.
 - T2, T4 → ADR-0003 (topología de red de contenedores) · ASVS V13.
 - T3 → `deploy/mosquitto/acl` (Ratatosk, ADR-0006) — control propio de la plataforma.
 - T5 → RF02 y regla de scheduler — verificación por test de carga en Gate 3.
-- T6 → ADR-0007 · `deploy/nornas/tests/hlidskjalf.test.mjs` (401/503, escape de HTML, CSP). T2 se mantiene: el tablero consulta Mimir y Gjallarhorn desde Nornas, por la red interna, sin publicarlos.
+- T6 → ADR-0007 · `deploy/nornas/tests/hlidskjalf.test.mjs` (401/503, escape de HTML, CSP). T2 se mantiene: el tablero consulta Mimir y Gjallarhorn desde Nornas, por la red interna, sin publicarlos. Desde la ADR-0007 1.1.0, nidavellir sirve Thor (`host.prom`, Interno) en su 9471 de la LAN, filtrado en la unidad a la IP de midgard (`IPAddressAllow`); no es la API de Prometheus.
 - T7 → ADR-0005 · `deploy/docker-compose.cd.yml`. T8 → `deploy/cd/README.md` (respaldo al NAS). T9 →
   `deploy/cd/README.md` (avisos por ntfy) y `data-classification.md`. T10 → `deploy/cd/README.md` (Thor).
 - T11, T12 → ADR-0009 · `deploy/host/pia-tunel.sh` · `deploy/host/tests/prueba-pia.sh` · `data-classification.md`.

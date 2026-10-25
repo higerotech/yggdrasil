@@ -113,6 +113,9 @@ scrape_configs:
   # Copia de bragi/deploy/prometheus/bragi-job.yml: la especificación y sus pruebas viven allí.
   # bragi-metricas solo escucha en la red heimdall; el puerto 9470 no se publica.
   # --- Thor: métricas del host (SMART, espacio del NAS, WAN en la ruta del balanceador) ---
+  # Un target por host, en el mismo job: `up{job="thor"}` y las reglas valen para todos. Las series
+  # de midgard no llevan `host` (son las de siempre); las de otro host, sí, y así no se mezclan sus
+  # discos con los de midgard (los dos tienen un sda).
   - job_name: thor
     scrape_interval: 60s
     metrics_path: /host.prom
@@ -120,6 +123,10 @@ scrape_configs:
     fallback_scrape_protocol: PrometheusText0.0.4
     static_configs:
       - targets: ["thor:9471"]
+      # nidavellir (192.168.10.2, reserva DHCP de midgard): Thor servido en la LAN por
+      # yggdrasil-thor-http.service, que solo admite a midgard (IPAddressAllow).
+      - targets: ["192.168.10.2:9471"]
+        labels: {host: nidavellir}
 
   - job_name: bragi
     scrape_interval: 30s
