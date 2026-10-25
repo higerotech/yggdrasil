@@ -17,7 +17,8 @@
 | Resumen del tablero de pared (estado de WAN, alertas, host y servicios) | Interno | — | No (no se guarda; la tablet solo lo pinta) | LAN | No se retiene |
 | Patrones de uso/presencia derivables de tráfico | Confidencial | — | No | LAN/WireGuard | Implícita en métricas |
 | Tema de ntfy (los avisos al móvil) | Restringido: el tema **es** la credencial | — | Sí (`/etc/yggdrasil-aviso.env` y `.env`, 600) | HTTPS | Hasta rotación |
-| Archivo de respaldo en el NAS (volúmenes, `.env` y configuración renderizada) | Restringido | — | No (directorio 700, ficheros 600; export solo para midgard) | NFS en la LAN | 14 días |
+| Archivo de respaldo en el NAS (volúmenes, `.env` y configuración renderizada) | Restringido | — | No (directorio 700, ficheros 600). **Desde el 2026-10-25 el export `respaldos` admite a toda la LAN** (la interfaz del NAS solo permite un host o todos): revisar T8 | NFS en la LAN | 14 días |
+| Inventarios y catálogo de Fáfnir (nombres de ficheros personales, tamaños, fechas, huellas) | Interno | — | No (`/var/lib/fafnir` 0750; inventarios en `descargas/fafnir` del NAS) | NFS en la LAN | Se sobrescriben a diario |
 | Salida de `smartctl` (número de serie de los discos) | Confidencial | — | No (`/var/cache/yggdrasil-thor`, 0700, fuera de lo servido) | No sale del host | Se sobrescribe en cada pasada |
 | Métricas del host (Thor: discos, espacio, servicios, respaldos) | Interno | — | No | Red interna de Compose | 30 días |
 | Credenciales de PIA (`PIA_USER`, `PIA_PASS`) | Restringido | — | Sí (`/etc/yggdrasil-pia.env`, root 600; las escribe Jeremi) | HTTPS hacia la API de PIA | Hasta rotación |

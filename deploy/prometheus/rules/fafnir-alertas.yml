@@ -1,0 +1,57 @@
+# Alertas de Fáfnir, el catálogo del almacenamiento de midgard y nidavellir (ADR-0010,
+# deploy/fafnir/). Las métricas salen una vez al día (fafnir-catalogo.timer, 06:00): los `for` son
+# cortos porque el dato no cambia hasta el día siguiente. Nornas las entrega por ntfy.
+groups:
+  - name: fafnir_alertas
+    rules:
+      # Lo que solo está en discos que fallan (`riesgo = true` en la configuración: el Samsung de
+      # nidavellir, el Toshiba externo). Es lo primero que hay que copiar.
+      - alert: FafnirDatosEnRiesgo
+        expr: fafnir_coleccion_en_riesgo_bytes > 0
+        for: 10m
+        labels:
+          severity: warning
+          servicio: fafnir
+        annotations:
+          resumen: "{{ $labels.coleccion }}: {{ humanize $value }}B solo están en discos que fallan"
+          descripcion: >-
+            Copiarlos a un medio sano antes de que el disco muera. Qué ficheros:
+            `sudo python3 /usr/local/lib/fafnir/fafnir.py informe` en midgard.
+
+      # Menos copias sanas de las que pide la colección (`copias_minimas`). No salta si todo lo que falta ya
+      # está en riesgo: de eso avisa FafnirDatosEnRiesgo.
+      - alert: FafnirColeccionSinCopias
+        expr: >-
+          fafnir_coleccion_bajo_politica_bytes > 0
+          unless on (coleccion) fafnir_coleccion_bajo_politica_bytes == fafnir_coleccion_en_riesgo_bytes
+        for: 10m
+        labels:
+          severity: warning
+          servicio: fafnir
+        annotations:
+          resumen: "{{ $labels.coleccion }}: {{ humanize $value }}B con menos de {{ $labels.copias_minimas }} copia(s) sana(s)"
+          descripcion: >-
+            Hacer la copia que falta (`fafnir.py mover` copia verificando) o revisar la política de la colección
+            en /etc/fafnir/fafnir.toml. Detalle: `sudo python3 /usr/local/lib/fafnir/fafnir.py informe`.
+
+      # Una ubicación fija (no `opcional`) sin inventario en 2 días: el escaneo de ese host falla, o la
+      # ubicación no está montada.
+      - alert: FafnirInventarioViejo
+        expr: time() - fafnir_inventario_timestamp_seconds{opcional="0"} > 2 * 86400
+        for: 10m
+        labels:
+          severity: warning
+          servicio: fafnir
+        annotations:
+          resumen: "{{ $labels.ubicacion }} ({{ $labels.host }}) lleva más de 2 días sin inventario"
+          descripcion: "Revisar `journalctl -u fafnir-escaneo` en {{ $labels.host }}."
+
+      - alert: FafnirSinCatalogo
+        expr: up{job="fafnir"} == 0 or time() - fafnir_catalogo_timestamp_seconds > 2 * 86400
+        for: 1h
+        labels:
+          severity: warning
+          servicio: fafnir
+        annotations:
+          resumen: "Fáfnir no ha generado su catálogo en 2 días: no se sabe qué está en riesgo"
+          descripcion: "Revisar `journalctl -u fafnir-catalogo` en midgard y que exista /var/lib/yggdrasil-thor/fafnir.prom."

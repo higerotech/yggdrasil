@@ -128,6 +128,16 @@ scrape_configs:
       - targets: ["192.168.10.2:9471"]
         labels: {host: nidavellir}
 
+  # --- Fáfnir: catálogo del almacenamiento (ADR-0010) ---
+  # fafnir-catalogo.service escribe fafnir.prom una vez al día en el directorio que sirve Thor. Se
+  # lee cada minuto igual: a 5 min la muestra rozaría el lookback de 5 min y las reglas verían huecos.
+  - job_name: fafnir
+    scrape_interval: 60s
+    metrics_path: /fafnir.prom
+    fallback_scrape_protocol: PrometheusText0.0.4
+    static_configs:
+      - targets: ["thor:9471"]
+
   - job_name: bragi
     scrape_interval: 30s
     metrics_path: /bragi.prom
