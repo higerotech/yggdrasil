@@ -164,7 +164,7 @@ WireGuard sigue al nuevo origen y la IP de salida, la de PIA, no cambia: las con
 | Marca `0x10` | Todo el IPv4 de las MAC de `PIA_MACS` |
 | Regla 87 (`lookup main suppress_prefixlength 0`) | La LAN y las redes de Docker siguen en local |
 | Regla 88 (`lookup 300`) | El resto de lo marcado, al túnel |
-| DNAT del puerto 53 al DNS de PIA | El ISP deja de ver las consultas DNS del equipo |
+| DNAT del puerto 53 al reenviador DNS (`192.168.10.1:5354`) | Un dnsmasq aparte, hijo de `pia-tunel.sh` y sin configuración propia (`--conf-file=/dev/null`). Los nombres de la casa (`casa.lan`, los nombres sin dominio y la inversa de la LAN) van al dnsmasq de midgard. El resto va al DNS de PIA por el túnel, con una ruta `/32` por `pia0` en la tabla `main`: el ISP sigue sin ver las consultas. Si el reenviador no arranca, el DNAT va directo al DNS de PIA, como antes del 2026-10-25, y los nombres de la casa dejan de resolver |
 | `masquerade` por `pia0` | La salida a internet lleva la IP del túnel |
 | Descarte de IPv6 hacia fuera | PIA solo da IPv4 |
 | Sonda a `1.1.1.1` por `pia0` cada 5 s | 3 fallos seguidos: el desvío se retira y los equipos salen directo; se rehace el túnel con una clave nueva |
@@ -191,8 +191,10 @@ conexiones abiertas se cortan una vez, porque su NAT cambia, y las aplicaciones 
   - Usuario, contraseña y token llegan a curl por descriptores, y la clave privada a `wg` también: nunca van
     como argumento, que se ve con `ps`. Ni el token ni la clave se escriben en disco ni en el journal.
     `tests/prueba-pia.sh` lo comprueba.
-- **Firewall:** `/etc/nftables.conf` necesita en `chain forward` la línea `iifname "lan" oifname "pia0" accept`.
-  La vuelta ya la cubre `ct state established,related accept`.
+- **Firewall:** `/etc/nftables.conf` necesita dos líneas. La vuelta ya la cubre `ct state established,related accept`.
+  - En `chain forward`: `iifname "lan" oifname "pia0" accept`.
+  - En `chain input`: `iifname "lan" ct status dnat meta l4proto { tcp, udp } th dport 5354 accept`. Solo deja
+    pasar al reenviador las consultas que el DNAT del desvío llevó ahí, no las que le lleguen directas.
 
 **Estado y alertas.**
 - `pia-tunel.sh` escribe `/run/yggdrasil-pia/estado` (túnel, desvío, equipos, último handshake y región).
@@ -206,6 +208,7 @@ journalctl -t pia-tunel -n 20           # arriba / desvío activo / retirado, y 
 cat /run/yggdrasil-pia/estado
 sudo nft list table inet yggdrasil_pia
 ip rule show priority 88
+dig -p 5354 @192.168.10.1 hgtech002.casa.lan   # el reenviador: la casa y, para el resto, PIA
 ```
 
 **Quitarlo:**
