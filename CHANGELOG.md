@@ -26,6 +26,8 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ### Cambiado
 - **Threat model:** DREAD de T11 (3,2) y T12 (3,8) aceptado (HITL 2026-10-21).
+- **Convención de nombres 0.3.0:** nuevo mundo **Nidavellir**, el taller, para `hgtech002`, el segundo servidor de
+  la LAN (192.168.10.2, alias DNS `nidavellir.casa.lan`).
 
 ## [0.5.16] - 2026-10-21
 
