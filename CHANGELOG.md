@@ -9,6 +9,59 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.17] - 2026-10-25
+
+**Hlidskjalf y las alertas ven también nidavellir, y el PC desviado por PIA vuelve a resolver la casa:** Thor corre
+en el segundo servidor de la LAN y avisa si se cuelga o se reinicia (ADR-0007 1.1.0); la revisión a 30 días de
+la ADR-0009 queda programada.
+
+### Añadido
+- **Hlidskjalf y las alertas de Thor ven también nidavellir** (ADR-0007 1.1.0).
+  - Thor corre en nidavellir con su propia configuración. Lo sirve en la LAN `yggdrasil-thor-http.service`, solo
+    para midgard (`IPAddressAllow`), y Mimir lo recoge en el job `thor` con la etiqueta `host="nidavellir"`. Las
+    series de midgard no cambian.
+  - Métricas nuevas de Thor, en todos los hosts: `yggdrasil_arranque_timestamp_seconds` y
+    `yggdrasil_cpu_temperatura_celsius`. `THOR_WANS` admite estar vacía, para un host sin balanceador.
+  - Alertas nuevas: `HostReiniciado` (arranque en los últimos 15 min: apagón o cuelgue resuelto por el watchdog)
+    y `ServicioDeHostCaido` (un servicio de otro host, que no tiene el vigía de midgard). Las alertas de discos,
+    puntos y Thor nombran el host cuando no es midgard; las de las WAN y el espacio del NAS solo miran midgard.
+  - El tablero pinta cada host como un bloque en el panel de midgard (antes «Host»): cabecera con su estado y la
+    CPU, y debajo sus discos, volúmenes y servicios. Un host colgado sale «NO RESPONDE», y la cabecera de la
+    página lo dice.
+  - Pruebas: `prueba-thor.sh` pasa de 74 a 81 comprobaciones, `thor-alertas.test.yml` de 15 a 21 grupos y
+    `hlidskjalf.test.mjs` de 23 a 27 `test()`. Los escenarios de la vista previa llevan a nidavellir.
+- **Revisión a 30 días de la ADR-0009, programada.**
+  - `pia-tunel.sh` cuenta las sondas por el túnel (solo con el desvío activo), las perdidas, el RTT, los
+    levantamientos y los rechazos de PIA. Thor los publica como `yggdrasil_pia_sondas_total`,
+    `yggdrasil_pia_sondas_perdidas_total`, `yggdrasil_pia_rtt_ms`, `yggdrasil_pia_levantamientos_total` y
+    `yggdrasil_pia_rechazos_total`.
+  - `deploy/cd/revisar-adr-0009.sh` aplica las condiciones de revisión de la ADR sobre 30 días de Mimir.
+    - Compara con la WAN directa que menos pierde y con el mismo destino, `1.1.1.1`.
+    - Propone mantener la Fase 1, pasar a la Fase 2, revertir, o esperar si faltan datos.
+    - El informe llega por ntfy y se guarda en `/var/lib/yggdrasil-revisiones/`.
+  - `yggdrasil-revision-adr-0009.timer` lo ejecuta el 2026-11-20 a las 09:00 (Caracas) y lo instala
+    `bootstrap-midgard.sh`.
+  - Seguimiento en la issue #88, del milestone «Revisión ADR-0009 (2026-11-20)».
+  - Prueba nueva: `deploy/cd/tests/prueba-revision.sh`, con 21 comprobaciones.
+
+### Corregido
+- **`hlidskjalf/vista-previa.sh` restaura la URL de producción.** En la tablet, `run-as <paquete> test -f` sale con 1
+  aunque el fichero exista: `probar` no medía y `cerrar` habría dejado la tablet en la vista previa. La comprobación
+  va dentro de `sh -c`.
+- **El PC desviado por PIA vuelve a resolver los nombres de la casa.** El DNAT del túnel llevaba todo su DNS al
+  de PIA, también `casa.lan`, que PIA no conoce. Ahora `pia-tunel.sh` arranca un reenviador (un dnsmasq aparte
+  en `192.168.10.1:5354`): los nombres de la casa y la inversa de la LAN van al dnsmasq de midgard, y el resto
+  va al DNS de PIA por el túnel, así que el ISP sigue sin ver las consultas. Si el reenviador no arranca, el
+  DNS vuelve directo al de PIA. `/etc/nftables.conf` abre el puerto 5354 solo a lo que llega por ese DNAT
+  (`ct status dnat`), y `pia-tunel.service` suma `CAP_SETUID` y `CAP_SETGID`, para que dnsmasq baje a su usuario, y `CAP_KILL`,
+  para vigilarlo y pararlo.
+  ADR-0009 1.1.1; `prueba-pia.sh` pasa de 55 a 69 comprobaciones.
+
+### Cambiado
+- **Threat model:** DREAD de T11 (3,2) y T12 (3,8) aceptado (HITL 2026-10-21).
+- **Convención de nombres 0.3.0:** nuevo mundo **Nidavellir**, el taller, para `hgtech002`, el segundo servidor de
+  la LAN (192.168.10.2, alias DNS `nidavellir.casa.lan`).
+
 ## [0.5.16] - 2026-10-21
 
 **Una WAN que pierde paquetes sale de la ruta, y el PC de Jeremi sale por PIA:** wan-balancer mide la pérdida y ya
@@ -695,7 +748,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...HEAD
+[0.5.17]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
 [0.5.15]: https://github.com/higerotech/yggdrasil/compare/v0.5.14...v0.5.15
 [0.5.14]: https://github.com/higerotech/yggdrasil/compare/v0.5.13...v0.5.14

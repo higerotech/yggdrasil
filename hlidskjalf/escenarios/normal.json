@@ -250,5 +250,80 @@
       "nombre": "yggdrasil-vigia-servicios.timer",
       "ok": 1
     }
+  ],
+  "hosts": [
+    {
+      "nombre": "nidavellir",
+      "up": 1,
+      "thor_hace_s": 25,
+      "arranque_hace_s": 25200,
+      "cpu_temperatura_c": 41,
+      "discos": [
+        {
+          "disco": "sdb",
+          "lectura_ok": 1,
+          "salud": 1,
+          "reasignados": 0,
+          "no_corregidos": 0,
+          "pendientes": 0,
+          "incorregibles": 0,
+          "errores_cable": 0,
+          "temperatura_c": 46,
+          "horas": 22,
+          "rotacional": 0,
+          "errores_kernel": 0
+        },
+        {
+          "disco": "sdc",
+          "lectura_ok": 1,
+          "salud": 1,
+          "reasignados": 0,
+          "no_corregidos": 0,
+          "pendientes": 0,
+          "incorregibles": 0,
+          "errores_cable": 9435,
+          "temperatura_c": 41,
+          "horas": 18217,
+          "rotacional": 1,
+          "errores_kernel": 0
+        }
+      ],
+      "fs": [
+        {
+          "punto": "/",
+          "montado": 1,
+          "tamano_bytes": 105089261568,
+          "libre_bytes": 91268055040
+        },
+        {
+          "punto": "/srv/medios/wd",
+          "montado": 1,
+          "tamano_bytes": 984373760000,
+          "libre_bytes": 738280320000
+        }
+      ],
+      "servicios": [
+        {
+          "tipo": "unidad",
+          "nombre": "cd-receiver.service",
+          "ok": 1
+        },
+        {
+          "tipo": "unidad",
+          "nombre": "docker.service",
+          "ok": 1
+        },
+        {
+          "tipo": "unidad",
+          "nombre": "enlace-enp3s0.service",
+          "ok": 1
+        },
+        {
+          "tipo": "unidad",
+          "nombre": "smartd.service",
+          "ok": 1
+        }
+      ]
+    }
   ]
 }

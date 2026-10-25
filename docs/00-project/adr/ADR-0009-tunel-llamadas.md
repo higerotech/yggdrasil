@@ -4,7 +4,7 @@
 * **Fecha:** 2026-10-21
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.0.0
+* **Versión:** 1.1.1
 * **ID:** ADR-0009
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA en un fichero de root 600 que escribe Jeremi, nunca en el repo; clave privada y token solo en memoria), A09 (estado del túnel en Heimdall)
@@ -136,6 +136,10 @@ Jeremi acepta la ADR con un cambio en el alcance de la Fase 1:
   llamadas. El equipo se elige por su MAC, que vive en `/etc/yggdrasil-pia.conf` y no en el repositorio, que es
   público. Elegirlo por MAC sigue funcionando aunque DHCP le cambie la IP.
   - Su DNS va al de PIA, así que el ISP deja de ver sus consultas.
+    - **Corrección del 2026-10-25:** el DNAT llevaba al DNS de PIA también las consultas de `casa.lan`, y el
+      PC dejó de resolver los nombres de la casa. Ahora el DNS del PC pasa por un reenviador en midgard: los
+      nombres de la casa los resuelve el dnsmasq de midgard, y el resto sigue yendo al DNS de PIA por el
+      túnel. El ISP sigue sin ver las consultas.
   - Su IPv6 hacia fuera se descarta, porque PIA solo da IPv4. Hoy la LAN no tiene IPv6 global.
   - La clasificación `rt_media` queda **aplazada**. Se retoma si hace falta para otros equipos.
 - **T12 aceptada:** PIA puede ver los metadatos del tráfico del PC.
@@ -261,6 +265,29 @@ Las cinco de la matriz más las descartadas. Tres variantes de C2:
 - PIA cambia su API o sus condiciones de uso en routers.
 - Llega un SAI: se reevalúa el peso de la disponibilidad.
 - Los precios de VPS citados caducan el 2027-04-21.
+
+### Proceso de revisión (2026-11-20)
+
+La revisión a 30 días está programada y se apoya en datos, no en memoria:
+
+1. **Medición continua.** `pia-tunel.sh` cuenta las sondas a `1.1.1.1` por el túnel. Solo cuentan las que se hacen
+   con el desvío activo: miden lo que vive el PC, no un túnel sin usar. También cuenta las sin respuesta, su RTT,
+   los levantamientos del túnel y los rechazos de PIA. Thor lo publica como `yggdrasil_pia_sondas_total`,
+   `yggdrasil_pia_sondas_perdidas_total`, `yggdrasil_pia_rtt_ms`, `yggdrasil_pia_levantamientos_total` y
+   `yggdrasil_pia_rechazos_total`. Heimdall ya sondea `1.1.1.1` por cada WAN, así que la comparación es con el
+   mismo destino.
+2. **Informe automático.** `yggdrasil-revision-adr-0009.timer` (2026-11-20 09:00, Caracas, `Persistent`) ejecuta
+   `deploy/cd/revisar-adr-0009.sh --aviso`.
+   - Aplica los criterios de arriba sobre 30 días de Mimir.
+   - La referencia es la WAN directa que menos pierde, que es la que usa la casa.
+   - Manda el informe por ntfy y lo guarda en `/var/lib/yggdrasil-revisiones/`.
+   - Propone `MANTENER FASE 1`, `PROPONER FASE 2`, `VALORAR REVERTIR`, `DATOS INSUFICIENTES` (menos de 25 días)
+     o `SIN DATOS`.
+   - Se puede ejecutar a mano en cualquier momento, sin efectos.
+3. **Seguimiento en GitHub:** la issue #88 del milestone «Revisión ADR-0009 (2026-11-20)». Lleva la lista de lo
+   que el script no mide: cambios en PIA, el SAI y si los servicios venezolanos bloquean el PC.
+4. **Decisión HITL.** Jeremi decide. La decisión se anota aquí, con la nota de revisión y la versión, en un PR que
+   cierra la #88.
 
 ## Fuentes (2026-10-21)
 

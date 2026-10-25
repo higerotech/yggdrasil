@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.2.0
+* **Versión:** 0.3.0
 * **Tema:** Mitología nórdica (sucesor espiritual de Centinela)
 
 ## Regla
@@ -15,6 +15,7 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 |---|---|
 | **Yggdrasil** | La plataforma completa (el árbol que conecta todos los mundos) |
 | **Midgard** | Tier edge: el appliance en la pared (captura y datos crudos) |
+| **Nidavellir** | El taller: segundo servidor de la LAN (`hgtech002`, 192.168.10.2, alias DNS `nidavellir.casa.lan`). El reino de los enanos herreros que forjaron Mjölnir y Gungnir → compilación, contenedores y cómputo con GPU (2026-10-25) |
 | **Asgard** | Tier nube (futuro): dashboards y notificaciones escalables |
 | **Bifrost** | El puente edge ↔ nube (hoy WireGuard). Ojo: «Bifröst» nombra también el bus de eventos de `/srv/infra/bifrost` (abajo) |
 
@@ -64,3 +65,8 @@ Nota feliz: el ecosistema Grafana ya usa nombres nórdicos (Loki, Mimir), así q
 >   pasa de reservado a integrado (0.5.6).
 > - **Pendiente de decidir (HITL):** «Bifröst» nombra a la vez el mundo puente edge ↔ nube y el bus
 >   de eventos de `/srv/infra/bifrost`. Hay que elegir si se renombra uno de los dos.
+
+> **Revisión 2026-10-25.**
+> - Nuevo mundo **Nidavellir** para `hgtech002`, el segundo servidor de la LAN (decisión de Jeremi). El
+>   hostname no cambia, como `hgtech001` en Midgard: el nombre nórdico es el alias del mundo en la
+>   documentación y en el DNS de la casa (`cname` en dnsmasq de midgard, `nidavellir.casa.lan`).

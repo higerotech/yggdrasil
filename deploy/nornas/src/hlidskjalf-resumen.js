@@ -3,6 +3,10 @@
 // en un JSON pequeño. La tablet (Galaxy Tab 2, 1 GB de RAM) no habla PromQL ni carga Grafana:
 // recibe solo lo que dibuja. Si una fuente no responde, su sección va vacía y `fuentes` lo dice;
 // el tablero lo muestra en vez de dar por buena una pantalla en verde.
+//
+// Thor corre también en otros hosts (nidavellir): sus series llevan la etiqueta `host` y las de
+// midgard no. `host` y `servicios` son de midgard, como siempre; cada otro host va en `hosts`, con
+// sus discos, volúmenes y servicios aparte (los dos tienen un sda).
 const consultar = global.get("consultarJson");
 const MIMIR = env.get("HLIDSKJALF_MIMIR_URL") || "http://mimir:9090";
 const GJALLARHORN = env.get("HLIDSKJALF_GJALLARHORN_URL") || "http://gjallarhorn:9093";
@@ -16,12 +20,14 @@ const SERIES = [
     "yggdrasil_fs_montado", "yggdrasil_fs_tamano_bytes", "yggdrasil_fs_libre_bytes",
     "yggdrasil_disco_rotacional", "yggdrasil_disco_errores_kernel_15m",
     "yggdrasil_servicio_ok", "yggdrasil_respaldo_ultimo_exito_timestamp_seconds",
+    "yggdrasil_arranque_timestamp_seconds", "yggdrasil_cpu_temperatura_celsius",
 ];
 // Atributos SMART que enseña el tablero (los que publica Thor y vigila DiscoEmpeora, más contexto).
 const SMART = { 5: "reasignados", 187: "no_corregidos", 197: "pendientes", 198: "incorregibles", 199: "errores_cable", 194: "temperatura_c", 9: "horas" };
 const GRAVEDAD = { critical: 0, warning: 1, info: 2 };
 
-const consulta = `{__name__=~"${SERIES.join("|")}"}`;
+// `up` de Thor: un host colgado no tiene series (caducan a los 5 min), pero su `up` sigue, a 0.
+const consulta = `{__name__=~"${SERIES.join("|")}"} or up{job="thor"}`;
 const [prom, am] = await Promise.allSettled([
     consultar(`${MIMIR}/api/v1/query?query=${encodeURIComponent(consulta)}`, 5000),
     consultar(`${GJALLARHORN}/api/v2/alerts?active=true&silenced=false&inhibited=false`, 5000),
@@ -31,8 +37,10 @@ const ahora = Math.round(Date.now() / 1000);
 const mimirOk = prom.status === "fulfilled" && prom.value && prom.value.status === "success";
 const series = mimirOk ? prom.value.data.result : [];
 const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
+// `host` del filtro: el de la serie, o "" para las de midgard, que no lo llevan.
 const de = (nombre, filtro = {}) => series.filter((s) => s.metric.__name__ === nombre &&
-    Object.entries(filtro).every(([k, v]) => s.metric[k] === v));
+    (s.metric.host || "") === (filtro.host || "") &&
+    Object.entries(filtro).every(([k, v]) => k === "host" || s.metric[k] === v));
 const valor = (nombre, filtro) => { const s = de(nombre, filtro)[0]; return s ? num(s.value[1]) : null; };
 const hace = (ts) => (ts === null ? null : Math.max(0, ahora - ts));
 
@@ -55,19 +63,26 @@ const wan = wans.map((w) => {
     };
 });
 
-const discos = [...new Set(de("yggdrasil_smart_lectura_ok").map((s) => s.metric.disco))].sort().map((d) => {
-    const disco = { disco: d, lectura_ok: valor("yggdrasil_smart_lectura_ok", { disco: d }), salud: valor("yggdrasil_smart_salud", { disco: d }) };
-    for (const [id, clave] of Object.entries(SMART)) disco[clave] = valor("yggdrasil_smart_atributo", { disco: d, id });
-    disco.rotacional = valor("yggdrasil_disco_rotacional", { disco: d });
-    disco.errores_kernel = valor("yggdrasil_disco_errores_kernel_15m", { disco: d });
+const discosDe = (host) => [...new Set(de("yggdrasil_smart_lectura_ok", { host }).map((s) => s.metric.disco))].sort().map((d) => {
+    const f = { host, disco: d };
+    const disco = { disco: d, lectura_ok: valor("yggdrasil_smart_lectura_ok", f), salud: valor("yggdrasil_smart_salud", f) };
+    for (const [id, clave] of Object.entries(SMART)) disco[clave] = valor("yggdrasil_smart_atributo", { ...f, id });
+    disco.rotacional = valor("yggdrasil_disco_rotacional", f);
+    disco.errores_kernel = valor("yggdrasil_disco_errores_kernel_15m", f);
     return disco;
 });
-const fs = de("yggdrasil_fs_montado").map((s) => s.metric.punto).sort().map((p) => ({
+const fsDe = (host) => de("yggdrasil_fs_montado", { host }).map((s) => s.metric.punto).sort().map((p) => ({
     punto: p,
-    montado: valor("yggdrasil_fs_montado", { punto: p }),
-    tamano_bytes: valor("yggdrasil_fs_tamano_bytes", { punto: p }),
-    libre_bytes: valor("yggdrasil_fs_libre_bytes", { punto: p }),
+    montado: valor("yggdrasil_fs_montado", { host, punto: p }),
+    tamano_bytes: valor("yggdrasil_fs_tamano_bytes", { host, punto: p }),
+    libre_bytes: valor("yggdrasil_fs_libre_bytes", { host, punto: p }),
 }));
+const serviciosDe = (host) => de("yggdrasil_servicio_ok", { host })
+    .map((s) => ({ tipo: s.metric.tipo, nombre: s.metric.nombre, ok: num(s.value[1]) }))
+    .sort((a, b) => (a.tipo === b.tipo ? a.nombre.localeCompare(b.nombre) : a.tipo === "contenedor" ? -1 : 1));
+const temperatura = (host) => { const t = valor("yggdrasil_cpu_temperatura_celsius", { host }); return t === null ? null : Math.round(t); };
+const discos = discosDe("");
+const fs = fsDe("");
 // Un respaldo por etiqueta `respaldo` (Yggdrasil, Bifrost...). Sin etiqueta es el de Yggdrasil:
 // así lo publicaba Thor antes de admitir varios.
 const respaldos = de("yggdrasil_respaldo_ultimo_exito_timestamp_seconds")
@@ -77,9 +92,18 @@ const respaldos = de("yggdrasil_respaldo_ultimo_exito_timestamp_seconds")
     })
     .sort((a, b) => (a.nombre === "yggdrasil" ? -1 : b.nombre === "yggdrasil" ? 1 : a.nombre.localeCompare(b.nombre)));
 const respaldo = respaldos.find((r) => r.nombre === "yggdrasil") || { ultimo_exito: null, hace_h: null };
-const servicios = de("yggdrasil_servicio_ok")
-    .map((s) => ({ tipo: s.metric.tipo, nombre: s.metric.nombre, ok: num(s.value[1]) }))
-    .sort((a, b) => (a.tipo === b.tipo ? a.nombre.localeCompare(b.nombre) : a.tipo === "contenedor" ? -1 : 1));
+const servicios = serviciosDe("");
+// Los otros hosts, por su `up` de Thor: sigue ahí (a 0) aunque el host esté colgado.
+const hosts = [...new Set(series.filter((s) => s.metric.__name__ === "up" && s.metric.host).map((s) => s.metric.host))].sort().map((h) => ({
+    nombre: h,
+    up: valor("up", { host: h }),
+    thor_hace_s: hace(valor("yggdrasil_thor_timestamp_seconds", { host: h })),
+    arranque_hace_s: hace(valor("yggdrasil_arranque_timestamp_seconds", { host: h })),
+    cpu_temperatura_c: temperatura(h),
+    discos: discosDe(h),
+    fs: fsDe(h),
+    servicios: serviciosDe(h),
+}));
 
 const amOk = am.status === "fulfilled" && Array.isArray(am.value);
 const alertas = (amOk ? am.value : [])
@@ -101,6 +125,8 @@ msg.payload = {
     alertas,
     host: {
         thor_hace_s: hace(valor("yggdrasil_thor_timestamp_seconds")),
+        arranque_hace_s: hace(valor("yggdrasil_arranque_timestamp_seconds")),
+        cpu_temperatura_c: temperatura(""),
         discos,
         fs,
         // `respaldo` (solo el de Yggdrasil) queda para la tablet que aún tenga cargado el tablero viejo
@@ -108,6 +134,7 @@ msg.payload = {
         respaldos,
     },
     servicios,
+    hosts,
 };
 // Un aviso por cambio de estado de cada fuente, no uno por consulta (la tablet pide cada 15 s).
 const antes = context.get("fuentes") || { mimir: true, gjallarhorn: true };

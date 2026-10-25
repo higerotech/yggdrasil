@@ -22,6 +22,9 @@
 #     se cayo asi el 2026-10-19 con SMART limpio.
 #   - El tunel a PIA (ADR-0009), si pia-tunel.sh esta en marcha: si responde, si los equipos de
 #     PIA_MACS salen por el, cuantos son, el ultimo handshake y la region.
+#   - Cuando arranco el host y la temperatura del procesador. Un reinicio que nadie pidio delata un
+#     cuelgue: nidavellir se congelaba sin dejar rastro en el registro (2026-10-25) y ahora la
+#     reinicia su watchdog.
 #
 # La configuracion de cada host (discos, puntos, respaldos) va en /etc/default/yggdrasil-thor, que
 # lee la unidad: este repositorio es publico y no debe llevar numeros de serie. THOR_DISCOS admite
@@ -36,7 +39,7 @@ DIR=${THOR_DIR:-/var/lib/yggdrasil-thor}          # se sirve entero por HTTP: so
 CACHE=${THOR_CACHE:-/var/cache/yggdrasil-thor}    # salida de smartctl (lleva el n.o de serie): fuera de DIR
 DISCOS=${THOR_DISCOS:-/dev/sda}
 PUNTOS=${THOR_PUNTOS:-/ /mnt/nas/respaldos}
-WANS=${THOR_WANS:-wan1 wan2}
+WANS=${THOR_WANS-wan1 wan2}                       # vacia en un host sin wan-balancer (nidavellir)
 SMART_CADA_S=${THOR_SMART_CADA_S:-600}
 DF_TIMEOUT_S=${THOR_DF_TIMEOUT_S:-15}
 # Atributos SMART publicados: los que predicen fallo (5, 187, 188, 197, 198), el de cable (199)
@@ -56,6 +59,7 @@ RESPALDOS=${THOR_RESPALDOS:-yggdrasil=$RESPALDO_MARCA}
 DOCKER_TIMEOUT_S=${THOR_DOCKER_TIMEOUT_S:-10}
 JOURNAL_TIMEOUT_S=${THOR_JOURNAL_TIMEOUT_S:-10}
 SYS=${THOR_SYS:-/sys}
+PROC=${THOR_PROC:-/proc}
 PIA_ESTADO=${THOR_PIA_ESTADO:-/run/yggdrasil-pia/estado}   # lo escribe pia-tunel.sh (ADR-0009)
 AHORA=$(date +%s)
 
@@ -71,6 +75,27 @@ etiqueta() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 echo "# HELP yggdrasil_thor_timestamp_seconds Momento de la ultima recoleccion de Thor."
 echo "# TYPE yggdrasil_thor_timestamp_seconds gauge"
 echo "yggdrasil_thor_timestamp_seconds $AHORA"
+
+# --- Arranque y temperatura del procesador ----------------------------------------------------
+# btime de /proc/stat: segundos desde la epoca, fijo durante todo el arranque. Si cambia, el host se
+# reinicio (HostReiniciado). Ilegible, no se publica.
+arranque=$(awk '$1 == "btime" {print $2; exit}' "$PROC/stat" 2>/dev/null)
+if [[ "$arranque" =~ ^[0-9]+$ ]]; then
+    echo "# HELP yggdrasil_arranque_timestamp_seconds Momento del ultimo arranque del host."
+    echo "# TYPE yggdrasil_arranque_timestamp_seconds gauge"
+    echo "yggdrasil_arranque_timestamp_seconds $arranque"
+fi
+# El sensor del procesador: k10temp en AMD, coretemp en Intel (su temp1 es el encapsulado). Sin el,
+# no se publica.
+for h in "$SYS"/class/hwmon/hwmon*; do
+    case "$(cat "$h/name" 2>/dev/null)" in k10temp|coretemp|zenpower) ;; *) continue ;; esac
+    t=$(cat "$h/temp1_input" 2>/dev/null)
+    [[ "$t" =~ ^-?[0-9]+$ ]] || continue
+    echo "# HELP yggdrasil_cpu_temperatura_celsius Temperatura del procesador."
+    echo "# TYPE yggdrasil_cpu_temperatura_celsius gauge"
+    awk -v t="$t" 'BEGIN { printf "yggdrasil_cpu_temperatura_celsius %.1f\n", t / 1000 }'
+    break
+done
 
 # --- SMART -----------------------------------------------------------------------------------
 echo "# HELP yggdrasil_smart_atributo Valor RAW de un atributo SMART."
@@ -236,6 +261,27 @@ if [ -r "$PIA_ESTADO" ]; then
         echo "# HELP yggdrasil_pia_region_info Region de PIA del tunel."
         echo "# TYPE yggdrasil_pia_region_info gauge"
         echo "yggdrasil_pia_region_info{region=\"$pia_r\"} 1"
+        # Contadores para la revision de la ADR-0009: se reinician con el servicio (increase() lo absorbe)
+        pia_s=$(pia sondas); pia_p=$(pia perdidas); pia_l=$(pia levantamientos); pia_x=$(pia rechazos); pia_rtt=$(pia rtt_ms)
+        if [[ "$pia_s" =~ ^[0-9]+$ && "$pia_p" =~ ^[0-9]+$ && "$pia_l" =~ ^[0-9]+$ && "$pia_x" =~ ^[0-9]+$ ]]; then
+            echo "# HELP yggdrasil_pia_sondas_total Sondas por el tunel con el desvio activo."
+            echo "# TYPE yggdrasil_pia_sondas_total counter"
+            echo "yggdrasil_pia_sondas_total $pia_s"
+            echo "# HELP yggdrasil_pia_sondas_perdidas_total Sondas por el tunel sin respuesta, con el desvio activo."
+            echo "# TYPE yggdrasil_pia_sondas_perdidas_total counter"
+            echo "yggdrasil_pia_sondas_perdidas_total $pia_p"
+            echo "# HELP yggdrasil_pia_levantamientos_total Veces que el tunel se ha levantado con una clave nueva."
+            echo "# TYPE yggdrasil_pia_levantamientos_total counter"
+            echo "yggdrasil_pia_levantamientos_total $pia_l"
+            echo "# HELP yggdrasil_pia_rechazos_total Veces que PIA no dio token o rechazo la clave."
+            echo "# TYPE yggdrasil_pia_rechazos_total counter"
+            echo "yggdrasil_pia_rechazos_total $pia_x"
+        fi
+        if [[ "$pia_rtt" =~ ^[0-9]+([.][0-9]+)?$ && "$pia_rtt" != 0 ]]; then
+            echo "# HELP yggdrasil_pia_rtt_ms RTT de la ultima sonda que respondio por el tunel."
+            echo "# TYPE yggdrasil_pia_rtt_ms gauge"
+            echo "yggdrasil_pia_rtt_ms $pia_rtt"
+        fi
     fi
 fi
 

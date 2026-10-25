@@ -345,3 +345,119 @@ tests:
       - eval_time: 10m
         alertname: TunelPiaSinDesvio
         exp_alerts: []
+
+  # --- Otro host (nidavellir): sus series llevan `host` y los avisos lo nombran ---------------------
+  - name: un disco de nidavellir empeora
+    interval: 1h
+    input_series:
+      - series: 'yggdrasil_smart_atributo{job="thor", instance="192.168.10.2:9471", host="nidavellir", disco="sdc", id="197", nombre="Current_Pending_Sector"}'
+        values: '0x23 1x5'
+    alert_rule_test:
+      - eval_time: 26h
+        alertname: DiscoEmpeora
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir, disco: sdc, id: "197", nombre: Current_Pending_Sector}
+            exp_annotations:
+              resumen: "Disco sdc de nidavellir: Current_Pending_Sector subió 1 en 24 h"
+              descripcion: "El disco de nidavellir se degrada: planificar el cambio y comprobar que lo que guarda tiene copia. Detalle: `sudo smartctl -A /dev/sdc` en nidavellir."
+
+  - name: el NAS sin montar en nidavellir avisa como punto suyo, no como el NAS de midgard
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_fs_montado{job="thor", instance="thor:9471", punto="/mnt/nas/respaldos"}'
+        values: '1x40'
+      - series: 'yggdrasil_fs_montado{job="thor", instance="192.168.10.2:9471", host="nidavellir", punto="/mnt/nas/respaldos"}'
+        values: '1 1 0x38'
+      - series: 'yggdrasil_fs_libre_bytes{job="thor", instance="192.168.10.2:9471", host="nidavellir", punto="/mnt/nas/respaldos"}'
+        values: '1x40'
+      - series: 'yggdrasil_fs_tamano_bytes{job="thor", instance="192.168.10.2:9471", host="nidavellir", punto="/mnt/nas/respaldos"}'
+        values: '100x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: PuntoNoMontado
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir, punto: /mnt/nas/respaldos}
+            exp_annotations:
+              resumen: "/mnt/nas/respaldos de nidavellir no está montado: los servicios que guardan ahí sus datos no arrancan"
+      - eval_time: 35m
+        alertname: NasNoMontado
+        exp_alerts: []
+      # 1 % libre visto desde nidavellir: el espacio del NAS solo cuenta medido por midgard
+      - eval_time: 35m
+        alertname: NasEspacioCritico
+        exp_alerts: []
+
+  - name: nidavellir deja de responder
+    interval: 1m
+    input_series:
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1 1 0x18'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: ThorSinMetricas
+        exp_alerts: []          # aún dentro del for de 5 min
+      - eval_time: 10m
+        alertname: ThorSinMetricas
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir}
+            exp_annotations:
+              resumen: "Mimir no recibe métricas de nidavellir: está colgado, apagado o sin red"
+
+  - name: nidavellir arranca de nuevo y midgard no
+    interval: 1m
+    input_series:
+      # midgard arrancó un día antes del inicio de la prueba; nidavellir, en el momento 0
+      - series: 'yggdrasil_arranque_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '-86400x30'
+      - series: 'yggdrasil_arranque_timestamp_seconds{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HostReiniciado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir}
+            exp_annotations:
+              resumen: "nidavellir arrancó hace menos de 15 min"
+              descripcion: "Si nadie lo reinició, fue un apagón o un cuelgue que resolvió el watchdog. Lo último que registró antes de caer: `journalctl -b -1 -n 50`."
+      - eval_time: 16m
+        alertname: HostReiniciado
+        exp_alerts: []          # se resuelve sola a los 15 min
+
+  - name: midgard arranca tras un apagón
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_arranque_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '0x20'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: HostReiniciado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "midgard arrancó hace menos de 15 min"
+              descripcion: "Si nadie lo reinició, fue un apagón o un cuelgue que resolvió el watchdog. Lo último que registró antes de caer: `journalctl -b -1 -n 50`."
+
+  - name: un servicio caído en nidavellir avisa por Mimir; en midgard lo hace el vigía
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="192.168.10.2:9471", host="nidavellir", tipo="unidad", nombre="docker.service"}'
+        values: '1x2 0x10'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="192.168.10.2:9471", host="nidavellir", tipo="contenedor", nombre="bragi"}'
+        values: '1x2 0x10'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="thor:9471", tipo="contenedor", nombre="yggdrasil-grafana"}'
+        values: '0x12'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: ServicioDeHostCaido
+        exp_alerts: []          # aún dentro del for de 5 min
+      - eval_time: 9m
+        alertname: ServicioDeHostCaido
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir, tipo: unidad, nombre: docker.service}
+            exp_annotations:
+              resumen: "docker.service está caído en nidavellir"
+              descripcion: "Revisar `systemctl status docker.service` en nidavellir."
+          - exp_labels: {severity: critical, servicio: thor, job: thor, instance: "192.168.10.2:9471", host: nidavellir, tipo: contenedor, nombre: bragi}
+            exp_annotations:
+              resumen: "bragi está caído en nidavellir"
+              descripcion: "Revisar `docker ps -a --filter name=bragi` y `docker logs bragi` en nidavellir."
