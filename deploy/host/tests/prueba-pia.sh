@@ -11,7 +11,7 @@ set -uo pipefail
 AQUI=$(cd "$(dirname "$0")" && pwd)
 NFT_SISTEMA=$(command -v nft || true)
 T=""
-trap '[ -n "$T" ] && rm -rf "$T"' EXIT
+trap '[ -n "${reenviador_pid:-}" ] && kill "$reenviador_pid" 2>/dev/null; [ -n "$T" ] && rm -rf "$T"' EXIT
 T=$(mktemp -d)
 mkdir -p "$T/bin" "$T/run"
 
@@ -60,6 +60,9 @@ EOF
 cat > "$T/bin/ip" <<'EOF'
 #!/usr/bin/env bash
 printf '%s\n' "$*" >> "$STUB/ip-args"
+case "$*" in
+  "-4 -o addr show dev lan") echo '3: lan    inet 192.168.10.1/24 brd 192.168.10.255 scope global lan'; exit 0 ;;
+esac
 case "$1 $2" in
   "link show") [ -f "$STUB/link-pia0" ] ;;
   "link add")  touch "$STUB/link-pia0" ;;
@@ -83,6 +86,13 @@ cat > "$T/bin/ping" <<'EOF'
 #!/usr/bin/env bash
 [ -f "$STUB/ping-falla" ] && exit 1
 echo '64 bytes from 1.1.1.1: icmp_seq=1 ttl=57 time=61.2 ms'
+EOF
+cat > "$T/bin/dnsmasq" <<'EOF'
+#!/usr/bin/env bash
+# El reenviador: guarda sus argumentos y se queda vivo hasta que lo paran
+printf '%s\n' "$*" >> "$STUB/dnsmasq-args"
+[ -f "$STUB/dnsmasq-falla" ] && exit 1
+exec sleep 600
 EOF
 cat > "$T/bin/logger" <<'EOF'
 #!/usr/bin/env bash
@@ -137,7 +147,14 @@ es "estado: sin desvio aun, la sonda no cuenta" "$(estado sondas)" 0
 hay "la MAC entra en el set, en minusculas" "$T/nft-tabla" "elements = { 30:9c:23:e0:fb:a3 }"
 hay "todo su IPv4 se marca" "$T/nft-tabla" 'ether saddr @equipos meta nfproto ipv4 meta mark set 0x10'
 hay "su IPv6 hacia fuera se descarta" "$T/nft-tabla" 'meta nfproto ipv6 ip6 daddr != { fe80::/10, ff00::/8 } drop'
-hay "su DNS va al de PIA" "$T/nft-tabla" 'th dport 53 dnat ip to 10.0.0.243'
+hay "su DNS va al reenviador de midgard" "$T/nft-tabla" 'th dport 53 dnat ip to 192.168.10.1:5354'
+hay "el reenviador escucha en la LAN, puerto 5354" "$T/dnsmasq-args" '--listen-address=192.168.10.1 --port=5354'
+hay "el reenviador no lee la configuracion de la casa" "$T/dnsmasq-args" '--conf-file=/dev/null'
+hay "casa.lan, al dnsmasq de midgard" "$T/dnsmasq-args" '--server=/casa.lan/127.0.0.1'
+hay "la inversa de la LAN, al dnsmasq de midgard" "$T/dnsmasq-args" '--server=/10.168.192.in-addr.arpa/127.0.0.1'
+hay "los nombres sin dominio, al dnsmasq de midgard" "$T/dnsmasq-args" '--server=//127.0.0.1'
+hay "el resto, al DNS de PIA" "$T/dnsmasq-args" '--server=10.0.0.243 '
+hay "el reenviador llega al DNS de PIA por el tunel" "$T/ip-args" "route replace 10.0.0.243/32 dev pia0"
 hay "masquerade por pia0" "$T/nft-tabla" 'oifname "pia0" masquerade'
 hay "el cambio es atomico: la tabla se declara y se borra antes" "$T/nft-tabla" 'delete table inet yggdrasil_pia'
 hay "la LAN y Docker siguen en local" "$T/reglas" 87
@@ -163,6 +180,17 @@ es "el tunel responde otra vez: desvio de vuelta" "$(estado desvio)" 1
 rm -f "$T/nft-tabla"
 vuelta
 [ -f "$T/nft-tabla" ] && ok "tabla borrada desde fuera: se reaplica" || mal "tabla borrada desde fuera: se reaplica"
+
+# --- Reenviador DNS caido: el DNS vuelve directo a PIA -----------------------------------
+kill "$reenviador_pid"; wait "$reenviador_pid" 2>/dev/null
+touch "$T/dnsmasq-falla"
+vuelta
+hay "reenviador caido y sin arrancar: DNS directo al de PIA" "$T/nft-tabla" 'th dport 53 dnat ip to 10.0.0.243'
+no_hay "reenviador caido: ya no se apunta al puerto 5354" "$T/nft-tabla" ':5354'
+hay "el fallo del reenviador se registra" "$T/log" "el reenviador DNS no arranco"
+rm "$T/dnsmasq-falla"
+vuelta
+hay "el reenviador vuelve: el DNS vuelve a el" "$T/nft-tabla" 'th dport 53 dnat ip to 192.168.10.1:5354'
 
 # --- Configuracion -----------------------------------------------------------------------
 printf 'PIA_MACS=30:9c:23:e0:fb:a3,no-es-mac AA:BB:CC:DD:EE:01\n' > "$T/pia.conf"
@@ -195,15 +223,17 @@ es "PIA vuelve a responder: tunel y desvio" "$(estado tunel)$(estado desvio)" 11
 limpiar
 [ -f "$T/link-pia0" ] && mal "parada: se borra pia0" || ok "parada: se borra pia0"
 es "parada: los equipos salen directo" "$(estado desvio)" 0
+es "parada: el reenviador se para" "$reenviador_pid" ""
 
 # --- Tabla real: `nft -c` (solo con NFT_REAL=1 y root) -----------------------------------
 if [ "${NFT_REAL:-0}" = 1 ]; then
-    dns_pia=10.0.0.243
-    if reglas_nft "30:9c:23:e0:fb:a3, aa:bb:cc:dd:ee:01" | "$NFT_SISTEMA" -c -f -; then
-        ok "nft -c acepta la tabla del desvio"
-    else
-        mal "nft -c acepta la tabla del desvio"
-    fi
+    for d in 192.168.10.1:5354 10.0.0.243; do
+        if reglas_nft "30:9c:23:e0:fb:a3, aa:bb:cc:dd:ee:01" "$d" | "$NFT_SISTEMA" -c -f -; then
+            ok "nft -c acepta la tabla del desvio (DNS a $d)"
+        else
+            mal "nft -c acepta la tabla del desvio (DNS a $d)"
+        fi
+    done
 fi
 
 echo

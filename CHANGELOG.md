@@ -24,6 +24,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   - Seguimiento en la issue #88, del milestone «Revisión ADR-0009 (2026-11-20)».
   - Prueba nueva: `deploy/cd/tests/prueba-revision.sh`, con 21 comprobaciones.
 
+### Corregido
+- **El PC desviado por PIA vuelve a resolver los nombres de la casa.** El DNAT del túnel llevaba todo su DNS al
+  de PIA, también `casa.lan`, que PIA no conoce. Ahora `pia-tunel.sh` arranca un reenviador (un dnsmasq aparte
+  en `192.168.10.1:5354`): los nombres de la casa y la inversa de la LAN van al dnsmasq de midgard, y el resto
+  va al DNS de PIA por el túnel, así que el ISP sigue sin ver las consultas. Si el reenviador no arranca, el
+  DNS vuelve directo al de PIA. `/etc/nftables.conf` abre el puerto 5354 solo a lo que llega por ese DNAT
+  (`ct status dnat`). ADR-0009 1.1.1; `prueba-pia.sh` pasa de 55 a 69 comprobaciones.
+
 ### Cambiado
 - **Threat model:** DREAD de T11 (3,2) y T12 (3,8) aceptado (HITL 2026-10-21).
 - **Convención de nombres 0.3.0:** nuevo mundo **Nidavellir**, el taller, para `hgtech002`, el segundo servidor de

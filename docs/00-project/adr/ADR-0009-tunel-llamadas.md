@@ -4,7 +4,7 @@
 * **Fecha:** 2026-10-21
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.1.0
+* **Versión:** 1.1.1
 * **ID:** ADR-0009
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA en un fichero de root 600 que escribe Jeremi, nunca en el repo; clave privada y token solo en memoria), A09 (estado del túnel en Heimdall)
@@ -136,6 +136,10 @@ Jeremi acepta la ADR con un cambio en el alcance de la Fase 1:
   llamadas. El equipo se elige por su MAC, que vive en `/etc/yggdrasil-pia.conf` y no en el repositorio, que es
   público. Elegirlo por MAC sigue funcionando aunque DHCP le cambie la IP.
   - Su DNS va al de PIA, así que el ISP deja de ver sus consultas.
+    - **Corrección del 2026-10-25:** el DNAT llevaba al DNS de PIA también las consultas de `casa.lan`, y el
+      PC dejó de resolver los nombres de la casa. Ahora el DNS del PC pasa por un reenviador en midgard: los
+      nombres de la casa los resuelve el dnsmasq de midgard, y el resto sigue yendo al DNS de PIA por el
+      túnel. El ISP sigue sin ver las consultas.
   - Su IPv6 hacia fuera se descarta, porque PIA solo da IPv4. Hoy la LAN no tiene IPv6 global.
   - La clasificación `rt_media` queda **aplazada**. Se retoma si hace falta para otros equipos.
 - **T12 aceptada:** PIA puede ver los metadatos del tráfico del PC.
