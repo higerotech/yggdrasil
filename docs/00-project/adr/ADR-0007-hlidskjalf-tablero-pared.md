@@ -4,10 +4,10 @@
 * **Fecha:** 2026-10-16
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.0.0
+* **Versión:** 1.1.0
 * **ID:** ADR-0007
 * **Supersede / Superseded-by:** —
-* **Controles OWASP afectados:** A01 (resumen de solo lectura con token propio), A03 (todo texto del servidor se escapa; CSP por hash), A05 (sin puertos nuevos; Mimir y Gjallarhorn siguen sin publicarse)
+* **Controles OWASP afectados:** A01 (resumen de solo lectura con token propio), A03 (todo texto del servidor se escapa; CSP por hash), A05 (sin puertos nuevos en midgard; Mimir y Gjallarhorn siguen sin publicarse; desde la 1.1.0, Thor de nidavellir en su 9471, solo para midgard)
 
 ## Contexto
 Se quiere ver el estado de midgard de un vistazo, en una tablet fija en la pared, sin abrir Odín
@@ -66,3 +66,41 @@ no estaban en Mimir: el vigía de servicios los mira en el host y avisa directo 
 - Condiciones de revisión: si la tablet se cambia por un dispositivo con navegador moderno,
   reconsiderar Odín en kiosco; si el tablero se quiere ver fuera de casa, debe ir por WireGuard y
   nunca publicarse en las WAN.
+
+## Revisión 2026-10-25 (1.1.0): otros hosts con Thor
+
+**Contexto.** nidavellir (hgtech002, 192.168.10.2) entra en la LAN como segundo servidor y va a recibir a Bragi.
+Se colgaba sin dejar rastro en el registro, y sus discos de datos tienen sectores ilegibles. Hlidskjalf y las
+alertas de Thor solo veían midgard.
+
+**Decisión.**
+- **Thor corre también en nidavellir**, con el mismo `yggdrasil-thor.sh` y su configuración en
+  `/etc/default/yggdrasil-thor`: sus discos por `by-id`, sin WAN (`THOR_WANS=""`) ni respaldos propios.
+- **Lo sirve `yggdrasil-thor-http.service`** (busybox httpd) en el puerto 9471 de la LAN, porque nidavellir no
+  tiene el Compose ni su red `heimdall`. **Es el primer puerto nuevo de este tablero, y no está en midgard.**
+  - Solo admite a midgard: `IPAddressAllow=localhost 192.168.10.1` con `IPAddressDeny=any`, un filtro eBPF en
+    el cgroup de la unidad. Mimir sale de su contenedor con la IP de midgard (masquerade de Docker).
+  - No va en nftables: no choca con las reglas de Docker y viaja con la unidad.
+  - Comprobado el 2026-10-25: midgard y Mimir leen `host.prom`; el PC, en la misma LAN, no obtiene respuesta.
+- **Mimir lo recoge en el mismo job `thor`**, con la etiqueta `host="nidavellir"`. Las series de midgard
+  siguen sin `host`, así que su historia y sus paneles no cambian.
+- **Las alertas de Thor valen para los dos hosts** y nombran el host solo cuando lo hay. Las de las WAN y
+  el espacio del NAS solo cuentan las series de midgard. Hay dos alertas nuevas:
+  - `ServicioDeHostCaido`: nidavellir no tiene el vigía de servicios de midgard, que avisa directo a ntfy.
+  - `HostReiniciado`: un arranque que nadie pidió es un apagón o un cuelgue que resolvió el watchdog.
+- **Thor publica dos métricas nuevas en todos los hosts:** `yggdrasil_arranque_timestamp_seconds` y
+  `yggdrasil_cpu_temperatura_celsius`.
+- **El resumen trae `hosts`.** La consulta suma `up{job="thor"}`, para que un host colgado siga en la lista
+  (a 0) en vez de desaparecer cuando sus series caducan.
+- **En el tablero, cada host es un bloque dentro del panel de midgard** (antes «Host», ahora «Midgard»):
+  - Abre con una cabecera que dice cómo está («encendido 7 h», «arrancó hace 4 min», «NO RESPONDE») y la
+    temperatura del procesador.
+  - Lo siguen sus discos, volúmenes y servicios, con la misma densidad del panel.
+  - Un panel propio en la columna de las WAN no cabía: a 705 px de alto tapaba la segunda WAN.
+
+**Alternativa descartada:** que midgard trajera `host.prom` por SSH con una clave limitada a `cat`. Evitaba
+el puerto, pero sumaba una clave y un temporizador. La mudanza de Bragi necesitará además su propio puerto
+de métricas (9470) en la LAN, con el mismo filtro.
+
+**Impacto en el threat model:** nota en T2. El 9471 de nidavellir sirve Thor (Interno: discos, servicios y
+temperatura), no la API de Prometheus, y solo a midgard.

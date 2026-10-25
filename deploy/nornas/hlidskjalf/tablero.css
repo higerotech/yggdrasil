@@ -114,6 +114,9 @@ main {
 .fila:last-child { border-bottom: 0; }
 .fila > span { width: 92px; flex: none; color: var(--tenue); }
 .fila > b { flex: 1; color: var(--c); font-size: 18px; }
+/* Cabecera del bloque de otro host (nidavellir) en el panel de midgard: rótulo como el de un h3 */
+.fila.otro-host { margin-top: 10px; border-top: 1px solid var(--borde); }
+.fila.otro-host > span { width: auto; color: var(--tenue); font-size: 15px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; }
 .lista > span { display: inline-block; margin-right: 14px; white-space: nowrap; color: var(--c); }
 .lista small { margin-right: 4px; }
 .panel.en-linea { flex: none; display: flex; align-items: baseline; }

@@ -1,7 +1,7 @@
 /* Hlidskjalf — tablero de pared de midgard.
  *
- * Pide /hlidskjalf/resumen a Nornas cada 15 s y pinta cuatro bloques: WAN, alertas activas, salud
- * del host y servicios. Escrito para el WebView de la Galaxy Tab 2 (Chromium 81, 1 GB de RAM):
+ * Pide /hlidskjalf/resumen a Nornas cada 15 s y pinta WAN, alertas activas, salud de midgard y de
+ * cada otro host con Thor (nidavellir), respaldos y servicios. Escrito para el WebView de la Galaxy Tab 2 (Chromium 81, 1 GB de RAM):
  * sin framework ni dependencias, todo el HTML sale de funciones puras que también se prueban
  * en Node (tests/hlidskjalf.test.mjs), y todo texto que viene del servidor pasa por esc().
  *
@@ -31,7 +31,7 @@
         "bifrost-nats": "Bifröst",
         "hermod-rabbitmq": "Hermod"
     };
-    var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD" };
+    var PUNTOS = { "/": "Raíz", "/srv/rapido": "SSD", "/srv/medios/wd": "Medios" };
     var RESPALDOS = { yggdrasil: "Yggdrasil", bifrost: "Bifröst", hermod: "Hermod", andvari: "Andvari" };
 
     function esc(v) {
@@ -100,15 +100,35 @@
         return r.hace_h >= 26 ? "aviso" : "ok";
     }
     function nivelAlerta(a) { return a.severidad === "critical" ? "critico" : a.severidad === "info" ? "ok" : "aviso"; }
+    function nivelCpu(t) { return !hay(t) ? "nodato" : t >= 90 ? "critico" : t >= 80 ? "aviso" : "ok"; }
+
+    // Otro host con Thor (nidavellir). Sin `up` o a 0, no responde; con Thor parado o datos de más de
+    // 5 min, no se sabe cómo está; si arrancó hace menos de 15 min, se reinició (HostReiniciado).
+    var ARRANQUE_RECIENTE_S = 900;
+    function nombreHost(h) { var n = String(h.nombre || ""); return n.charAt(0).toUpperCase() + n.slice(1); }
+    function estadoHost(h) {
+        if (h.up === 0) return { nivel: "critico", texto: "NO RESPONDE" };
+        if (!hay(h.thor_hace_s)) return { nivel: "critico", texto: "SIN DATOS" };
+        if (h.thor_hace_s > 300) return { nivel: "aviso", texto: "datos de hace " + duracion(h.thor_hace_s) };
+        if (hay(h.arranque_hace_s) && h.arranque_hace_s < ARRANQUE_RECIENTE_S) return { nivel: "aviso", texto: "arrancó hace " + duracion(h.arranque_hace_s) };
+        return { nivel: "ok", texto: hay(h.arranque_hace_s) ? "encendido " + duracion(h.arranque_hace_s) : "en línea" };
+    }
+    function hostsSinRespuesta(r) {
+        return (r.hosts || []).filter(function (h) { return estadoHost(h).nivel === "critico"; });
+    }
 
     // Estado de la cabecera: el peor de todo lo que se ve, con una frase que lo explique.
     function estadoGeneral(r) {
-        var caidos = (r.servicios || []).filter(function (s) { return s.ok === 0; });
+        var todos = r.servicios || [];
+        (r.hosts || []).forEach(function (h) { todos = todos.concat(h.servicios || []); });
+        var caidos = todos.filter(function (s) { return s.ok === 0; });
         var alertas = (r.alertas || []).filter(function (a) { return a.severidad !== "info"; });
         var criticas = alertas.filter(function (a) { return a.severidad === "critical"; });
+        var mudos = hostsSinRespuesta(r);
         if (r.hogar && r.hogar.up === 0) return { nivel: "critico", texto: "Midgard sin internet" };
         if (!r.fuentes || !r.fuentes.mimir) return { nivel: "aviso", texto: "Sin datos de Mimir" };
         if (criticas.length) return { nivel: "critico", texto: criticas.length === 1 ? "1 alerta crítica" : criticas.length + " alertas críticas" };
+        if (mudos.length) return { nivel: "critico", texto: mudos.map(nombreHost).join(" y ") + (mudos.length === 1 ? " no responde" : " no responden") };
         if (caidos.length) return { nivel: "critico", texto: caidos.length === 1 ? "1 servicio caído" : caidos.length + " servicios caídos" };
         if (alertas.length) return { nivel: "aviso", texto: alertas.length === 1 ? "1 alerta activa" : alertas.length + " alertas activas" };
         if (!r.fuentes.gjallarhorn) return { nivel: "aviso", texto: "Sin datos de Gjallarhorn" };
@@ -198,18 +218,19 @@
         if (hay(d.temperatura_c)) partes.push(numero(d.temperatura_c) + " °C");
         return partes.join(" · ");
     }
+    function tipoDisco(d) { return d.rotacional === 1 ? "HDD " : d.rotacional === 0 ? "SSD " : "Disco "; }
+    function nombrePunto(p) { return PUNTOS[p] || (/nas/.test(p) ? "NAS" : esc(p)); }
     // Filas del panel Host como datos: nivel, nombre, valor completo y valor corto (el que lleva en
     // la fila «En orden» cuando no cabe todo).
     function filasHost(h) {
         var filas = [];
         (h.discos || []).forEach(function (d) {
             // «HDD sda» y no «Disco sda · HDD»: en la columna de 92 px ocupaba dos líneas
-            var tipo = d.rotacional === 1 ? "HDD " : d.rotacional === 0 ? "SSD " : "Disco ";
-            filas.push({ nivel: nivelDisco(d), nombre: tipo + esc(d.disco), valor: detalleDisco(d),
+            filas.push({ nivel: nivelDisco(d), nombre: tipoDisco(d) + esc(d.disco), valor: detalleDisco(d),
                 corto: hay(d.temperatura_c) ? numero(d.temperatura_c) + " °C" : "sano" });
         });
         (h.fs || []).forEach(function (f) {
-            var nombre = PUNTOS[f.punto] || (/nas/.test(f.punto) ? "NAS" : esc(f.punto));
+            var nombre = nombrePunto(f.punto);
             var r = libreRatio(f);
             var valor = f.montado === 0 ? "NO MONTADO"
                 : porcentaje(r, 1) + " libre <small>(" + bytes(f.libre_bytes) + " de " + bytes(f.tamano_bytes) + ")</small>";
@@ -226,18 +247,41 @@
         if (h.thor_hace_s > 300) return { nivel: "aviso", texto: "datos de hace " + duracion(h.thor_hace_s) };
         return null;
     }
+    // Otro host con Thor (nidavellir): un bloque en el mismo panel, debajo de midgard, que abre una
+    // fila de cabecera con su estado y la temperatura del procesador. Siguen sus discos, volúmenes y
+    // servicios. Si no responde, solo la cabecera: el resto serían datos viejos. (Como panel propio en
+    // la columna de las WAN no cabía: a 705 px de alto tapaba la segunda WAN.)
+    function filasOtroHost(h) {
+        var e = estadoHost(h), cpu = nivelCpu(h.cpu_temperatura_c);
+        var mudo = e.nivel === "critico";
+        var cabecera = { cabecera: true, nombre: esc(nombreHost(h)),
+            nivel: !mudo && ORDEN_NIVEL[cpu] < ORDEN_NIVEL[e.nivel] ? cpu : e.nivel,
+            valor: esc(e.texto) + (!mudo && cpu !== "nodato" ? " · CPU " + numero(h.cpu_temperatura_c) + " °C" : "") };
+        if (mudo) return [cabecera];
+        var filas = [cabecera].concat(filasHost(h));
+        var servicios = h.servicios || [];
+        servicios.forEach(function (s) {
+            if (s.ok === 0) filas.push({ nivel: "critico", nombre: "Caído", valor: esc(nombreServicio(s)), corto: "" });
+        });
+        var bien = servicios.filter(function (s) { return s.ok === 1; }).length;
+        if (bien) filas.push({ nivel: "ok", nombre: "Servicios", valor: bien + " en orden", corto: String(bien) });
+        return filas;
+    }
     // Densidad del panel Host. El navegador empieza en 0 y sube mientras el panel desborde:
     //   0  todas las filas completas, en su orden de siempre
     //   1  primero lo que no está en orden; discos y volúmenes sanos, juntos en «En orden» con su cifra
     //   2  como 1, pero «En orden» solo los nombra
-    // Así lo que se queda sin sitio es siempre lo que está bien, nunca un aviso.
+    // Así lo que se queda sin sitio es siempre lo que está bien, nunca un aviso. Cada host se aprieta
+    // por separado, y la cabecera de otro host no se agrupa nunca: dice de quién son las filas.
     var DENSIDADES = 3;
-    function vistaHost(h, densidad) {
-        var filas = filasHost(h);
-        var d = densidad || 0;
-        if (d === 0) return filas.map(function (f) { return fila(f.nivel, f.nombre, f.valor); }).join("");
+    function bloqueHost(filas, d) {
+        var html = filas.filter(function (f) { return f.cabecera; }).map(function (f) {
+            return fila(f.nivel + " otro-host", f.nombre, f.valor);
+        }).join("");
+        filas = filas.filter(function (f) { return !f.cabecera; });
+        if (d === 0) return html + filas.map(function (f) { return fila(f.nivel, f.nombre, f.valor); }).join("");
         var sanas = filas.filter(function (f) { return f.nivel === "ok"; });
-        var html = filas.filter(function (f) { return f.nivel !== "ok"; }).map(function (f) { return fila(f.nivel, f.nombre, f.valor); }).join("");
+        html += filas.filter(function (f) { return f.nivel !== "ok"; }).map(function (f) { return fila(f.nivel, f.nombre, f.valor); }).join("");
         if (sanas.length) {
             html += fila("ok", "En orden", "<span class=\"lista\">" + sanas.map(function (f) {
                 return d === 2 ? "<span class=\"ok\">" + f.nombre + "</span>"
@@ -245,6 +289,10 @@
             }).join("") + "</span>");
         }
         return html;
+    }
+    function vistaHost(h, densidad, otros) {
+        var d = densidad || 0;
+        return bloqueHost(filasHost(h), d) + (otros || []).map(function (o) { return bloqueHost(filasOtroHost(o), d); }).join("");
     }
     // Respaldos: panel propio en la columna de las WAN, que tenía alto de sobra; en Host eran la
     // fila que primero se quedaba sin sitio. Una línea, cada uno con su color.
@@ -281,9 +329,12 @@
         if (nivel < BATERIA_BAJA) return { nivel: n, texto: "Tablet al " + pct };
         return null;
     }
+    function nombreServicio(s) {
+        return s.tipo === "contenedor" ? (NORDICOS[s.nombre] || sinPrefijo(s.nombre)) : sinPrefijo(s.nombre).replace(/\.(service|timer)$/, "");
+    }
     function fichaServicio(s) {
         var n = s.ok === 1 ? "ok" : "critico";
-        var nombre = s.tipo === "contenedor" ? (NORDICOS[s.nombre] || sinPrefijo(s.nombre)) : sinPrefijo(s.nombre).replace(/\.(service|timer)$/, "");
+        var nombre = nombreServicio(s);
         var tecnico = s.tipo === "contenedor" ? sinPrefijo(s.nombre) : (/\.timer$/.test(s.nombre) ? "temporizador" : "unidad");
         return "<span class=\"servicio " + n + "\" title=\"" + esc(s.nombre) + "\"><i></i>" + esc(nombre) +
             "<small>" + esc(tecnico) + "</small></span>";
@@ -374,7 +425,7 @@
             for (var compactas = 0; compactas < 2; compactas++) {
                 if (compactas) $("alertas").innerHTML = vistaAlertas(r.alertas || [], r.generado, r.fuentes && r.fuentes.gjallarhorn, true);
                 for (var d = 0; d < DENSIDADES; d++) {
-                    host.innerHTML = vistaHost(datos, d);
+                    host.innerHTML = vistaHost(datos, d, r.hosts);
                     if (!desborda()) return;
                 }
             }
@@ -442,7 +493,7 @@
     var api = {
         esc: esc, numero: numero, porcentaje: porcentaje, bytes: bytes, duracion: duracion,
         enMedicion: enMedicion, nivelWan: nivelWan, nivelDisco: nivelDisco, nivelFs: nivelFs, nivelRespaldo: nivelRespaldo,
-        estadoGeneral: estadoGeneral, vistaWan: vistaWan, vistaAlertas: vistaAlertas, vistaHost: vistaHost, vistaRespaldos: vistaRespaldos, frescuraHost: frescuraHost,
+        estadoGeneral: estadoGeneral, estadoHost: estadoHost, vistaWan: vistaWan, vistaAlertas: vistaAlertas, vistaHost: vistaHost, vistaRespaldos: vistaRespaldos, frescuraHost: frescuraHost,
         vistaServicios: vistaServicios, vistaTodo: vistaTodo, detalleDisco: detalleDisco, vistaOcultas: vistaOcultas,
         vistaBateria: vistaBateria, DENSIDADES: DENSIDADES
     };

@@ -212,6 +212,8 @@ sirve a Mimir, job `thor`.
 | `yggdrasil_wan_en_ruta{wan}` | 1 si `wan-balancer` tiene esa WAN en la ruta por defecto |
 | `yggdrasil_servicio_ok{tipo,nombre}` | 1 si el contenedor permanente está en marcha y sano (`tipo="contenedor"`, inventario del vigía más los del proyecto) o la unidad del host activa (`tipo="unidad"`); solo para el tablero, el aviso es del vigía |
 | `yggdrasil_respaldo_ultimo_exito_timestamp_seconds{respaldo}` | último respaldo completado de cada respaldo de `THOR_RESPALDOS`; por defecto solo `yggdrasil` (`/var/lib/yggdrasil-respaldo/ultimo-exito`) |
+| `yggdrasil_arranque_timestamp_seconds` | cuándo arrancó el host (`btime` de `/proc/stat`) |
+| `yggdrasil_cpu_temperatura_celsius` | temperatura del procesador (`k10temp` o `coretemp`); sin sensor, no se publica |
 | `yggdrasil_thor_timestamp_seconds` | última recolección |
 
 Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
@@ -229,7 +231,9 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 | `NasNoMontado` | el NAS no está montado o no responde, 30 min: el respaldo fallará |
 | `PuntoNoMontado` | un punto de datos (ni `/` ni el NAS, p. ej. el SSD) no está montado, 5 min (crítica) |
 | `RespaldoAtrasado` | un respaldo lleva más de 30 h sin completarse, 30 min; el aviso principal sigue siendo la vigía de cada respaldo |
-| `ThorSinMetricas` | Mimir no recibe métricas frescas de Thor, 5 min |
+| `ServicioDeHostCaido` | un servicio de otro host (nidavellir) lleva 5 min caído, crítica: allí no hay vigía de servicios |
+| `HostReiniciado` | el host arrancó hace menos de 15 min: un apagón o un cuelgue que resolvió el watchdog |
+| `ThorSinMetricas` | Mimir no recibe métricas frescas de Thor, 5 min; en otro host, que está colgado, apagado o sin red |
 
 ### Configuración del host
 
@@ -300,3 +304,39 @@ atómico y el contenedor monta el **directorio**, no el fichero (ver la 0.5.7).
 Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom` o, en Mimir,
 `up{job="thor"}`. Pruebas: `bash deploy/cd/tests/prueba-thor.sh` y
 `promtool test rules deploy/prometheus/tests/thor-alertas.test.yml`.
+
+### Thor en otro host (nidavellir)
+
+Thor corre igual en un host sin el Compose de Yggdrasil (ADR-0007 1.1.0). Allí no hay contenedor `thor` ni
+red `heimdall`: `host.prom` lo sirve `yggdrasil-thor-http.service` (busybox httpd) en el puerto 9471 de
+la LAN. Solo admite a midgard, con `IPAddressAllow` en la propia unidad. Mimir lo recoge en el job `thor`
+con la etiqueta `host`.
+
+Instalación, con `smartmontools` ya instalado:
+
+```sh
+sudo install -m 0755 deploy/cd/yggdrasil-thor.sh /usr/local/sbin/yggdrasil-thor.sh
+sudo install -m 0644 deploy/cd/yggdrasil-thor.service deploy/cd/yggdrasil-thor.timer \
+    deploy/cd/yggdrasil-thor-http.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now yggdrasil-thor.timer yggdrasil-thor-http.service
+```
+
+La configuración de nidavellir, con los discos por `by-id` (llevan el número de serie: no van al repositorio):
+
+```sh
+# /etc/default/yggdrasil-thor (root, 644)
+THOR_DISCOS="/dev/disk/by-id/ata-ADATA_SU650_<serie> /dev/disk/by-id/ata-WDC_WD10EZEX-<serie>"
+THOR_PUNTOS="/ /srv/medios/wd"
+THOR_WANS=""
+THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer"
+THOR_CONTENEDORES="cd-socket-proxy"
+```
+
+- `THOR_WANS=""` (vacía, no ausente): nidavellir no tiene `wan-balancer`. Sin ella publicaría las dos WAN fuera
+  de la ruta.
+- **Un host nuevo** necesita, además, su target en `prometheus/prometheus.yml` (job `thor`, con `labels: {host: …}`)
+  y su IP en la reserva DHCP de midgard. El filtro de la unidad lleva la IP de midgard.
+
+Comprobación desde midgard: `curl -s http://192.168.10.2:9471/host.prom | head`. Desde otro equipo de la LAN
+no debe responder.

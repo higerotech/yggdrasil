@@ -1,6 +1,9 @@
 # Alertas sobre las métricas del host que publica Thor (deploy/cd/yggdrasil-thor.sh): coherencia
-# entre Heimdall y la ruta real del balanceador, salud del disco de midgard y espacio del NAS de
-# respaldos. Sin etiqueta `wan` salvo las dos de discrepancia; Nornas las entrega por ntfy.
+# entre Heimdall y la ruta real del balanceador, salud de los discos, espacio del NAS de respaldos y
+# reinicios. Sin etiqueta `wan` salvo las dos de discrepancia; Nornas las entrega por ntfy.
+#
+# Las series de midgard no llevan `host`; las de otro host (nidavellir), si (prometheus.yml, job thor).
+# Los avisos nombran el host solo cuando lo hay: los de midgard se leen como siempre.
 groups:
   - name: thor_alertas
     rules:
@@ -15,7 +18,7 @@ groups:
       # últimos 15 min. Pasado ese margen, si sigue fuera, sí avisa.
       - alert: WanSanaFueraDeRuta
         expr: >-
-          wan:up == 1 and on (wan) yggdrasil_wan_en_ruta == 0
+          wan:up == 1 and on (wan) yggdrasil_wan_en_ruta{host=""} == 0
           unless on (wan) max_over_time(wan:perdida_pct:5m[15m]) >= 1
         for: 10m
         labels:
@@ -29,7 +32,7 @@ groups:
 
       - alert: WanCaidaEnRuta
         # `hogar:up == 1`: con las dos WAN caídas el balanceador conserva la última ruta a propósito.
-        expr: wan:up == 0 and on (wan) yggdrasil_wan_en_ruta == 1 and on () hogar:up == 1
+        expr: wan:up == 0 and on (wan) yggdrasil_wan_en_ruta{host=""} == 1 and on () hogar:up == 1
         for: 10m
         labels:
           severity: critical
@@ -40,7 +43,7 @@ groups:
             Parte de las conexiones de la casa salen por un enlace roto. Revisar
             `journalctl -t wan-balancer` y `systemctl status wan-balancer`.
 
-      # --- Disco de midgard -------------------------------------------------------------------
+      # --- Discos -------------------------------------------------------------------
       # Atributos que anuncian la muerte del disco: reasignados (5), errores no corregidos (187),
       # pendientes (197) e incorregibles (198). Cualquier subida en 24 h avisa; la alerta se
       # resuelve sola 24 h después si no vuelven a subir. El 188 (Command_Timeout) se publica pero
@@ -55,10 +58,12 @@ groups:
           severity: warning
           servicio: thor
         annotations:
-          resumen: "Disco {{ $labels.disco }}: {{ $labels.nombre }} subió {{ $value }} en 24 h"
+          resumen: "Disco {{ $labels.disco }}{{ with $labels.host }} de {{ . }}{{ end }}: {{ $labels.nombre }} subió {{ $value }} en 24 h"
           descripcion: >-
-            El disco de midgard se degrada. Los respaldos diarios están en el NAS; planificar el
-            cambio de disco. Detalle: `sudo smartctl -A /dev/{{ $labels.disco }}`.
+            {{ if $labels.host }}El disco de {{ $labels.host }} se degrada: planificar el cambio y
+            comprobar que lo que guarda tiene copia.{{ else }}El disco de midgard se degrada. Los respaldos
+            diarios están en el NAS; planificar el cambio de disco.{{ end }} Detalle: `sudo smartctl -A
+            /dev/{{ $labels.disco }}`{{ with $labels.host }} en {{ . }}{{ end }}.
 
       - alert: DiscoErroresDeCable
         expr: >-
@@ -68,7 +73,7 @@ groups:
           severity: warning
           servicio: thor
         annotations:
-          resumen: "Disco {{ $labels.disco }}: {{ $value }} errores CRC nuevos del cable SATA en 24 h"
+          resumen: "Disco {{ $labels.disco }}{{ with $labels.host }} de {{ . }}{{ end }}: {{ $value }} errores CRC nuevos del cable SATA en 24 h"
 
       - alert: DiscoSmartFalla
         expr: yggdrasil_smart_salud == 0 or yggdrasil_smart_lectura_ok == 0
@@ -77,7 +82,7 @@ groups:
           severity: critical
           servicio: thor
         annotations:
-          resumen: "Disco {{ $labels.disco }}: SMART no pasa o no se puede leer"
+          resumen: "Disco {{ $labels.disco }}{{ with $labels.host }} de {{ . }}{{ end }}: SMART no pasa o no se puede leer"
 
       # smartctl no ve que un disco se caiga del bus: el SSD de datos se cayó así el 2026-10-19
       # con SMART limpio, tras timeouts de WRITE FPDMA QUEUED y resets del enlace.
@@ -87,15 +92,17 @@ groups:
           severity: critical
           servicio: thor
         annotations:
-          resumen: "Disco {{ $labels.disco }}: {{ $value }} errores del enlace SATA o de E/S en el kernel en 15 min"
+          resumen: "Disco {{ $labels.disco }}{{ with $labels.host }} de {{ . }}{{ end }}: {{ $value }} errores del enlace SATA o de E/S en el kernel en 15 min"
           descripcion: >-
             El disco puede estar cayéndose del bus. Detalle: `journalctl -k --since -1h | grep -E
             'ata|I/O error|EXT4'`. Si sigue, parar lo que escribe en él y reconectar el cable.
 
-      # --- NAS de respaldos -------------------------------------------------------------------
+      # --- NAS de respaldos ---
+      # El espacio del NAS es el mismo lo mida quien lo mida: solo cuentan las series de midgard, que
+      # es quien respalda. Que no esté montado en otro host lo dice PuntoNoMontado.----------------------------------------------------------------
       - alert: NasSeLlena
         # Tendencia de 7 días: lo que importa es si se llena antes de poder actuar, no el %.
-        expr: predict_linear(yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos"}[7d], 14 * 86400) < 0
+        expr: predict_linear(yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos",host=""}[7d], 14 * 86400) < 0
         for: 1h
         labels:
           severity: warning
@@ -105,8 +112,8 @@ groups:
 
       - alert: NasEspacioCritico
         expr: >-
-          yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos"}
-            / yggdrasil_fs_tamano_bytes{punto="/mnt/nas/respaldos"} < 0.03
+          yggdrasil_fs_libre_bytes{punto="/mnt/nas/respaldos",host=""}
+            / yggdrasil_fs_tamano_bytes{punto="/mnt/nas/respaldos",host=""} < 0.03
         for: 30m
         labels:
           severity: critical
@@ -115,7 +122,7 @@ groups:
           resumen: "NAS de respaldos con menos del 3 % libre"
 
       - alert: NasNoMontado
-        expr: yggdrasil_fs_montado{punto="/mnt/nas/respaldos"} == 0
+        expr: yggdrasil_fs_montado{punto="/mnt/nas/respaldos",host=""} == 0
         for: 30m
         labels:
           severity: warning
@@ -125,15 +132,17 @@ groups:
 
       # --- Otros puntos y respaldos del host --------------------------------------------------
       # Los puntos de THOR_PUNTOS que no son / ni el NAS son de datos (el SSD, /srv/rapido): lo
-      # que vive en ellos no arranca sin el montaje.
+      # que vive en ellos no arranca sin el montaje. En otro host, también el NAS (NasNoMontado es de midgard).
       - alert: PuntoNoMontado
-        expr: yggdrasil_fs_montado{punto!~"/|/mnt/nas/respaldos"} == 0
+        expr: >-
+          yggdrasil_fs_montado{punto!~"/|/mnt/nas/respaldos"} == 0
+          or yggdrasil_fs_montado{punto="/mnt/nas/respaldos",host!=""} == 0
         for: 5m
         labels:
           severity: critical
           servicio: thor
         annotations:
-          resumen: "{{ $labels.punto }} no está montado: los servicios que guardan ahí sus datos no arrancan"
+          resumen: "{{ $labels.punto }}{{ with $labels.host }} de {{ . }}{{ end }} no está montado: los servicios que guardan ahí sus datos no arrancan"
 
       # 30 h, como Bragi: el respaldo es diario y Persistent=true lo recupera tras un apagón. El
       # aviso por ntfy de cada vigía sigue siendo el principal: no depende del stack.
@@ -206,7 +215,37 @@ groups:
             Revisar `docker ps -a --filter name={{ $labels.nombre }}` y `docker logs {{ $labels.nombre }}`. Sin
             Andvari el gateway no abre claves; sin Bifröst, el webhook responde 503; sin Hermod, el motor no recibe.
 
+      # midgard tiene el vigía de servicios, que avisa directo a ntfy sin pasar por Mimir. Otro host no
+      # lo tiene: por sus servicios avisa Mimir.
+      - alert: ServicioDeHostCaido
+        expr: yggdrasil_servicio_ok{host!=""} == 0
+        for: 5m
+        labels:
+          severity: critical
+          servicio: thor
+        annotations:
+          resumen: "{{ $labels.nombre }} está caído en {{ $labels.host }}"
+          descripcion: >-
+            Revisar {{ if eq $labels.tipo "unidad" }}`systemctl status {{ $labels.nombre }}`{{ else }}`docker ps -a
+            --filter name={{ $labels.nombre }}` y `docker logs {{ $labels.nombre }}`{{ end }} en {{ $labels.host }}.
+
+      # --- Reinicios -----------------------------------------------------------------------------
+      # Un arranque que nadie pidió es un apagón (midgard no tiene UPS) o un cuelgue que resolvió el
+      # watchdog: nidavellir se congelaba sin dejar nada en el registro (2026-10-25). Se resuelve sola a
+      # los 15 min. Sin `for`: el host acaba de volver y es justo lo que hay que saber.
+      - alert: HostReiniciado
+        expr: time() - yggdrasil_arranque_timestamp_seconds < 900
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "{{ with $labels.host }}{{ . }}{{ else }}midgard{{ end }} arrancó hace menos de 15 min"
+          descripcion: >-
+            Si nadie lo reinició, fue un apagón o un cuelgue que resolvió el watchdog. Lo último que
+            registró antes de caer: `journalctl -b -1 -n 50`.
+
       # --- Thor mismo --------------------------------------------------------------------------
+      # En otro host, sin métricas casi siempre es el host: colgado, apagado o sin red.
       - alert: ThorSinMetricas
         expr: up{job="thor"} == 0 or (time() - yggdrasil_thor_timestamp_seconds) > 300
         for: 5m
@@ -214,4 +253,7 @@ groups:
           severity: warning
           servicio: thor
         annotations:
-          resumen: "Mimir no recibe métricas frescas del host (Thor): disco, NAS y discrepancias sin vigilancia"
+          resumen: >-
+            {{ if $labels.host }}Mimir no recibe métricas de {{ $labels.host }}: está colgado, apagado o sin
+            red{{ else }}Mimir no recibe métricas frescas del host (Thor): disco, NAS y discrepancias sin
+            vigilancia{{ end }}

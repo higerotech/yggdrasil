@@ -1,0 +1,30 @@
+[Unit]
+Description=Yggdrasil: sirve Thor (host.prom) por la LAN a Mimir, en un host sin el Compose (nidavellir)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README.md
+# En midgard no se instala: allí lo sirve el contenedor `thor`, solo en la red heimdall. Un host sin el
+# Compose (nidavellir) no tiene esa red, y Mimir llega por la LAN (prometheus.yml, job thor).
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/bin/busybox httpd -f -p 9471 -h /var/lib/yggdrasil-thor
+# Solo entra midgard: Mimir sale de su contenedor con la IP de midgard en la LAN (masquerade de Docker).
+# El filtro va en el cgroup de la unidad (eBPF), no en nftables: no choca con las reglas de Docker y
+# viaja con la unidad. localhost, para comprobarlo desde el propio host.
+IPAddressAllow=localhost 192.168.10.1
+IPAddressDeny=any
+# Lee un fichero 0644 y nada más
+DynamicUser=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6
+MemoryMax=32M
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

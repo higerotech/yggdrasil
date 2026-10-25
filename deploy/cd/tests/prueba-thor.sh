@@ -113,6 +113,12 @@ I/O error, dev sdb, sector 2048 op 0x1:(WRITE) flags 0x0 phys_seg 1 prio class 2
 EXT4-fs error (device sdb): ext4_find_entry:1455: inode #2: comm ls: reading directory lblock 0
 EOF
 
+# /proc/stat y los sensores: acpitz es la placa, k10temp el procesador
+mkdir -p "$T/proc" "$T/sys/class/hwmon/hwmon0" "$T/sys/class/hwmon/hwmon1"
+printf '%s\n' "cpu  10 0 20 300" "btime 1792900000" "processes 4242" > "$T/proc/stat"
+echo acpitz > "$T/sys/class/hwmon/hwmon0/name"; echo 27800 > "$T/sys/class/hwmon/hwmon0/temp1_input"
+echo k10temp > "$T/sys/class/hwmon/hwmon1/name"; echo 41500 > "$T/sys/class/hwmon/hwmon1/temp1_input"
+
 echo "default via 192.168.1.1 dev wan1 " > "$T/ruta"
 touch "$T/nas-montado"
 printf '%s\n' "yggdrasil-grafana always running healthy" "yggdrasil-prometheus unless-stopped running -" \
@@ -124,7 +130,7 @@ printf '%s\n' "docker.service activa" "wan-balancer.service inactiva" > "$T/unid
 echo 1792180000 > "$T/ultimo-exito"
 
 export STUB="$T" PATH="$T/bin:$PATH" THOR_DIR="$T/pub" THOR_CACHE="$T/cache" THOR_SMART_CADA_S=600 \
-    THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito" THOR_SYS="$T/sys" \
+    THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito" THOR_SYS="$T/sys" THOR_PROC="$T/proc" \
     THOR_DISCOS="/dev/sda $T/dev/disk/by-id/ata-SSD_DE_PRUEBA"
 fallos=0
 ok()  { echo "ok   $1"; }
@@ -168,6 +174,8 @@ tiene "mecanico" 'yggdrasil_disco_rotacional{disco="sda"} 1'
 tiene "SSD" 'yggdrasil_disco_rotacional{disco="sdb"} 0'
 tiene "errores del kernel del SSD: exception, failed command, reset, E/S y ext4" 'yggdrasil_disco_errores_kernel_15m{disco="sdb"} 5'
 tiene "ata16 y un configured no cuentan para sda" 'yggdrasil_disco_errores_kernel_15m{disco="sda"} 0'
+tiene "arranque del host (btime)" 'yggdrasil_arranque_timestamp_seconds 1792900000'
+tiene "temperatura del procesador: k10temp, no la de la placa" 'yggdrasil_cpu_temperatura_celsius 41.5'
 
 pasada
 [ "$(wc -l < "$T/smartctl.log")" = 2 ] && ok "segunda pasada: reutiliza la cache, no llama a smartctl" || mal "segunda pasada: reutiliza la cache"
@@ -264,6 +272,15 @@ tiene "pia-tunel instalado y parado: unidad a 0" 'yggdrasil_servicio_ok{tipo="un
 mv "$T/unidades.antes" "$T/unidades"
 pasada
 no_tiene "pia-tunel sin instalar: no se publica" 'nombre="pia-tunel.service"'
+
+# --- Un host sin balanceador ni sensores (nidavellir) ---
+rm -rf "$T/sys/class/hwmon/hwmon1"
+THOR_WANS="" THOR_PROC="$T/no-existe" pasada
+no_tiene "THOR_WANS vacia: no publica WAN que este host no tiene" 'yggdrasil_wan_en_ruta{'
+no_tiene "sin /proc/stat legible: no se publica el arranque" 'yggdrasil_arranque_timestamp_seconds '
+no_tiene "solo la placa (acpitz): no se publica la temperatura del procesador" 'yggdrasil_cpu_temperatura_celsius'
+pasada
+tiene "THOR_WANS sin definir: wan1 y wan2 por defecto" 'yggdrasil_wan_en_ruta{wan="wan2"}'
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
