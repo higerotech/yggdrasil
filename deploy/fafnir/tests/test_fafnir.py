@@ -217,7 +217,14 @@ class PruebasCatalogo(Base):
         proyecto = len(b"print('solo en el disco que falla')")
         self.assertIn(f'fafnir_coleccion_en_riesgo_bytes{{coleccion="personal",copias_minimas="2"}} {proyecto}', prom)
         self.assertIn('fafnir_inventario_timestamp_seconds{ubicacion="samsung",host="nidavellir",opcional="0"}', prom)
-        self.assertNotIn('ubicacion="externo"', prom.split("fafnir_ubicacion_bytes")[0], "sin inventario no hay marca de tiempo")
+        self.assertNotIn('ubicacion="externo"', prom.split("fafnir_ubicacion_bytes")[0], "un externo sin conectar no avisa")
+
+    def test_una_ubicacion_fija_nunca_inventariada_sale_con_0(self):
+        self.assertEqual(self.fafnir("escanear", "--host", "midgard")[0], 0)   # nidavellir aún no
+        self.fafnir("catalogar")
+        self.fafnir("metricas")
+        prom = (self.t / "thor/fafnir.prom").read_text(encoding="utf-8")
+        self.assertIn('fafnir_inventario_timestamp_seconds{ubicacion="wd-medios",host="nidavellir",opcional="0"} 0', prom)
         self.assertEqual(oct((self.t / "thor/fafnir.prom").stat().st_mode & 0o777), "0o644")
 
     def test_sin_catalogo_lo_dice(self):

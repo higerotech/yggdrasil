@@ -426,9 +426,11 @@ def cmd_metricas(config, args):
         "# TYPE fafnir_inventario_timestamp_seconds gauge",
     ]
     for u in a["ubicaciones"].values():
-        if u["escaneado"]:
+        # Una ubicación fija que nunca se inventarió sale con 0: FafnirInventarioViejo la ve. Una opcional
+        # (un disco externo) sin inventario no sale: no conectarla no es un fallo.
+        if u["escaneado"] or not u["opcional"]:
             lineas.append(f'fafnir_inventario_timestamp_seconds{{ubicacion="{etiqueta(u["nombre"])}",host="{etiqueta(u["host"])}",'
-                          f'opcional="{u["opcional"]}"}} {u["escaneado"]}')
+                          f'opcional="{u["opcional"]}"}} {u["escaneado"] or 0}')
     lineas += ["# HELP fafnir_ubicacion_bytes Bytes de cada colección en cada ubicación.",
                "# TYPE fafnir_ubicacion_bytes gauge"]
     for u, cols in a["por_ubicacion"].items():

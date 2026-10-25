@@ -20,7 +20,7 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   - Mimir recoge `fafnir.prom` (job `fafnir`) y avisa con `FafnirDatosEnRiesgo`, `FafnirColeccionSinCopias`,
     `FafnirInventarioViejo` y `FafnirSinCatalogo`.
   - `bootstrap-midgard.sh` lo instala en midgard (paso 5h); en nidavellir se instala a mano.
-  - Pruebas: `deploy/fafnir/tests/test_fafnir.py` (17) y `fafnir-alertas.test.yml` (4 grupos).
+  - Pruebas: `deploy/fafnir/tests/test_fafnir.py` (18) y `fafnir-alertas.test.yml` (4 grupos).
   - Convención de nombres 0.4.0.
 
 ## [0.5.18] - 2026-10-25
