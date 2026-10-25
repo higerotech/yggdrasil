@@ -8,6 +8,8 @@ ConditionPathExists=/etc/fafnir/fafnir.toml
 Type=oneshot
 # FAFNIR_HOST: el nombre del host en la configuración (midgard, nidavellir)
 EnvironmentFile=/etc/default/fafnir
+# Sin esto, Python retiene la salida hasta el final y el journal no enseña el progreso
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py escanear
 # Root: lee todo lo que inventaría. Sin prisa: disco en clase idle y CPU con nice, para no frenar a
 # Bragi ni a un respaldo. El primer inventario lee la huella de cada fichero; los siguientes, solo lo nuevo.

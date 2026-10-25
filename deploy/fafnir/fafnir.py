@@ -200,6 +200,8 @@ def escanear_ubicacion(config, u, estado, ahora):
                     h, errores = None, errores + 1
             f["h"] = h
         ficheros.append(f)
+        if len(ficheros) % 1000 == 0:
+            print(f"  {u['nombre']}: {len(ficheros)} ficheros; huellas leídas {leidos}, reutilizadas {reutilizados}", flush=True)
     cabecera = {"version": 1, "ubicacion": u["nombre"], "host": u["host"], "medio": u["medio"], "ruta": u["ruta"],
                 "escaneado": ahora, "ficheros": len(ficheros), "bytes": sum(f["t"] for f in ficheros),
                 "errores": errores}

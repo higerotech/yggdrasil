@@ -6,6 +6,8 @@ ConditionPathExists=/etc/fafnir/fafnir.toml
 
 [Service]
 Type=oneshot
+# Sin esto, Python retiene la salida hasta el final y el journal no enseña el progreso
+Environment=PYTHONUNBUFFERED=1
 ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py catalogar
 ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py metricas
 Nice=10
