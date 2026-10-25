@@ -23,6 +23,8 @@ ADB=${ADB:-adb}
 adb_() { "$ADB" "$@" </dev/null; }   # `adb shell` se come la entrada estándar
 sin_cr() { tr -d '\r '; }
 reiniciar() { adb_ shell am start -S -n "$PAQUETE/.Tablero" >/dev/null; }   # sin -S no relee files/url
+# `run-as <paquete> test -f` sale con 1 aunque el fichero exista (LineageOS 14.1, 2026-10-25): la
+# comprobacion va siempre dentro de `sh -c`, como las demas llamadas con run-as.
 # La ruta del escenario la lee Python: en Git Bash, Python de Windows no entiende /c/...
 ruta() { if command -v cygpath >/dev/null; then cygpath -m "$1"; else printf '%s\n' "$1"; fi; }
 
@@ -43,7 +45,7 @@ abrir)
 probar)
     fichero=${2:?uso: $0 probar <escenario.json> [captura.png]}
     [ -f "$fichero" ] || { echo "vista-previa: no existe $fichero"; exit 1; }
-    adb_ shell "run-as $PAQUETE test -f files/url.orig" || { echo "vista-previa: falta $0 abrir"; exit 1; }
+    adb_ shell "run-as $PAQUETE sh -c 'test -f files/url.orig'" || { echo "vista-previa: falta $0 abrir"; exit 1; }
     mkdir -p "$TRABAJO"
     ruta "$(cd "$(dirname "$fichero")" && pwd)/$(basename "$fichero")" > "$TRABAJO/escenario"
     rm -f "$TRABAJO/medidas.jsonl"
@@ -56,7 +58,7 @@ probar)
     python3 "$AQUI/vista-previa.py" --informe
     ;;
 cerrar)
-    if adb_ shell "run-as $PAQUETE test -f files/url.orig"; then
+    if adb_ shell "run-as $PAQUETE sh -c 'test -f files/url.orig'"; then
         adb_ shell "run-as $PAQUETE sh -c 'cp files/url.orig files/url && chmod 600 files/url'"
         a=$(adb_ shell "run-as $PAQUETE sha256sum files/url" | cut -c1-64)
         b=$(adb_ shell "run-as $PAQUETE sha256sum files/url.orig" | cut -c1-64)
