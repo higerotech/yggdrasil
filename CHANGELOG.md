@@ -23,6 +23,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   - Pruebas: `deploy/fafnir/tests/test_fafnir.py` (18) y `fafnir-alertas.test.yml` (4 grupos).
   - Convención de nombres 0.4.0.
 
+### Cambiado
+- **Mimir lee Bragi en nidavellir.** Bragi se muda allí (ADR-0010 de Bragi). El job `bragi` pasa de
+  `bragi-metricas:9470`, en la red heimdall, a `192.168.10.2:9471` con `host="nidavellir"`. Ese
+  `bragi.prom` lo sirve el httpd de Thor, que solo admite a midgard. Las alertas no cambian.
+
 ## [0.5.18] - 2026-10-25
 
 ### Corregido
