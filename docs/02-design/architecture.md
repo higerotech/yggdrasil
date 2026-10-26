@@ -24,7 +24,7 @@ C4Container
     System_Ext(isp2, "ISP 2 (wan2)", "Enlace 1 Gbps")
     System_Ext(tablet, "Hlidskjalf", "Tablet Android en la pared, WebView kiosco", "Tablero de solo lectura (ADR-0007)")
     System_Ext(ntfy, "ntfy", "Servicio de push", "Avisos al movil por un tema privado")
-    System_Ext(bragi, "Bragi", "Jellyfin, repo higerotech/bragi", "Expone sus metricas en bragi-metricas:9470")
+    System_Ext(bragi, "Bragi", "Jellyfin, repo higerotech/bragi", "En nidavellir; sus metricas las sirve el Thor de alli en :9471")
     System_Ext(gateway, "Gateway de mensajeria", "jeremialcala/hive", "Emite sus trazas por OTLP")
     System_Ext(host, "Host midgard", "Ubuntu 24.04, systemd", "yggdrasil-thor.sh escribe host.prom: SMART, montajes, ruta, servicios, respaldos")
     System_Boundary(yggdrasil, "Yggdrasil — Docker Compose") {
@@ -46,7 +46,7 @@ C4Container
     Rel(prom, speed, "Scrapea", "HTTP 9469 (textfile servido)")
     Rel(host, thor, "Escribe host.prom", "fichero, solo lectura")
     Rel(prom, thor, "Scrapea", "HTTP 9471, cada 60 s")
-    Rel(prom, bragi, "Scrapea", "HTTP 9470, cada 30 s")
+    Rel(prom, bragi, "Scrapea", "HTTP 9471 por la LAN, cada 30 s")
     Rel(nodered, ntfy, "Avisa", "HTTPS")
     Rel(host, ntfy, "Avisos del host (respaldo, vigia)", "HTTPS, sin pasar por el stack")
     Rel(prom, am, "Envia alertas a", "HTTP 9093")
@@ -75,7 +75,7 @@ Notas de diseño clave:
 - **Disponibilidad mensual** (RF08): `wan:up` vale 1 cuando el quórum de sondas responde y `hogar:up = max(wan:up)`. La disponibilidad es `avg_over_time` sobre 30 días por WAN y del hogar, materializada como recording rule para que el dashboard y el reporte mensual no dependan de consultas pesadas sobre 30 días de muestras.
 - **Throughput** (RF02, RF09): Sleipnir mide cada 3 h alternando WAN (cada WAN, cada 6 h), con la IP de origen de su interfaz. El modo por defecto es la **CLI de Ookla** contra una lista de tres servidores (`SLEIPNIR_MODO=ookla`). En Gate 3 (v0.4.3–v0.4.5) se cambió `speedtest-cli` por la CLI de Ookla; `speedtest` e `iperf3` quedan como modos alternativos (repuestos en la v0.5.11). El resultado va a un fichero de texto que sirve un `busybox httpd` en el 9469. El techo medible de la cadena es ≥ 939 Mbps (calibrado en Gate 3). El panel de throughput de Odín **todavía pinta un umbral fijo de 800**: la subida de wan2, que cumple su SLO de 400, sale en rojo. Pendiente: dibujar `wan:slo_throughput_mbps` como umbral por WAN y dirección.
 - **Métricas del host** (Thor): `yggdrasil-thor.sh` corre en el host con un temporizador systemd y escribe `host.prom`; el contenedor Thor solo lo sirve (httpd en el 9471, Mimir lo lee cada 60 s). Incluye: SMART y errores del kernel por disco, montajes y espacio (raíz, SSD de datos y NAS), si cada WAN está en la ruta del balanceador, el estado de los contenedores y unidades del host, la hora del último respaldo de cada proyecto (Yggdrasil, Bifröst, Hermod y Andvari) y el estado del túnel PIA (ADR-0009). Sus 16 alertas están en `thor-alertas.yml` (tabla abajo); detalle en `deploy/cd/README.md`.
-- **Observabilidad de Bragi** (Jellyfin, repo `higerotech/bragi`): Mimir lee `bragi-metricas:9470` cada 30 s; 8 alertas en `bragi-alertas.yml`. El diseño vive en el repo de Bragi.
+- **Observabilidad de Bragi** (Jellyfin, repo `higerotech/bragi`): corre en nidavellir desde su ADR-0010 y Mimir lee su `bragi.prom` en `192.168.10.2:9471` (el httpd de Thor) cada 30 s; 8 alertas en `bragi-alertas.yml`. El diseño vive en el repo de Bragi.
 - **Ruta real del hogar** (revisión 2026-09-16): las sondas por WAN fijan `source_ip_address`, así que sus paquetes entran por la regla `ip rule from <ip> lookup wanN` y viajan por una tabla que `wan-balancer` mantiene con default propio. Miden la salud de cada **enlace**, que es su cometido, pero ninguna pasa por la tabla `main`, que es por donde salen la LAN, dnsmasq y los contenedores. El 2026-09-12, de 06:20 a 13:25 UTC, `main` se quedó sin ruta utilizable y la casa estuvo 7 h sin internet mientras `hogar:up` valía 1 y no se disparó ninguna alerta. Los módulos `icmp_hogar` y `tls_hogar` (sin IP de origen) cubren ese camino y alimentan `hogar:ruta_up` y la alerta `HogarSinRuta`. `tls_hogar` cubre además la resolución DNS de extremo a extremo, punto único de fallo compartido por ambas WAN que no se ve en ninguna otra sonda.
 - **Servicios de plataforma** (ADR-0006): Ratatosk y Nornas los despliega el propio Compose de Yggdrasil, no un stack externo. Ratatosk exige credencial por cliente (`nornas` e `iot`; el usuario `frigate` se retiró con Fenrir en la 0.5.3) con ACL por tópico; Nornas lleva editor autenticado y recibe el webhook por la red interna. La suma de `mem_limit` es 1680 MB con Thor (16 MB); era 1408 antes de subir el techo de Odín el 2026-09-16. RNF01 no acota esa suma sino la RAM real del stack (≤ 1.5 GB), medida en TA-12: 406 MiB de media y 554 MiB de pico.
 - **Tablero de pared** (ADR-0007): Nornas sirve también Hlidskjalf, una página estática y un resumen JSON (`/hlidskjalf/resumen`) que arma con una consulta instantánea a Mimir y las alertas activas de Gjallarhorn, ambas por la red interna; una tablet Android en modo kiosco lo pinta. El resumen exige un token de solo lectura propio. Thor publica para él el estado de los contenedores y unidades y el último respaldo.
