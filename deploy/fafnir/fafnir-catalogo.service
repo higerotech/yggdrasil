@@ -1,0 +1,20 @@
+[Unit]
+Description=Fáfnir: catálogo y métricas a partir de los inventarios publicados (solo midgard)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/fafnir/README.md
+After=network-online.target remote-fs.target fafnir-escaneo.service
+ConditionPathExists=/etc/fafnir/fafnir.toml
+
+[Service]
+Type=oneshot
+# Sin esto, Python retiene la salida hasta el final y el journal no enseña el progreso
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py catalogar
+ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py metricas
+Nice=10
+StateDirectory=fafnir
+StateDirectoryMode=0750
+# Escribe el catálogo en /var/lib/fafnir y fafnir.prom en el directorio de Thor
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes

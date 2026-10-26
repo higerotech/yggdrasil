@@ -1,0 +1,87 @@
+# Pruebas de las alertas de Fáfnir (deploy/prometheus/rules/fafnir-alertas.yml):
+#   promtool test rules deploy/prometheus/tests/fafnir-alertas.test.yml
+rule_files:
+  - ../rules/fafnir-alertas.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: personal en riesgo avisa por el riesgo, no además por la política
+    interval: 1m
+    input_series:
+      - series: 'fafnir_coleccion_en_riesgo_bytes{job="fafnir", coleccion="personal", copias_minimas="2"}'
+        values: '56000000000x30'
+      - series: 'fafnir_coleccion_bajo_politica_bytes{job="fafnir", coleccion="personal", copias_minimas="2"}'
+        values: '56000000000x30'
+      - series: 'fafnir_coleccion_en_riesgo_bytes{job="fafnir", coleccion="peliculas", copias_minimas="1"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: FafnirDatosEnRiesgo
+        exp_alerts: []          # aún dentro del for
+      - eval_time: 15m
+        alertname: FafnirDatosEnRiesgo
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: fafnir, job: fafnir, coleccion: personal, copias_minimas: "2"}
+            exp_annotations:
+              resumen: "personal: 56GB solo están en discos que fallan"
+              descripcion: "Copiarlos a un medio sano antes de que el disco muera. Qué ficheros: `sudo python3 /usr/local/lib/fafnir/fafnir.py informe` en midgard."
+      - eval_time: 15m
+        alertname: FafnirColeccionSinCopias
+        exp_alerts: []          # todo lo que falta ya está en riesgo: una sola alerta
+
+  - name: una colección con una sola copia sana de las dos que pide
+    interval: 1m
+    input_series:
+      - series: 'fafnir_coleccion_en_riesgo_bytes{job="fafnir", coleccion="personal", copias_minimas="2"}'
+        values: '0x30'
+      - series: 'fafnir_coleccion_bajo_politica_bytes{job="fafnir", coleccion="personal", copias_minimas="2"}'
+        values: '222000000000x30'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: FafnirColeccionSinCopias
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: fafnir, job: fafnir, coleccion: personal, copias_minimas: "2"}
+            exp_annotations:
+              resumen: "personal: 222GB con menos de 2 copia(s) sana(s)"
+              descripcion: "Hacer la copia que falta (`fafnir.py mover` copia verificando) o revisar la política de la colección en /etc/fafnir/fafnir.toml. Detalle: `sudo python3 /usr/local/lib/fafnir/fafnir.py informe`."
+      - eval_time: 15m
+        alertname: FafnirDatosEnRiesgo
+        exp_alerts: []
+
+  - name: un inventario viejo avisa solo si la ubicación no es opcional
+    interval: 1m
+    input_series:
+      # las dos se inventariaron en el momento 0 y nunca más
+      - series: 'fafnir_inventario_timestamp_seconds{job="fafnir", ubicacion="wd-medios", host="nidavellir", opcional="0"}'
+        values: '0x3000'
+      - series: 'fafnir_inventario_timestamp_seconds{job="fafnir", ubicacion="toshiba-externo", host="midgard", opcional="1"}'
+        values: '0x3000'
+    alert_rule_test:
+      - eval_time: 47h
+        alertname: FafnirInventarioViejo
+        exp_alerts: []
+      - eval_time: 49h
+        alertname: FafnirInventarioViejo
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: fafnir, job: fafnir, ubicacion: wd-medios, host: nidavellir, opcional: "0"}
+            exp_annotations:
+              resumen: "wd-medios (nidavellir) lleva más de 2 días sin inventario"
+              descripcion: "Revisar `journalctl -u fafnir-escaneo` en nidavellir."
+
+  - name: sin fichero de métricas (Thor responde 404)
+    interval: 1m
+    input_series:
+      - series: 'up{job="fafnir", instance="thor:9471"}'
+        values: '0x90'
+    alert_rule_test:
+      - eval_time: 30m
+        alertname: FafnirSinCatalogo
+        exp_alerts: []
+      - eval_time: 70m
+        alertname: FafnirSinCatalogo
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: fafnir, job: fafnir, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Fáfnir no ha generado su catálogo en 2 días: no se sabe qué está en riesgo"
+              descripcion: "Revisar `journalctl -u fafnir-catalogo` en midgard y que exista /var/lib/yggdrasil-thor/fafnir.prom."

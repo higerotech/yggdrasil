@@ -9,6 +9,20 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **Fáfnir, catálogo del almacenamiento de midgard y nidavellir** (ADR-0010, `deploy/fafnir/`).
+  - Inventaría cada día, en cada host, el NAS y los discos; publica el inventario en el NAS (`descargas/fafnir`), y
+    midgard lo junta en un SQLite.
+  - Cuenta las copias de cada colección por medio físico sano y por contenido (tamaño + huella: SHA-256 en los
+    respaldos, huella rápida en los vídeos), y marca lo que solo vive en un disco que falla.
+  - `fafnir.py informe` lo cuenta; `fafnir.py mover` copia verificando cada fichero y solo borra el origen con
+    `--borrar-origen` y sin fallos.
+  - Mimir recoge `fafnir.prom` (job `fafnir`) y avisa con `FafnirDatosEnRiesgo`, `FafnirColeccionSinCopias`,
+    `FafnirInventarioViejo` y `FafnirSinCatalogo`.
+  - `bootstrap-midgard.sh` lo instala en midgard (paso 5h); en nidavellir se instala a mano.
+  - Pruebas: `deploy/fafnir/tests/test_fafnir.py` (18) y `fafnir-alertas.test.yml` (4 grupos).
+  - Convención de nombres 0.4.0.
+
 ## [0.5.18] - 2026-10-25
 
 ### Corregido
