@@ -1,0 +1,28 @@
+[Unit]
+Description=Fáfnir: inventario de las ubicaciones de este host (ADR-0010)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/fafnir/README.md
+After=network-online.target remote-fs.target
+ConditionPathExists=/etc/fafnir/fafnir.toml
+
+[Service]
+Type=oneshot
+# FAFNIR_HOST: el nombre del host en la configuración (midgard, nidavellir)
+EnvironmentFile=/etc/default/fafnir
+# Sin esto, Python retiene la salida hasta el final y el journal no enseña el progreso
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /usr/local/lib/fafnir/fafnir.py escanear
+# Root: lee todo lo que inventaría. Sin prisa: disco en clase idle y CPU con nice, para no frenar a
+# Bragi ni a un respaldo. El primer inventario lee la huella de cada fichero; los siguientes, solo lo nuevo.
+Nice=15
+IOSchedulingClass=idle
+TimeoutStartSec=12h
+# Leer cientos de GB llena la caché de páginas (12 GB de pico en nidavellir, 2026-10-26) y desplaza la de
+# Bragi: el límite blando hace que el inventario recicle su propia caché antes que la de los demás
+MemoryHigh=1G
+StateDirectory=fafnir
+StateDirectoryMode=0750
+# ProtectSystem=full y no strict: publica el inventario en el NAS (/mnt)
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+NoNewPrivileges=yes

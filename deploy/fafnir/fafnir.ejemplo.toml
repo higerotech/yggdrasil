@@ -1,0 +1,88 @@
+# Fáfnir: configuración de ejemplo (ADR-0010). La real va en /etc/fafnir/fafnir.toml, IGUAL en todos
+# los hosts: cada uno inventaría solo sus ubicaciones (`host`) y midgard junta todo en el catálogo.
+# No va en el repositorio porque nombra carpetas personales.
+
+estado = "/var/lib/fafnir"                     # inventarios propios, caché de huellas, diarios de `mover`
+intercambio = "/mnt/nas/descargas/fafnir"      # cada host publica aquí; midgard lo lee al catalogar.
+                                               # No en `respaldos`: así ese recurso puede volver a ser solo de midgard
+catalogo = "/var/lib/fafnir/catalogo.db"       # solo en midgard
+metricas = "/var/lib/yggdrasil-thor/fafnir.prom"   # lo sirve Thor; Mimir, job fafnir
+
+# --- Medios físicos ------------------------------------------------------------------------------
+# Una copia es un medio distinto: dos carpetas del mismo NAS cuentan como una. `riesgo` marca un disco
+# que falla (sectores ilegibles, SMART que empeora): lo que solo esté ahí sale «en riesgo».
+[[medio]]
+nombre = "nas"
+descripcion = "NAS 192.168.10.30 (3,6 TB)"
+
+[[medio]]
+nombre = "wd"
+descripcion = "nidavellir: WD10EZEX 1 TB, ext4 en /srv/medios/wd"
+
+[[medio]]
+nombre = "samsung"
+descripcion = "nidavellir: Samsung HD154UI 1,5 TB, sectores ilegibles desde 2026-10-25"
+riesgo = true
+
+[[medio]]
+nombre = "toshiba"
+descripcion = "Toshiba MQ01UBD100 1 TB por USB, con miles de sectores reasignados"
+riesgo = true
+
+# --- Ubicaciones: una raíz de un medio, vista desde un host ---------------------------------------
+[[ubicacion]]
+nombre = "nas-media"
+host = "midgard"
+medio = "nas"
+ruta = "/mnt/nas/media"
+
+[[ubicacion]]
+nombre = "nas-respaldos"
+host = "midgard"
+medio = "nas"
+ruta = "/mnt/nas/respaldos"
+# excluir = ["temporal"]             # rutas relativas a `ruta` que no se inventarían
+
+[[ubicacion]]
+nombre = "wd-medios"
+host = "nidavellir"
+medio = "wd"
+ruta = "/srv/medios/wd"
+
+# Un disco que se conecta a ratos: `opcional`, para que su ausencia no sea un fallo (se conserva su
+# último inventario), y `punto_de_montaje`, para no inventariar la carpeta vacía si no está montado.
+[[ubicacion]]
+nombre = "toshiba-externo"
+host = "midgard"
+medio = "toshiba"
+ruta = "/mnt/externo/toshiba"
+opcional = true
+punto_de_montaje = true
+
+# --- Colecciones --------------------------------------------------------------------------------
+# Cada fichero cae en la primera colección con una regla `ubicacion:prefijo` que case. `copias_minimas`
+# cuenta medios sanos. `huella = "completa"` es SHA-256 entero (respaldos: detecta cualquier cambio);
+# "rapida" lee el tamaño, el primer MiB y el último (vídeo: distingue ficheros sin leer GB).
+[[coleccion]]
+nombre = "respaldos-servicios"
+descripcion = "Respaldos de los servicios de midgard (Yggdrasil, Bragi, Bifröst...)"
+copias_minimas = 1
+huella = "completa"
+reglas = ["nas-respaldos:"]
+
+[[coleccion]]
+nombre = "personal"
+descripcion = "Respaldos personales: documentos, proyectos, fotos"
+copias_minimas = 2
+huella = "completa"
+reglas = ["wd-medios:personal/", "toshiba-externo:"]
+
+[[coleccion]]
+nombre = "peliculas"
+copias_minimas = 1
+reglas = ["nas-media:movies/", "wd-medios:peliculas/"]
+
+[[coleccion]]
+nombre = "series"
+copias_minimas = 1
+reglas = ["nas-media:TV/", "wd-medios:series/"]

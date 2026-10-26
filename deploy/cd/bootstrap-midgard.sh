@@ -137,6 +137,22 @@ for u in yggdrasil-revision-adr-0009.service yggdrasil-revision-adr-0009.timer; 
 done
 systemctl daemon-reload
 systemctl enable --now yggdrasil-revision-adr-0009.timer >/dev/null 2>&1 && echo "   yggdrasil-revision-adr-0009.timer habilitado"
+
+echo "== 5h. Fáfnir: catálogo del almacenamiento (ADR-0010)"
+# La configuración (/etc/fafnir/fafnir.toml) nombra carpetas personales: la escribe el operador a partir de
+# deploy/fafnir/fafnir.ejemplo.toml, igual en midgard y en nidavellir. Sin ella, las unidades no hacen nada.
+install -d -m 0755 /usr/local/lib/fafnir
+install -m 0755 "$APP_DIR/deploy/fafnir/fafnir.py" /usr/local/lib/fafnir/fafnir.py
+for u in fafnir-escaneo.service fafnir-escaneo.timer fafnir-catalogo.service fafnir-catalogo.timer; do
+  install -m 0644 "$APP_DIR/deploy/fafnir/$u" "/etc/systemd/system/$u"
+done
+[ -f /etc/default/fafnir ] || echo "FAFNIR_HOST=midgard" > /etc/default/fafnir
+systemctl daemon-reload
+if [ -r /etc/fafnir/fafnir.toml ]; then
+  systemctl enable --now fafnir-escaneo.timer fafnir-catalogo.timer >/dev/null 2>&1 && echo "   fafnir-escaneo.timer y fafnir-catalogo.timer habilitados"
+else
+  echo "   sin /etc/fafnir/fafnir.toml: Fáfnir instalado pero sin activar (ver deploy/fafnir/README.md)"
+fi
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"
