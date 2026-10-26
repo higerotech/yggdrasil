@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.19] - 2026-10-26
+
+**Fáfnir cataloga el almacenamiento de midgard y nidavellir** (ADR-0010): sabe qué hay en el NAS y en cada disco,
+cuántas copias sanas tiene cada colección y qué solo vive en un disco que falla, y mueve verificando.
+
 ### Añadido
 - **Fáfnir, catálogo del almacenamiento de midgard y nidavellir** (ADR-0010, `deploy/fafnir/`).
   - Inventaría cada día, en cada host, el NAS y los discos; publica el inventario en el NAS (`descargas/fafnir`), y
@@ -22,6 +27,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   - `bootstrap-midgard.sh` lo instala en midgard (paso 5h); en nidavellir se instala a mano.
   - Pruebas: `deploy/fafnir/tests/test_fafnir.py` (18) y `fafnir-alertas.test.yml` (4 grupos).
   - Convención de nombres 0.4.0.
+
+### Corregido
+- **El inventario de Fáfnir ya no desplaza la caché de Bragi.** Leer cientos de GB llenaba la caché de páginas
+  (12 GB de pico en nidavellir). `fafnir-escaneo.service` lleva `MemoryHigh=1G`: el inventario recicla su propia
+  caché antes que la de los demás.
 
 ## [0.5.18] - 2026-10-25
 
@@ -770,7 +780,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...HEAD
+[0.5.19]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...v0.5.18
 [0.5.17]: https://github.com/higerotech/yggdrasil/compare/v0.5.16...v0.5.17
 [0.5.16]: https://github.com/higerotech/yggdrasil/compare/v0.5.15...v0.5.16
