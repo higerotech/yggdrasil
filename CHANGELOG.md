@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Corregido
+- **Hlidskjalf: ninguna fila asoma por detrás del pie de Host.** Cuando Host no cabía, el pie
+  nombraba las filas tapadas, pero la primera empezaba por encima de él y se veía cortada (la
+  fila «Medios» de nidavellir, 2026-10-26). Ahora esas filas se ocultan sin mover las demás, y
+  solo las nombra el pie.
+
 ## [0.5.20] - 2026-10-26
 
 ### Cambiado
