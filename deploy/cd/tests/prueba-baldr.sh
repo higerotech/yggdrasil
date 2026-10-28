@@ -35,7 +35,7 @@ EOF
 cat > "$T/bin/journalctl" <<'EOF'
 #!/usr/bin/env bash
 case "$*" in
-  *list-boots*) cat "$STUB/boots.json" ;;
+  *list-boots*) [ -f "$STUB/registro-cuelga" ] && exit 124; cat "$STUB/boots.json" ;;
   *_BOOT_ID=*) cat "$STUB/ultimas" ;;
 esac
 EOF
@@ -60,6 +60,12 @@ EOF
 cat > "$T/bin/findmnt" <<'EOF'
 #!/usr/bin/env bash
 b=$(basename "${*: -1}")
+# $STUB/tarde-<unidad>: cuantas consultas mas tarda en montar (un disco que pasa su fsck)
+if [ -f "$STUB/tarde-$b.mount" ]; then
+    n=$(cat "$STUB/tarde-$b.mount")
+    if [ "$n" -gt 0 ]; then echo $((n - 1)) > "$STUB/tarde-$b.mount"; exit 1; fi
+    echo ext4; exit 0
+fi
 [ -f "$STUB/montado-$b.mount" ] && echo nfs4 || echo autofs
 EOF
 printf '#!/usr/bin/env bash\necho "$(basename "${*: -1}").mount"\n' > "$T/bin/systemd-escape"
@@ -94,7 +100,7 @@ preparar() {   # un host recien arrancado: sin rastro de la pasada anterior
 
 stubs
 export STUB="$T" PATH="$T/bin:$PATH" BALDR_DIR="$T/baldr" BALDR_PROC="$T/proc" BALDR_PAUSA_S=0 \
-    BALDR_VERIFICAR_TRAS_S=0 AVISO_ENV="$T/aviso.env" BALDR_CONF="$T/sin-conf"
+    BALDR_VERIFICAR_TRAS_S=0 AVISO_ENV="$T/aviso.env" BALDR_CONF="$T/sin-conf" BALDR_ESPERA_MONTAJE_S=30
 echo "AVISO_URL=https://ntfy.example/tema" > "$T/aviso.env"
 
 # --- 1. El apagon del 2026-10-28 ---------------------------------------------------------------
@@ -228,6 +234,29 @@ echo "BALDR_VERIFICAR=1" > "$T/conf"
 echo '[{"labels":{"alertname":"NasNoMontado"}}]' > "$T/am.json"
 BALDR_CONF="$T/conf" bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
 resumen "a mano: usa la configuracion del host" "alerta NasNoMontado"
+
+# --- 8. Un disco local que monta tarde (fsck tras el corte): se espera, no es un pendiente --------
+# (nidavellir, 2026-10-28 15:31: el WD monto 4 s despues de que Baldr lo diera por perdido)
+preparar
+mkdir -p "$T/medios/wd"; echo 3 > "$T/tarde-wd.mount"; rm -f "$T/montajes-fallidos"
+: > "$T/arranques"; : > "$T/jobs"; : > "$T/salidos"; : > "$T/unidades-fallidas"
+BALDR_MONTAJES="$T/medios/wd" bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
+igual "montaje que llega tarde: nada pendiente" pendientes 0
+no_llamo "montaje que llega tarde sin fallar: no se reinicia" "systemctl start wd.mount"
+# y uno que no llega en BALDR_ESPERA_MONTAJE_S, si
+echo 99 > "$T/tarde-wd.mount"
+BALDR_MONTAJES="$T/medios/wd" bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
+resumen "montaje que no llega a tiempo: pendiente con la espera" "$T/medios/wd sin montar tras 30 s"
+
+# --- 9. Registro ilegible a tiempo: corte sin hora, sin colgarse ----------------------------------
+preparar
+touch "$T/registro-cuelga"
+bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
+rm -f "$T/registro-cuelga"
+igual "registro ilegible: se trata como corte" limpio 0
+igual "registro ilegible: termina" fase 5
+resumen "registro ilegible: lo dice" "no pude leer el registro del arranque anterior"
+resumen "registro ilegible: sin hora de caida" "Arranque tras un corte; volvio a las 11:50 UTC, sin hora de caida."
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
