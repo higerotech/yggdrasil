@@ -1,0 +1,83 @@
+# Alertas de las piezas de Hive que viven en la plataforma: Bifröst (NATS de midgard), el bus del motor,
+# y Zitadel en nidavellir, el IdP de las personas (ADR-0029 de Hive). Sin etiqueta `wan`: Nornas las
+# entrega por ntfy.
+#
+# Las sondas fallan con `avg_over_time(...) < 0.5` y no con `== 0`. Un contenedor en bucle de reinicios
+# responde de vez en cuando: el 2026-10-28 `bifrost-nats` pasó 77 min reiniciándose cada minuto, la
+# muestra suelta en que estaba en marcha volvía a poner a cero el `for` de ServicioDePlataformaCaido y
+# el aviso llegó 33 min tarde.
+groups:
+  - name: hive
+    rules:
+      # --- Bifröst ---------------------------------------------------------------------------------
+      # Más de la mitad de las sondas de 2 min fallidas, durante 1 min: avisa a los ~2 min de caer.
+      - alert: BifrostCaido
+        expr: avg_over_time(probe_success{job="bifrost"}[2m]) < 0.5
+        for: 1m
+        labels:
+          severity: critical
+          servicio: bifrost
+        annotations:
+          resumen: "Bifröst (NATS) no está sano: el motor de Hive no procesa mensajes"
+          descripcion: >-
+            `/healthz` de NATS no responde ok. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`,
+            comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `/dev/sdb1[/bifrost]`.
+
+      # --- Zitadel ---------------------------------------------------------------------------------
+      # Solo si la casa tiene ruta: sin ella ya salta HogarSinRuta.
+      - alert: ZitadelExternoCaido
+        expr: >-
+          avg_over_time(probe_success{job="zitadel_externo"}[3m]) < 0.5
+          unless on () (hogar:ruta_up == 0)
+        for: 1m
+        labels:
+          severity: critical
+          servicio: zitadel
+        annotations:
+          resumen: "Zitadel (hive-auth.higerotech.com) no responde desde fuera"
+          descripcion: >-
+            Las personas no pueden entrar y hive-api no valida sus tokens. En nidavellir: `docker ps --filter
+            name=hive-idp` y `docker logs hive-idp-tunel`. Si nidavellir no responde, salta también
+            ThorSinMetricas.
+
+      # El respaldo es diario (03:30 UTC) y Persistent=true lo recupera tras un apagón: 26 h dan dos horas
+      # de margen sobre la pasada siguiente.
+      - alert: ZitadelRespaldoAtrasado
+        expr: time() - hive_idp_respaldo_ultimo_exito_segundos > 26 * 3600
+        for: 10m
+        labels:
+          severity: warning
+          servicio: zitadel
+        annotations:
+          resumen: "El respaldo de Zitadel lleva más de 26 h sin salir bien"
+          descripcion: >-
+            Revisar `systemctl status hive-idp-respaldo` y `journalctl -u hive-idp-respaldo` en nidavellir, y
+            que `/mnt/nas/respaldos` esté montado.
+
+      # La pasada deja el 0 hasta la siguiente: la alerta dura lo que dura el fallo.
+      - alert: ZitadelRespaldoFallido
+        expr: hive_idp_respaldo_resultado == 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: zitadel
+        annotations:
+          resumen: "La última pasada del respaldo de Zitadel falló"
+          descripcion: >-
+            El motivo está en `journalctl -u hive-idp-respaldo` en nidavellir. Lanzarla otra vez tras arreglarlo:
+            `sudo systemctl start hive-idp-respaldo.service`.
+
+      # Sin el fichero, las dos de arriba no pueden saltar. Si es todo nidavellir, ya avisa ThorSinMetricas.
+      - alert: ZitadelRespaldoSinMetricas
+        expr: >-
+          up{job="hive_idp_respaldo"} == 0
+          unless on () (up{job="thor",host="nidavellir"} == 0)
+        for: 30m
+        labels:
+          severity: warning
+          servicio: zitadel
+        annotations:
+          resumen: "Mimir no recibe las métricas del respaldo de Zitadel"
+          descripcion: >-
+            `/var/lib/yggdrasil-thor/hive_idp_respaldo.prom` no existe o no se sirve en nidavellir. Lo escribe
+            cada pasada de hive-idp-respaldo.service.

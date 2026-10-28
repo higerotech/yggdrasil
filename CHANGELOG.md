@@ -16,6 +16,18 @@ Tras el primero, el arranque dejó cosas mal sin que nada avisara. Baldr ya gest
 tercero en los dos hosts, y dio el parte por push.
 
 ### Añadido
+- **Vigilancia de las piezas de Hive en la plataforma** (`rules/hive-alertas.yml`, con sus pruebas).
+  - **`BifrostCaido`.** Blackbox, en host-mode, sondea `/healthz` de NATS en `127.0.0.1:8222` de midgard
+    (job `bifrost`, módulo `http_nats_salud`). El 2026-10-28 `bifrost-nats` pasó 77 min en bucle de
+    reinicios con su almacén sin montar, y `ServicioDePlataformaCaido` tardó 33 min en avisar: Thor lo veía
+    sano en cada arranque y el `for` volvía a cero. La nueva avisa a los ~2 min, porque falla con la media de
+    las sondas, no con una sola.
+  - **`ZitadelExternoCaido`.** `https://hive-auth.higerotech.com/debug/healthz` debe responder `ok` desde
+    fuera (job `zitadel_externo`, módulo `https_zitadel_salud`).
+  - **El respaldo de Zitadel.** Mimir lee `hive_idp_respaldo.prom` de nidavellir (job `hive_idp_respaldo`).
+    Avisan `ZitadelRespaldoAtrasado` (más de 26 h), `ZitadelRespaldoFallido` y `ZitadelRespaldoSinMetricas`.
+  - **Nidavellir caído** ya lo cubría `ThorSinMetricas`. El README de `deploy/cd` añade los contenedores y
+    timers de Zitadel a la configuración de Thor en nidavellir.
 - **Baldr, el protocolo tras un apagón** (ADR-0011). Corre una vez tras cada arranque en midgard y en
   nidavellir. El apagón del 2026-10-28 (7 h 47 min) dejó unidades de arranque fallidas, un montaje del NAS
   caído con su contenedor, un respaldo lanzado antes que el NAS y un catálogo de Fáfnir sin inventarios,

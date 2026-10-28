@@ -49,12 +49,13 @@ jobs:
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
-          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml /etc/prometheus/rules/hive-alertas.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/thor-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/wan-up.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/perdida.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/saga-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/fafnir-alertas.test.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/hive-alertas.test.yml
           python3 deploy/prometheus/tests/intervalos.py   # 2 x intervalo < lookback: series consultables
       - name: Saga (Tempo) -config.verify
         run: docker run --rm -v "$PWD/deploy/tempo:/etc/tempo:ro" "$TEMPO" -config.file=/etc/tempo/tempo.yaml -config.verify=true
