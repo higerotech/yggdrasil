@@ -1,0 +1,19 @@
+# /etc/default/yggdrasil-baldr — configuracion de Baldr en cada host (ADR-0011). root, 644. Sin secretos:
+# el push sale con AVISO_URL de /etc/yggdrasil-aviso.env, como el resto de avisos del host.
+
+# ---------------------------------------------------------------------------------------------- midgard
+BALDR_NAS=192.0.2.30
+BALDR_MONTAJES="/mnt/nas/respaldos /mnt/nas/media /mnt/nas/descargas"
+# Se relanzan solo si corrieron en este arranque antes de que el NAS y los montajes estuvieran listos,
+# o si fallaron. Todos idempotentes. En orden: los respaldos antes que el catalogo.
+BALDR_JOBS="yggdrasil-respaldo.service bifrost-respaldo.service hermod-respaldo.service andvari-respaldo.service morocota-respaldo.service ves-market-respaldo-nas.service fafnir-escaneo.service fafnir-catalogo.service"
+# Sleipnir mide al arrancar su contenedor: tras un apagon, una medicion nueva sin esperar 3 h.
+BALDR_CONTENEDORES="yggdrasil-throughput-probe"
+BALDR_VERIFICAR=1
+BALDR_ESPERADAS="HostReiniciado|SleipnirSinMedicion"
+
+# ---------------------------------------------------------------------------------------------- nidavellir
+# BALDR_NAS=192.0.2.30
+# BALDR_MONTAJES="/srv/medios/bragi/TV /srv/medios/bragi/movies"
+# BALDR_JOBS="bragi-respaldo.service fafnir-escaneo.service"
+# BALDR_VERIFICAR=0        # verifica midgard, que tiene Mimir; aqui solo se publica el estado por Thor

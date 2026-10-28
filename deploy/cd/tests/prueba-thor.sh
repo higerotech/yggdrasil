@@ -59,9 +59,12 @@ cat "$STUB/ruta"
 EOF
 # docker ps -a ... --format '{{.Names}}'  /  docker inspect -f '...' <nombre>
 # $STUB/contenedores: "<nombre> <restart> <estado> <salud>" por linea
+# Con --filter status=exited e inspect de ExitCode: $STUB/salidos, "<nombre> <restart> <codigo> <FinishedAt>"
 cat > "$T/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 [ -f "$STUB/docker-caido" ] && exit 1
+case "$*" in *status=exited*) awk '{print $1}' "$STUB/salidos" 2>/dev/null; exit 0 ;; esac
+case "$*" in *ExitCode*) l=$(grep "^${*: -1} " "$STUB/salidos") || exit 1; echo "${l#* }"; exit 0 ;; esac
 case "$1" in
   ps) awk '{print $1}' "$STUB/contenedores" ;;
   inspect) l=$(grep "^${*: -1} " "$STUB/contenedores") || exit 1; echo "${l#* }" ;;
@@ -77,6 +80,7 @@ u="${*: -1}"; l=$(grep "^$u " "$STUB/unidades")
 case "$1" in
   show) [ -n "$l" ] && echo loaded || echo not-found ;;
   is-active) [ "${l#* }" = activa ] ;;
+  list-units) cat "$STUB/fallidas" 2>/dev/null ;;   # --failed --plain --no-legend
 esac
 EOF
 # journalctl -k --since -15min ... : las lineas de $STUB/kernel
@@ -131,7 +135,8 @@ echo 1792180000 > "$T/ultimo-exito"
 
 export STUB="$T" PATH="$T/bin:$PATH" THOR_DIR="$T/pub" THOR_CACHE="$T/cache" THOR_SMART_CADA_S=600 \
     THOR_INVENTARIO="$T/inventario" THOR_RESPALDO_MARCA="$T/ultimo-exito" THOR_SYS="$T/sys" THOR_PROC="$T/proc" \
-    THOR_DISCOS="/dev/sda $T/dev/disk/by-id/ata-SSD_DE_PRUEBA"
+    THOR_DISCOS="/dev/sda $T/dev/disk/by-id/ata-SSD_DE_PRUEBA" \
+    THOR_PIA_ESTADO="$T/sin-pia" THOR_BALDR_ESTADO="$T/sin-baldr"   # hermetica: en midgard existen los reales
 fallos=0
 ok()  { echo "ok   $1"; }
 mal() { echo "FALLO $1"; fallos=$((fallos + 1)); }
@@ -281,6 +286,43 @@ no_tiene "sin /proc/stat legible: no se publica el arranque" 'yggdrasil_arranque
 no_tiene "solo la placa (acpitz): no se publica la temperatura del procesador" 'yggdrasil_cpu_temperatura_celsius'
 pasada
 tiene "THOR_WANS sin definir: wan1 y wan2 por defecto" 'yggdrasil_wan_en_ruta{wan="wan2"}'
+
+# --- Unidades fallidas y contenedores muertos fuera de las listas (ADR-0011) ---
+# btime 1792900000 = 2026-10-25T21:46:40Z; el contenedor parado antes de esa hora no cuenta
+printf '%s\n' "mnt-nas-descargas.mount loaded failed failed /mnt/nas/descargas" \
+    'dev-disk-by\x2duuid-1234.swap loaded failed failed Swap' > "$T/fallidas"
+printf '%s\n' "transmission unless-stopped 128 2026-10-28T11:59:31.5Z" "manual unless-stopped 137 2026-10-20T00:00:00Z" \
+    "init no 1 2026-10-28T11:58:00Z" "limpio always 0 2026-10-28T11:58:00Z" > "$T/salidos"
+pasada
+tiene "unidad fallida: se publica" 'yggdrasil_unidad_fallida{nombre="mnt-nas-descargas.mount"} 1'
+no_tiene "unidad con barra invertida: no rompe la etiqueta" 'x2duuid'
+tiene "contenedor muerto en este arranque: caido" 'yggdrasil_contenedor_caido{nombre="transmission"} 1'
+no_tiene "contenedor parado antes del arranque: no cuenta" 'yggdrasil_contenedor_caido{nombre="manual"}'
+no_tiene "tarea de un solo uso: no cuenta" 'yggdrasil_contenedor_caido{nombre="init"}'
+no_tiene "salida con codigo 0: no cuenta" 'yggdrasil_contenedor_caido{nombre="limpio"}'
+rm "$T/fallidas" "$T/salidos"
+pasada
+no_tiene "sin unidades fallidas: ninguna serie" 'yggdrasil_unidad_fallida{'
+
+# --- Baldr (ADR-0011) ---
+printf '%s\n' "apagon_inicio 1793160230" "arranque 1793188246" "fase 5" "limpio 0" "pendientes 2" \
+    "reintentados 1" "relanzados 3" "terminado 1793190000" > "$T/baldr-estado"
+THOR_BALDR_ESTADO="$T/baldr-estado" pasada
+tiene "Baldr: fase" 'yggdrasil_baldr_fase 5'
+tiene "Baldr: pendientes" 'yggdrasil_baldr_pendientes 2'
+tiene "Baldr: terminado" 'yggdrasil_baldr_terminado_timestamp_seconds 1793190000'
+tiene "Baldr: relanzados" 'yggdrasil_baldr_relanzados 3'
+tiene "Baldr: caida" 'yggdrasil_baldr_caida_timestamp_seconds 1793160230'
+tiene "Baldr: corte, no apagado limpio" 'yggdrasil_baldr_apagado_limpio 0'
+printf '%s\n' "fase 2" "pendientes 0" "terminado 0" "apagon_inicio 0" > "$T/baldr-estado"
+THOR_BALDR_ESTADO="$T/baldr-estado" pasada
+tiene "Baldr en curso: fase 2 y sin terminar" 'yggdrasil_baldr_terminado_timestamp_seconds 0'
+no_tiene "Baldr sin arranque anterior: sin caida" 'yggdrasil_baldr_caida_timestamp_seconds'
+echo "fase x" > "$T/baldr-estado"
+THOR_BALDR_ESTADO="$T/baldr-estado" pasada
+no_tiene "estado de Baldr ilegible: no se publica" 'yggdrasil_baldr_fase'
+THOR_BALDR_ESTADO="$T/no-existe" pasada
+no_tiene "Baldr sin instalar: no se publica" 'yggdrasil_baldr_'
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }

@@ -434,7 +434,12 @@
             var limite = pie.getBoundingClientRect().top + 1;
             var tapadas = Array.prototype.filter.call(host.querySelectorAll(".fila"), function (f) {
                 return f.getBoundingClientRect().bottom > limite;
-            }).map(function (f) { return { nombre: f.firstChild.textContent, nivel: f.className.split(" ")[1] || "nodato" }; });
+            }).map(function (f) {
+                // La primera tapada empieza por encima del pie y asomaría cortada: se oculta sin mover
+                // las demás, y el pie la nombra.
+                f.style.visibility = "hidden";
+                return { nombre: f.firstChild.textContent, nivel: f.className.split(" ")[1] || "nodato" };
+            });
             var v = vistaOcultas(tapadas);
             pie.hidden = !v;
             if (v) {

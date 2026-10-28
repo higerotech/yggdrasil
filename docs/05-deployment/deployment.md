@@ -244,13 +244,28 @@ midgard no tiene UPS (apagones del 2026-09-08, 09-15 y otros). `yggdrasil-arranq
 `restart: unless-stopped` a un contenedor que quedó `exited` en un apagado sucio: en el reinicio
 del 2026-09-08 Gjallarhorn no volvió (TA-13, v0.4.9).
 
+Desde la ADR-0011, **Baldr** (`yggdrasil-baldr.service`) hace el protocolo tras cada arranque, en midgard y
+en nidavellir:
+1. espera a NTP y al NAS;
+2. reintenta los montajes y las unidades `*-arranque` que fallaron;
+3. arranca los contenedores que murieron durante el arranque;
+4. relanza los jobs de `BALDR_JOBS` que corrieron antes de tiempo o fallaron;
+5. a los 15 min, verifica las alertas.
+
+El resultado llega por push y queda en `/var/lib/yggdrasil-baldr/resumen`. `yggdrasil-arranque` reintenta
+además por su cuenta (`Restart=on-failure`): el 2026-10-24 y el 2026-10-28 falló porque Nornas aún no
+estaba sano.
+
 Tras un arranque:
 
 ```sh
-systemctl status yggdrasil-arranque                      # debe haber terminado con éxito
-docker compose -f /srv/apps/yggdrasil/deploy/docker-compose.yml -p yggdrasil ps
+cat /var/lib/yggdrasil-baldr/resumen                     # el parte de Baldr (también llega por push)
+journalctl -u yggdrasil-baldr -b                         # el detalle de cada fase
+sudo yggdrasil-baldr.sh verificar                        # revalidar a mano tras arreglar algo (sin push)
 sudo /usr/local/sbin/wan-watchdog.sh --estado            # ruta main, DNS, cada WAN, IP de las sondas
 ```
+
+Si el parte deja algo pendiente, `BaldrConPendientes` lo muestra también en Hlidskjalf durante 12 h.
 
 Riesgo conocido: la enumeración USB del arranque puede dejar colgado el adaptador de `wan2`
 (aceptado con vigilancia en Gate 3). Si `wan2` no vuelve, `WanCaida` lo detecta y la casa sale por
