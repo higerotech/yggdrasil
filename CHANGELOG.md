@@ -32,6 +32,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 - `yggdrasil-baldr.sh verificar`, a mano, lee `/etc/default/yggdrasil-baldr`: sin él no verificaba nada.
   Sin una pasada previa en este arranque, calcula la ventana en vez de darla por un reinicio ordenado.
   En un host sin Mimir (`BALDR_VERIFICAR=0`) no consulta Gjallarhorn. Visto al instalarlo el 2026-10-28.
+- **Baldr espera a cada montaje** (`BALDR_ESPERA_MONTAJE_S`, 5 min), no solo al NAS. En el apagón de
+  las 15:22 del 2026-10-28, el WD de nidavellir pasó su fsck y montó 4 s después de que Baldr lo diera por
+  perdido: un falso «sin montar» en el parte. La lectura del registro del arranque anterior tiene tope
+  (`BALDR_ESPERA_REGISTRO_S`, 15 min): con el HDD de midgard saturado tardó 3,5 min. Si no termina, el
+  arranque se trata como un corte sin hora de caída, en vez de dejar a Baldr colgado.
 - **Hlidskjalf: ninguna fila asoma por detrás del pie de Host.** Cuando Host no cabía, el pie
   nombraba las filas tapadas, pero la primera empezaba por encima de él y se veía cortada (la
   fila «Medios» de nidavellir, 2026-10-26). Ahora esas filas se ocultan sin mover las demás, y

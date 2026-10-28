@@ -43,6 +43,10 @@ PROC=${BALDR_PROC:-/proc}
 NAS=${BALDR_NAS:-}
 NAS_PUERTO=${BALDR_NAS_PUERTO:-2049}
 ESPERA_NAS_S=${BALDR_ESPERA_NAS_S:-900}
+ESPERA_MONTAJE_S=${BALDR_ESPERA_MONTAJE_S:-300}
+# --list-boots lee todos los ficheros del registro: con el HDD de midgard saturado por el arranque tardo
+# 3,5 min (2026-10-28 15:34). Con un tope, una ventana desconocida en vez de un Baldr colgado.
+ESPERA_REGISTRO_S=${BALDR_ESPERA_REGISTRO_S:-900}
 ESPERA_RELOJ_S=${BALDR_ESPERA_RELOJ_S:-300}
 ESPERA_ARRANQUE_S=${BALDR_ESPERA_ARRANQUE_S:-900}
 MONTAJES=${BALDR_MONTAJES:-}
@@ -80,14 +84,20 @@ duracion() { local s=$1; printf '%d h %02d min' $((s / 3600)) $((s % 3600 / 60))
 
 # --- 0. Ventana del apagon ---------------------------------------------------------------------
 ventana() {
-    local t=0 prev id ultimo
+    local t=0 prev id ultimo arranques
     until [ "$(timedatectl show -p NTPSynchronized --value 2>/dev/null)" = yes ]; do
         [ "$t" -ge "$ESPERA_RELOJ_S" ] && { pendientes+=("reloj sin sincronizar tras ${ESPERA_RELOJ_S} s: la ventana puede estar mal"); E[reloj]=0; break; }
         sleep 5; t=$((t + 5))
     done
     : "${E[reloj]:=1}"
     E[arranque]=$(arranque_ts)
-    prev=$(journalctl --list-boots -o json --no-pager 2>/dev/null \
+    if ! arranques=$(timeout "$ESPERA_REGISTRO_S" journalctl --list-boots -o json --no-pager 2>/dev/null); then
+        # Sin registro no se sabe si fue un corte: se trata como tal (Sleipnir, aviso), sin fechar la caida.
+        pendientes+=("no pude leer el registro del arranque anterior en ${ESPERA_REGISTRO_S} s")
+        E[apagon_inicio]=0; E[limpio]=0
+        return
+    fi
+    prev=$(printf '%s' "$arranques" \
         | jq -r 'if length > 1 then .[-2] | "\(.boot_id) \(.last_entry)" else empty end' 2>/dev/null)
     read -r id ultimo <<<"$prev"
     if [[ "${ultimo:-}" =~ ^[0-9]+$ ]]; then
@@ -109,7 +119,7 @@ montado() {   # ls dispara el automount; findmnt confirma que hay algo montado q
     timeout 20 ls "$1" >/dev/null 2>&1 && findmnt -rn -o FSTYPE "$1" 2>/dev/null | grep -qvx autofs
 }
 dependencias() {
-    local t p u
+    local t p u reintentado
     for _ in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 2; done
     docker info >/dev/null 2>&1 || pendientes+=("Docker no responde")
     if [ -n "$NAS" ]; then
@@ -120,15 +130,25 @@ dependencias() {
         done
         [ "$t" -gt 0 ] && [ "$t" -lt "$ESPERA_NAS_S" ] && log "el NAS respondio tras $t s"
     fi
+    # Se espera a cada montaje como al NAS: un disco local pasa su fsck tras un corte y monta tarde.
+    # El 2026-10-28 a las 15:31 el WD de nidavellir monto 4 s despues de que Baldr lo diera por perdido.
+    # Uno que fallo (timeout del NAS) se reintenta una vez.
     for p in $MONTAJES; do
         u=$(systemd-escape --path --suffix=mount "$p")
-        if systemctl is-failed --quiet "$u"; then
-            systemctl reset-failed "$u"
-            if systemctl start "$u" 2>/dev/null && montado "$p"; then
-                hechos+=("montaje $p recuperado")
+        t=0; reintentado=0
+        until montado "$p"; do
+            if [ "$reintentado" = 0 ] && systemctl is-failed --quiet "$u"; then
+                systemctl reset-failed "$u"; systemctl start "$u" 2>/dev/null; reintentado=1
+                continue
             fi
+            [ "$t" -ge "$ESPERA_MONTAJE_S" ] && break
+            sleep 5; t=$((t + 5))
+        done
+        if montado "$p"; then
+            [ "$reintentado" = 1 ] && hechos+=("montaje $p recuperado")
+        else
+            pendientes+=("$p sin montar tras ${ESPERA_MONTAJE_S} s")
         fi
-        montado "$p" || pendientes+=("$p sin montar")
     done
 }
 
@@ -238,6 +258,8 @@ resumen() {
         dur="Apagon de $(duracion $(( ${E[arranque]} - ${E[apagon_inicio]} ))) ($(hhmm "${E[apagon_inicio]}") -> $(hhmm "${E[arranque]}") UTC)."
     elif [ "${E[limpio]}" = 1 ]; then
         dur="Reinicio ordenado; volvio a las $(hhmm "${E[arranque]}") UTC."
+    else
+        dur="Arranque tras un corte; volvio a las $(hhmm "${E[arranque]}") UTC, sin hora de caida."
     fi
     {
         echo "$HOST: $dur"
