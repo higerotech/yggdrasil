@@ -292,6 +292,12 @@ avisar() {
 # --- Principal ---------------------------------------------------------------------------------
 esperadas=(); inesperadas=()
 if [ "$MODO" = verificar ]; then
+    # Con la pasada automatica en marcha, verificar pisaria su estado a medias (2026-10-28 17:50: lo
+    # dejo en fase 5 mientras ella esperaba para verificar). Se espera a que termine.
+    if [ "$(systemctl is-active yggdrasil-baldr.service 2>/dev/null)" = active ]; then
+        echo "baldr: la pasada automatica sigue en marcha (journalctl -u yggdrasil-baldr -f); verificar cuando termine" >&2
+        exit 1
+    fi
     # Revision a mano: conserva la ventana y lo hecho por la pasada automatica de este arranque. Sin
     # ella (Baldr recien instalado, o su estado es de un arranque anterior) la calcula: no supone nada.
     if [ -r "$DIR/estado" ]; then

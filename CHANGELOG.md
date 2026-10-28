@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.21] - 2026-10-28
+
+**Baldr, el protocolo tras un apagón.** El 2026-10-28 hubo tres cortes de luz: de 7 h 47 min, 7 min y 11 min.
+Tras el primero, el arranque dejó cosas mal sin que nada avisara. Baldr ya gestionó solo el segundo y el
+tercero en los dos hosts, y dio el parte por push.
+
 ### Añadido
 - **Baldr, el protocolo tras un apagón** (ADR-0011). Corre una vez tras cada arranque en midgard y en
   nidavellir. El apagón del 2026-10-28 (7 h 47 min) dejó unidades de arranque fallidas, un montaje del NAS
@@ -37,6 +43,8 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   perdido: un falso «sin montar» en el parte. La lectura del registro del arranque anterior tiene tope
   (`BALDR_ESPERA_REGISTRO_S`, 15 min): con el HDD de midgard saturado tardó 3,5 min. Si no termina, el
   arranque se trata como un corte sin hora de caída, en vez de dejar a Baldr colgado.
+- `yggdrasil-baldr.sh verificar` se niega mientras la pasada automática sigue en marcha. Lanzado a mano a
+  las 17:50 del 2026-10-28, dejó su estado en fase 5 mientras ella esperaba para verificar.
 - **Hlidskjalf: ninguna fila asoma por detrás del pie de Host.** Cuando Host no cabía, el pie
   nombraba las filas tapadas, pero la primera empezaba por encima de él y se veía cortada (la
   fila «Medios» de nidavellir, 2026-10-26). Ahora esas filas se ocultan sin mover las demás, y
@@ -820,7 +828,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...HEAD
+[0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...v0.5.19
 [0.5.18]: https://github.com/higerotech/yggdrasil/compare/v0.5.17...v0.5.18

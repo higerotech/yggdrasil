@@ -46,7 +46,8 @@ y el resto de `/srv/infra`, la `0.5.16` saca de la ruta una WAN que pierde paque
 equipo de la LAN por un túnel WireGuard a PIA (ADR-0009), la `0.5.17` lleva a Hlidskjalf y a
 las alertas el segundo servidor, nidavellir, la `0.5.18` corrige su consulta, y la `0.5.19`
 añade Fáfnir, el catálogo del almacenamiento de los dos hosts (ADR-0010), y la `0.5.20` lee
-Bragi en nidavellir, adonde se mudó. El sistema opera
+Bragi en nidavellir, adonde se mudó, y la `0.5.21` añade Baldr, el protocolo tras un apagón
+(ADR-0011). El sistema opera
 en producción con despliegue continuo desde la `0.4.0`. El Gate 4 (Deployment) se abrió formalmente
 el 2026-10-19 con su checklist (`.ai-dlc/gates/gate-4-deployment.md`); su cierre cortará la `0.6.0`.
 
