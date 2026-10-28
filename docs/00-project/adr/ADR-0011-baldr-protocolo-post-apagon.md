@@ -4,7 +4,7 @@
 * **Fecha:** 2026-10-28
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 05-deployment
-* **Versión:** 1.0.0
+* **Versión:** 1.1.0
 * **ID:** ADR-0011
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A05 (sin puertos ni contenedores nuevos; la configuración de cada host no va al repositorio), A09 (el resultado de cada arranque queda en Mimir, en una alerta y en un push)
@@ -49,7 +49,10 @@ stateDiagram-v2
 1. **Ventana.** Espera a NTP. La caída es la última entrada del registro del arranque anterior; si sus
    últimas líneas no son la secuencia de apagado, fue un corte.
 2. **Dependencias.** Docker, el NAS (`BALDR_NAS`, puerto NFS) y los montajes de `BALDR_MONTAJES`. Un
-   montaje que falló por timeout se reintenta.
+   montaje que falló por timeout se reintenta, y también uno que cayó porque falló su dependencia: ese
+   queda `inactive`, no `failed`, y sin trabajo en cola. Uno que aún pasa su fsck tiene su trabajo en
+   cola y se espera. Tras recuperar un montaje, se reinicia el contenedor que ya corría con un bind por
+   debajo de él: Docker fija los binds al arrancar el contenedor.
 3. **Converger.** Las unidades `*-arranque` habilitadas que no terminaron bien se reintentan. Los
    contenedores con política de reinicio que **murieron durante este arranque** con código distinto de 0
    se arrancan. Uno parado a mano antes del apagón no se toca: `unless-stopped` es justo eso.
@@ -62,7 +65,15 @@ stateDiagram-v2
    - las alertas activas, separando las esperables (`BALDR_ESPERADAS`: `HostReiniciado`,
      `SleipnirSinMedicion`) de las demás;
    - lo que Thor publica de los otros hosts;
-   - las unidades que sigan fallidas en midgard.
+   - las unidades que sigan fallidas en midgard;
+   - los contenedores en bucle de reinicios o `unhealthy`, en cada host. Para `docker ps` están vivos y su
+     `*-arranque` terminó bien.
+
+**El cuarto corte del 2026-10-28** (18:28 → 18:32 UTC) destapó dos huecos de la 1.0.0. El SSD de midgard
+no apareció antes de su `x-systemd.device-timeout` (10 s; en los tres arranques anteriores llegó a los
+8–9 s), y `/var/lib/bifrost` cayó con él. Baldr no lo reintentó porque no estaba `failed` (ni en
+`BALDR_MONTAJES`), y su parte dijo que todo iba bien con `bifrost-nats` en bucle de reinicios y los
+workers de Hive `unhealthy`: 77 min sin bus. La 1.1.0 cubre los dos casos.
 
 **Resultado** (decisión de Jeremi: push y Hlidskjalf):
 - Un **push por ntfy** con el resumen si hubo corte o si queda algo pendiente. Sale por el canal de

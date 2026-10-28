@@ -12,7 +12,9 @@
 #      y cuando volvio. Antes espera a que NTP ajuste el reloj: midgard arranco el 2026-10-28 con la
 #      fecha del 12-oct, y sin reloj bueno la ventana no significa nada.
 #   1. Dependencias: Docker, el NAS (BALDR_NAS) y los montajes de BALDR_MONTAJES. Un montaje que
-#      fallo por timeout se reintenta: systemd no lo hace solo.
+#      fallo por timeout, o que cayo porque fallo su dependencia, se reintenta: systemd no lo hace
+#      solo. Los contenedores que ya corrian con un bind por debajo de un montaje recuperado se
+#      reinician: Docker fija los binds al arrancar el contenedor.
 #   2. Converger: las unidades *-arranque habilitadas que no terminaron bien se reintentan
 #      (BALDR_REINTENTOS, separadas BALDR_PAUSA_S). Los contenedores con politica de reinicio que
 #      murieron durante este arranque con codigo distinto de 0 se arrancan. Uno parado a mano antes
@@ -118,8 +120,37 @@ ventana() {
 montado() {   # ls dispara el automount; findmnt confirma que hay algo montado que no es el autofs
     timeout 20 ls "$1" >/dev/null 2>&1 && findmnt -rn -o FSTYPE "$1" 2>/dev/null | grep -qvx autofs
 }
+# Un montaje caido no siempre queda failed. Si fallo su dependencia (el disco no aparecio antes de
+# x-systemd.device-timeout), queda inactive, sin trabajo en cola, y systemd no lo vuelve a intentar.
+# Asi se quedo /var/lib/bifrost en midgard el 2026-10-28 a las 18:32: 77 min sin bus de Hive. Uno
+# que aun espera su fsck tiene su trabajo de arranque en cola: ese no se toca.
+caido() {
+    systemctl is-failed --quiet "$1" && return 0
+    [ "$(systemctl is-active "$1" 2>/dev/null)" = inactive ] && [ -z "$(systemctl list-jobs --no-legend "$1" 2>/dev/null)" ]
+}
+# Tras recuperar un montaje, un contenedor que ya corria con un bind por debajo de el sigue viendo el
+# directorio de debajo, porque Docker fija los binds al arrancarlo. bifrost-nats se quedo asi en bucle
+# (mkdir /data/jetstream: permission denied). Se reinicia el que arranco antes de pedir el montaje.
+rebind() {   # rebind <ruta> <hora unix en que se pidio el montaje>
+    local c datos inicio fuentes s
+    for c in $(docker ps -a --filter status=running --filter status=restarting --format '{{.Names}}' 2>/dev/null); do
+        datos=$(docker inspect -f '{{.State.StartedAt}} {{range .Mounts}}{{if eq .Type "bind"}}{{.Source}} {{end}}{{end}}' "$c" 2>/dev/null) || continue
+        read -r inicio fuentes <<<"$datos"
+        inicio=$(date -u -d "$inicio" +%s 2>/dev/null || echo 0)
+        [ "$inicio" -lt "$2" ] || continue
+        for s in $fuentes; do
+            [ "$s" = "$1" ] || [[ "$s" == "$1"/* ]] || continue
+            if docker restart "$c" >/dev/null 2>&1; then
+                hechos+=("contenedor $c reiniciado: corria sin $1")
+            else
+                pendientes+=("contenedor $c no se pudo reiniciar tras montar $1")
+            fi
+            break
+        done
+    done
+}
 dependencias() {
-    local t p u reintentado
+    local t p u reintentado pedido
     for _ in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 2; done
     docker info >/dev/null 2>&1 || pendientes+=("Docker no responde")
     if [ -n "$NAS" ]; then
@@ -132,20 +163,24 @@ dependencias() {
     fi
     # Se espera a cada montaje como al NAS: un disco local pasa su fsck tras un corte y monta tarde.
     # El 2026-10-28 a las 15:31 el WD de nidavellir monto 4 s despues de que Baldr lo diera por perdido.
-    # Uno que fallo (timeout del NAS) se reintenta una vez.
+    # Uno caido (timeout del NAS, o su dependencia) se reintenta una vez.
     for p in $MONTAJES; do
         u=$(systemd-escape --path --suffix=mount "$p")
-        t=0; reintentado=0
+        t=0; reintentado=0; pedido=0
         until montado "$p"; do
-            if [ "$reintentado" = 0 ] && systemctl is-failed --quiet "$u"; then
-                systemctl reset-failed "$u"; systemctl start "$u" 2>/dev/null; reintentado=1
+            if [ "$reintentado" = 0 ] && caido "$u"; then
+                pedido=$(date +%s)
+                systemctl reset-failed "$u" 2>/dev/null; systemctl start "$u" 2>/dev/null; reintentado=1
                 continue
             fi
             [ "$t" -ge "$ESPERA_MONTAJE_S" ] && break
             sleep 5; t=$((t + 5))
         done
         if montado "$p"; then
-            [ "$reintentado" = 1 ] && hechos+=("montaje $p recuperado")
+            if [ "$reintentado" = 1 ]; then
+                hechos+=("montaje $p recuperado")
+                rebind "$p" "$pedido"
+            fi
         else
             pendientes+=("$p sin montar tras ${ESPERA_MONTAJE_S} s")
         fi
@@ -250,6 +285,14 @@ locales() {   # lo que sigue mal en este host al terminar, salvo lo que ya esta 
         [ -n "$u" ] || continue
         printf '%s\n' "${pendientes[@]}" | grep -qF "$u" || pendientes+=("unidad $u fallida")
     done < <(systemctl list-units --failed --plain --no-legend 2>/dev/null | awk '{print $1}')
+    # Un contenedor en bucle de reinicios o unhealthy: para `docker ps` esta vivo y su *-arranque
+    # termino bien. bifrost-nats paso asi 77 min el 2026-10-28 y el resumen decia que todo iba bien.
+    while read -r u; do
+        [ -n "$u" ] && pendientes+=("contenedor $u en bucle de reinicios")
+    done < <(docker ps -a --filter status=restarting --format '{{.Names}}' 2>/dev/null)
+    while read -r u; do
+        [ -n "$u" ] && pendientes+=("contenedor $u unhealthy")
+    done < <(docker ps --filter health=unhealthy --format '{{.Names}}' 2>/dev/null)
 }
 
 resumen() {

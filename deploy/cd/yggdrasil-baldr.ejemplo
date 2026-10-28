@@ -3,7 +3,9 @@
 
 # ---------------------------------------------------------------------------------------------- midgard
 BALDR_NAS=192.0.2.30
-BALDR_MONTAJES="/mnt/nas/respaldos /mnt/nas/media /mnt/nas/descargas"
+# Tambien el SSD y sus binds: el 2026-10-28 a las 18:32 el SSD no aparecio antes del device-timeout
+# y /var/lib/bifrost se quedo sin montar 77 min. El disco antes que sus binds.
+BALDR_MONTAJES="/mnt/nas/respaldos /mnt/nas/media /mnt/nas/descargas /srv/rapido /var/lib/bifrost /var/lib/morocota"
 # Se relanzan solo si corrieron en este arranque antes de que el NAS y los montajes estuvieran listos,
 # o si fallaron. Todos idempotentes. En orden: los respaldos antes que el catalogo.
 BALDR_JOBS="yggdrasil-respaldo.service bifrost-respaldo.service hermod-respaldo.service andvari-respaldo.service morocota-respaldo.service ves-market-respaldo-nas.service fafnir-escaneo.service fafnir-catalogo.service"
