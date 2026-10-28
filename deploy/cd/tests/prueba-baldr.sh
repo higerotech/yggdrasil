@@ -234,6 +234,12 @@ echo "BALDR_VERIFICAR=1" > "$T/conf"
 echo '[{"labels":{"alertname":"NasNoMontado"}}]' > "$T/am.json"
 BALDR_CONF="$T/conf" bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
 resumen "a mano: usa la configuracion del host" "alerta NasNoMontado"
+# con la pasada automatica en marcha, verificar no toca su estado
+echo active > "$T/estado-yggdrasil-baldr.service"
+cp "$T/baldr/estado" "$T/estado.antes"
+if BALDR_VERIFICAR=1 bash "$BALDR" verificar > "$T/salida" 2>&1; then mal "pasada en marcha: verificar se niega"; else ok "pasada en marcha: verificar se niega"; fi
+if cmp -s "$T/estado.antes" "$T/baldr/estado"; then ok "pasada en marcha: el estado queda intacto"; else mal "pasada en marcha: el estado queda intacto"; fi
+rm -f "$T/estado-yggdrasil-baldr.service"
 
 # --- 8. Un disco local que monta tarde (fsck tras el corte): se espera, no es un pendiente --------
 # (nidavellir, 2026-10-28 15:31: el WD monto 4 s despues de que Baldr lo diera por perdido)
