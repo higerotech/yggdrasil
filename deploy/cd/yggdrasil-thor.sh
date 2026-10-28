@@ -61,6 +61,7 @@ JOURNAL_TIMEOUT_S=${THOR_JOURNAL_TIMEOUT_S:-10}
 SYS=${THOR_SYS:-/sys}
 PROC=${THOR_PROC:-/proc}
 PIA_ESTADO=${THOR_PIA_ESTADO:-/run/yggdrasil-pia/estado}   # lo escribe pia-tunel.sh (ADR-0009)
+BALDR_ESTADO=${THOR_BALDR_ESTADO:-/var/lib/yggdrasil-baldr/estado}   # lo escribe yggdrasil-baldr.sh (ADR-0011)
 AHORA=$(date +%s)
 
 mkdir -p "$DIR" "$CACHE"
@@ -219,6 +220,63 @@ for u in $UNIDADES; do
     if systemctl is-active --quiet "$u"; then ok=1; else ok=0; fi
     echo "yggdrasil_servicio_ok{tipo=\"unidad\",nombre=\"$u\"} $ok"
 done
+
+# Lo que no esta en ninguna lista y nadie vigilaba (apagon del 2026-10-28, ADR-0011): cualquier unidad
+# en estado failed, y los contenedores con politica de reinicio que murieron durante este arranque con
+# codigo distinto de 0. Uno parado a mano antes del arranque no cuenta: `unless-stopped` es eso.
+echo "# HELP yggdrasil_unidad_fallida 1 por cada unidad de systemd en estado failed."
+echo "# TYPE yggdrasil_unidad_fallida gauge"
+if fallidas=$(timeout "$DOCKER_TIMEOUT_S" systemctl list-units --failed --plain --no-legend 2>/dev/null); then
+    # Sin barras invertidas: una unidad escapada (dev-disk-by\x2duuid...) romperia el formato de la etiqueta.
+    printf '%s\n' "$fallidas" | awk '$1 ~ /^[A-Za-z0-9@:._-]+$/ {printf "yggdrasil_unidad_fallida{nombre=\"%s\"} 1\n", $1}'
+fi
+echo "# HELP yggdrasil_contenedor_caido 1 por cada contenedor con politica de reinicio que murio durante este arranque."
+echo "# TYPE yggdrasil_contenedor_caido gauge"
+if [[ "${arranque:-}" =~ ^[0-9]+$ ]] && salidos=$(timeout "$DOCKER_TIMEOUT_S" docker ps -a --filter status=exited \
+        --format '{{.Names}}' 2>/dev/null); then
+    for c in $salidos; do
+        [[ "$c" =~ ^[A-Za-z0-9_.-]+$ ]] && [[ ! "$c" =~ ^[0-9a-f]{12}_ ]] || continue
+        s=$(timeout "$DOCKER_TIMEOUT_S" docker inspect -f \
+            '{{.HostConfig.RestartPolicy.Name}} {{.State.ExitCode}} {{.State.FinishedAt}}' "$c" 2>/dev/null) || continue
+        read -r reinicio codigo fin <<<"$s"
+        case "$reinicio" in always|unless-stopped|on-failure) ;; *) continue ;; esac
+        [ "$codigo" != 0 ] || continue
+        fin=$(date -u -d "$fin" +%s 2>/dev/null || echo 0)
+        [ "$fin" -ge "$arranque" ] && echo "yggdrasil_contenedor_caido{nombre=\"$c\"} 1"
+    done
+fi
+
+# --- Baldr (ADR-0011) ------------------------------------------------------------------------
+# Su estado tras el ultimo arranque. Sin fichero (Baldr sin instalar) no se publica nada.
+if [ -r "$BALDR_ESTADO" ]; then
+    baldr() { awk -v k="$1" '$1 == k {print $2; exit}' "$BALDR_ESTADO"; }
+    b_f=$(baldr fase); b_p=$(baldr pendientes); b_r=$(baldr relanzados); b_t=$(baldr terminado)
+    b_i=$(baldr apagon_inicio); b_l=$(baldr limpio)
+    if [[ "$b_f" =~ ^[0-5]$ && "$b_p" =~ ^[0-9]+$ && "$b_t" =~ ^[0-9]+$ ]]; then
+        echo "# HELP yggdrasil_baldr_fase Fase de Baldr: 0 a 4 en curso, 5 terminado."
+        echo "# TYPE yggdrasil_baldr_fase gauge"
+        echo "yggdrasil_baldr_fase $b_f"
+        echo "# HELP yggdrasil_baldr_pendientes Lo que Baldr dejo pendiente al terminar."
+        echo "# TYPE yggdrasil_baldr_pendientes gauge"
+        echo "yggdrasil_baldr_pendientes $b_p"
+        echo "# HELP yggdrasil_baldr_terminado_timestamp_seconds Cuando termino Baldr por ultima vez (0 si no ha terminado)."
+        echo "# TYPE yggdrasil_baldr_terminado_timestamp_seconds gauge"
+        echo "yggdrasil_baldr_terminado_timestamp_seconds $b_t"
+        if [[ "$b_r" =~ ^[0-9]+$ ]]; then
+            echo "# HELP yggdrasil_baldr_relanzados Jobs que Baldr relanzo tras el ultimo arranque."
+            echo "# TYPE yggdrasil_baldr_relanzados gauge"
+            echo "yggdrasil_baldr_relanzados $b_r"
+        fi
+        if [[ "$b_i" =~ ^[0-9]+$ && "$b_i" != 0 && "$b_l" =~ ^[01]$ ]]; then
+            echo "# HELP yggdrasil_baldr_caida_timestamp_seconds Ultima entrada del registro antes del ultimo arranque."
+            echo "# TYPE yggdrasil_baldr_caida_timestamp_seconds gauge"
+            echo "yggdrasil_baldr_caida_timestamp_seconds $b_i"
+            echo "# HELP yggdrasil_baldr_apagado_limpio 1 si el host se apago en orden, 0 si fue un corte."
+            echo "# TYPE yggdrasil_baldr_apagado_limpio gauge"
+            echo "yggdrasil_baldr_apagado_limpio $b_l"
+        fi
+    fi
+fi
 
 # --- Andvari ---------------------------------------------------------------------------------
 # Sellado, Andvari sigue en marcha pero no abre ninguna clave: el gateway responde 503 a todo lo cifrado. Su

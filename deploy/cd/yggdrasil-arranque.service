@@ -4,12 +4,19 @@ Documentation=https://github.com/higerotech/yggdrasil/blob/main/deploy/cd/README
 Requires=docker.service
 After=docker.service network-online.target
 Wants=network-online.target
+# Cinco intentos en 20 min como mucho; despues, Baldr (ADR-0011) lo reintenta y avisa si no converge.
+StartLimitIntervalSec=1200
+StartLimitBurst=5
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
 ExecStart=/usr/local/sbin/yggdrasil-arranque.sh
 TimeoutStartSec=600
+# Tras un apagon, `compose up` falla si Nornas aun no esta sano cuando lo espera Gjallarhorn: paso el
+# 2026-10-24 y el 2026-10-28, y el stack quedo a medias hasta que alguien lo miro. Reintentar basta.
+Restart=on-failure
+RestartSec=60
 
 [Install]
 WantedBy=multi-user.target

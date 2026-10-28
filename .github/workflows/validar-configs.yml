@@ -82,7 +82,7 @@ jobs:
           docker build -q -t yggdrasil-sync:ci sync/
       - name: ShellCheck de los scripts
         run: |
-          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sleipnir/tests/prueba-sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/yggdrasil-thor.sh /mnt/cd/tests/prueba-thor.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh /mnt/host/tests/prueba-quorum.sh /mnt/host/tests/prueba-perdida.sh /mnt/host/medir-tuneles.sh /mnt/host/pia-tunel.sh /mnt/host/tests/prueba-pia.sh /mnt/cd/revisar-adr-0009.sh /mnt/cd/tests/prueba-revision.sh /mnt/tests/prueba-montaje-config.sh
+          docker run --rm -v "$PWD/deploy:/mnt:ro" koalaman/shellcheck:v0.10.0 -S warning /mnt/scripts/render.sh /mnt/scripts/deploy.sh /mnt/sleipnir/sleipnir.sh /mnt/sleipnir/tests/prueba-sleipnir.sh /mnt/sync/sync.sh /mnt/cd/bootstrap-midgard.sh /mnt/cd/yggdrasil-respaldar.sh /mnt/cd/yggdrasil-respaldo-aviso.sh /mnt/cd/yggdrasil-vigia-servicios.sh /mnt/cd/yggdrasil-thor.sh /mnt/cd/tests/prueba-thor.sh /mnt/cd/yggdrasil-baldr.sh /mnt/cd/tests/prueba-baldr.sh /mnt/cd/tests/prueba-vigia-servicios.sh /mnt/host/wan-balancer.sh /mnt/host/wan-watchdog.sh /mnt/host/install-host.sh /mnt/host/tests/prueba-sandbox-guardian.sh /mnt/host/tests/prueba-quorum.sh /mnt/host/tests/prueba-perdida.sh /mnt/host/medir-tuneles.sh /mnt/host/pia-tunel.sh /mnt/host/tests/prueba-pia.sh /mnt/cd/revisar-adr-0009.sh /mnt/cd/tests/prueba-revision.sh /mnt/tests/prueba-montaje-config.sh
 
   guardian:
     name: "Guardián: render.sh dentro del sandbox de wan-watchdog"
@@ -104,6 +104,8 @@ jobs:
         run: python3 -m unittest discover -s deploy/fafnir/tests -v
       - name: Thor, recolector del host (smartctl, df, timeout e ip simulados)
         run: bash deploy/cd/tests/prueba-thor.sh
+      - name: Baldr, protocolo tras el arranque (systemctl, journalctl, docker y curl simulados)
+        run: bash deploy/cd/tests/prueba-baldr.sh
       - name: Revisión a 30 días de la ADR-0009 (Mimir y ntfy simulados)
         run: bash deploy/cd/tests/prueba-revision.sh
       - name: Vigía de servicios (docker, systemctl y curl simulados)

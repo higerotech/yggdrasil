@@ -108,7 +108,38 @@ de alertas quedó caído en silencio. La unidad usa el Compose base a propósito
 el arranque los servicios de un solo uso `sync-host` y `sync-net`, que necesitan red hacia GitHub.
 
 Comprobación: `systemctl is-enabled yggdrasil-arranque` y, tras un reinicio,
-`systemctl status yggdrasil-arranque` más `docker compose -p yggdrasil ps`.
+`systemctl status yggdrasil-arranque` más `docker compose -p yggdrasil ps`. Si `compose up` falla porque un
+servicio aún no está sano, la unidad reintenta cada minuto (`Restart=on-failure`, 5 veces en 20 min).
+
+### Baldr: protocolo tras el arranque (ADR-0011)
+
+`yggdrasil-baldr.service` corre una vez tras cada arranque, en midgard y en nidavellir. Por orden:
+1. espera a NTP, a Docker, al NAS y a los montajes de `BALDR_MONTAJES`, y reintenta los que fallaron;
+2. reintenta las unidades `*-arranque` habilitadas que no terminaron bien, y arranca los contenedores con
+   política de reinicio que murieron durante el arranque;
+3. relanza los jobs de `BALDR_JOBS` que corrieron antes de que todo eso estuviera listo, o que fallaron;
+4. en midgard (`BALDR_VERIFICAR=1`), a los 15 min del arranque, revisa las alertas y lo que Thor publica de
+   los otros hosts, y manda un push con el resumen si hubo corte o si queda algo pendiente.
+
+Instalación: `bootstrap-midgard.sh` (paso 5i) en midgard. En nidavellir, a mano:
+
+```sh
+sudo install -m 0755 deploy/cd/yggdrasil-baldr.sh /usr/local/sbin/yggdrasil-baldr.sh
+sudo install -m 0644 deploy/cd/yggdrasil-baldr.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable yggdrasil-baldr.service
+```
+
+Configuración: `/etc/default/yggdrasil-baldr` a partir de `yggdrasil-baldr.ejemplo`, que trae la de los dos
+hosts. Solo se declaran jobs idempotentes: tras un apagón pueden correr dos veces.
+
+Tras un arranque:
+- el parte: `cat /var/lib/yggdrasil-baldr/resumen`;
+- el detalle de cada fase: `journalctl -u yggdrasil-baldr -b`;
+- revalidar después de arreglar algo a mano: `sudo yggdrasil-baldr.sh verificar`, que solo verifica,
+  no relanza nada ni avisa.
+
+Thor publica el estado (`yggdrasil_baldr_*`) y avisan `BaldrConPendientes` y `BaldrSinTerminar`. Pruebas:
+`bash deploy/cd/tests/prueba-baldr.sh`, que necesita `jq`.
 
 ## Respaldo nocturno
 
@@ -233,6 +264,10 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 | `RespaldoAtrasado` | un respaldo lleva más de 30 h sin completarse, 30 min; el aviso principal sigue siendo la vigía de cada respaldo |
 | `ServicioDeHostCaido` | un servicio de otro host (nidavellir) lleva 5 min caído, crítica: allí no hay vigía de servicios |
 | `HostReiniciado` | el host arrancó hace menos de 15 min: un apagón o un cuelgue que resolvió el watchdog |
+| `BaldrConPendientes` | Baldr terminó dejando algo pendiente tras el último arranque; caduca a las 12 h, cuando ya avisan las alertas de cada cosa |
+| `BaldrSinTerminar` | Baldr no terminó 3 h 10 min después del arranque |
+| `UnidadFallida` | una unidad de systemd lleva 15 min en `failed` y no está en ninguna lista de servicios (un montaje del NAS, un respaldo) |
+| `ContenedorCaido` | un contenedor con política de reinicio murió durante este arranque y lleva 10 min sin volver |
 | `ThorSinMetricas` | Mimir no recibe métricas frescas de Thor, 5 min; en otro host, que está colgado, apagado o sin red |
 
 ### Configuración del host

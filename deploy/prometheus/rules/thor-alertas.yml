@@ -244,6 +244,62 @@ groups:
             Si nadie lo reinició, fue un apagón o un cuelgue que resolvió el watchdog. Lo último que
             registró antes de caer: `journalctl -b -1 -n 50`.
 
+      # --- Tras un arranque: Baldr (ADR-0011) ---------------------------------------------------
+      # Lo que Baldr no pudo dejar bien. Es una foto del final de su pasada, así que caduca a las 12 h:
+      # para entonces, lo que siga roto lo cuentan sus propias alertas (UnidadFallida, ContenedorCaido,
+      # NasNoMontado...). Revalidar a mano tras arreglar algo: `sudo yggdrasil-baldr.sh verificar`.
+      - alert: BaldrConPendientes
+        expr: yggdrasil_baldr_pendientes > 0 and (time() - yggdrasil_baldr_terminado_timestamp_seconds) < 12 * 3600
+        labels:
+          severity: warning
+          servicio: baldr
+        annotations:
+          resumen: "Tras el arranque{{ with $labels.host }} de {{ . }}{{ end }} quedan {{ $value }} pendientes"
+          descripcion: >-
+            Baldr no pudo dejarlo todo bien. Detalle en `/var/lib/yggdrasil-baldr/resumen`{{ with $labels.host }}
+            de {{ . }}{{ end }}.
+
+      # RuntimeMaxSec=3h en la unidad: pasado ese margen, Baldr terminó o lo mataron sin terminar.
+      - alert: BaldrSinTerminar
+        expr: >-
+          yggdrasil_baldr_terminado_timestamp_seconds < yggdrasil_arranque_timestamp_seconds
+          and (time() - yggdrasil_arranque_timestamp_seconds) > 3 * 3600 + 600
+        labels:
+          severity: warning
+          servicio: baldr
+        annotations:
+          resumen: "Baldr no terminó tras el último arranque{{ with $labels.host }} de {{ . }}{{ end }}"
+          descripcion: "Revisar `journalctl -u yggdrasil-baldr -b`{{ with $labels.host }} en {{ . }}{{ end }}."
+
+      # Unidades y contenedores que no están en ninguna lista. El 2026-10-28 un montaje del NAS caído y el
+      # contenedor que dependía de él pasaron horas así sin que nada avisara. Sin duplicar lo que ya
+      # avisa por servicio_ok (el vigía en midgard, ServicioDeHostCaido en los demás).
+      - alert: UnidadFallida
+        expr: >-
+          yggdrasil_unidad_fallida == 1
+          unless on (job, instance, nombre) yggdrasil_servicio_ok{tipo="unidad"} == 0
+        for: 15m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "{{ $labels.nombre }} ha fallado{{ with $labels.host }} en {{ . }}{{ end }}"
+          descripcion: >-
+            Revisar `systemctl status {{ $labels.nombre }}` y `journalctl -u {{ $labels.nombre }} -b`{{ with
+            $labels.host }} en {{ . }}{{ end }}. Si ya no hace falta: `sudo systemctl reset-failed {{ $labels.nombre }}`.
+
+      - alert: ContenedorCaido
+        expr: >-
+          yggdrasil_contenedor_caido == 1
+          unless on (job, instance, nombre) yggdrasil_servicio_ok{tipo="contenedor"} == 0
+        for: 10m
+        labels:
+          severity: warning
+          servicio: thor
+        annotations:
+          resumen: "El contenedor {{ $labels.nombre }} murió y no ha vuelto{{ with $labels.host }} en {{ . }}{{ end }}"
+          descripcion: "Revisar `docker ps -a --filter name={{ $labels.nombre }}` y `docker logs {{ $labels.nombre }}`{{ with $labels.host }} en {{ . }}{{ end }}."
+
       # --- Thor mismo --------------------------------------------------------------------------
       # En otro host, sin métricas casi siempre es el host: colgado, apagado o sin red.
       - alert: ThorSinMetricas

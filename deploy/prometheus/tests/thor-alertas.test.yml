@@ -461,3 +461,94 @@ tests:
             exp_annotations:
               resumen: "bragi está caído en nidavellir"
               descripcion: "Revisar `docker ps -a --filter name=bragi` y `docker logs bragi` en nidavellir."
+
+  - name: Baldr con pendientes avisa 12 h; sin pendientes, nada
+    interval: 1m
+    input_series:
+      # nidavellir terminó a t=0 (epoch 0 en promtool) con 2 pendientes; midgard con 0
+      - series: 'yggdrasil_baldr_pendientes{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '2x30'
+      - series: 'yggdrasil_baldr_terminado_timestamp_seconds{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x30'
+      - series: 'yggdrasil_baldr_pendientes{job="thor", instance="thor:9471"}'
+        values: '0x30'
+      - series: 'yggdrasil_baldr_terminado_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: BaldrConPendientes
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: baldr, job: thor, instance: "192.168.10.2:9471", host: nidavellir}
+            exp_annotations:
+              resumen: "Tras el arranque de nidavellir quedan 2 pendientes"
+              descripcion: "Baldr no pudo dejarlo todo bien. Detalle en `/var/lib/yggdrasil-baldr/resumen` de nidavellir."
+
+  - name: los pendientes de Baldr caducan a las 12 h
+    interval: 1h
+    input_series:
+      - series: 'yggdrasil_baldr_pendientes{job="thor", instance="thor:9471"}'
+        values: '1x14'
+      - series: 'yggdrasil_baldr_terminado_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '0x14'
+    alert_rule_test:
+      - eval_time: 11h
+        alertname: BaldrConPendientes
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: baldr, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Tras el arranque quedan 1 pendientes"
+              descripcion: "Baldr no pudo dejarlo todo bien. Detalle en `/var/lib/yggdrasil-baldr/resumen`."
+      - eval_time: 13h
+        alertname: BaldrConPendientes
+        exp_alerts: []
+
+  - name: Baldr sin terminar tras 3 h 10 min desde el arranque
+    interval: 10m
+    input_series:
+      # arrancó en t=0; Baldr terminó por última vez antes (arranque anterior)
+      - series: 'yggdrasil_arranque_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '0x25'
+      - series: 'yggdrasil_baldr_terminado_timestamp_seconds{job="thor", instance="thor:9471"}'
+        values: '-1000x25'
+    alert_rule_test:
+      - eval_time: 3h
+        alertname: BaldrSinTerminar
+        exp_alerts: []
+      - eval_time: 3h20m
+        alertname: BaldrSinTerminar
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: baldr, job: thor, instance: "thor:9471"}
+            exp_annotations:
+              resumen: "Baldr no terminó tras el último arranque"
+              descripcion: "Revisar `journalctl -u yggdrasil-baldr -b`."
+
+  - name: unidad fallida y contenedor caído fuera de las listas; sin duplicar lo que ya avisa servicio_ok
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_unidad_fallida{job="thor", instance="thor:9471", nombre="mnt-nas-descargas.mount"}'
+        values: '1x20'
+      # también en THOR_UNIDADES y a 0: ya avisa el vigía, no se duplica
+      - series: 'yggdrasil_unidad_fallida{job="thor", instance="192.168.10.2:9471", host="nidavellir", nombre="docker.service"}'
+        values: '1x20'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="192.168.10.2:9471", host="nidavellir", tipo="unidad", nombre="docker.service"}'
+        values: '0x20'
+      - series: 'yggdrasil_contenedor_caido{job="thor", instance="thor:9471", nombre="transmission"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 12m
+        alertname: UnidadFallida
+        exp_alerts: []          # aún dentro del for de 15 min
+      - eval_time: 16m
+        alertname: UnidadFallida
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "thor:9471", nombre: mnt-nas-descargas.mount}
+            exp_annotations:
+              resumen: "mnt-nas-descargas.mount ha fallado"
+              descripcion: "Revisar `systemctl status mnt-nas-descargas.mount` y `journalctl -u mnt-nas-descargas.mount -b`. Si ya no hace falta: `sudo systemctl reset-failed mnt-nas-descargas.mount`."
+      - eval_time: 11m
+        alertname: ContenedorCaido
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: thor, job: thor, instance: "thor:9471", nombre: transmission}
+            exp_annotations:
+              resumen: "El contenedor transmission murió y no ha vuelto"
+              descripcion: "Revisar `docker ps -a --filter name=transmission` y `docker logs transmission`."

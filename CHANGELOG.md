@@ -9,7 +9,26 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **Baldr, el protocolo tras un apagón** (ADR-0011). Corre una vez tras cada arranque en midgard y en
+  nidavellir. El apagón del 2026-10-28 (7 h 47 min) dejó unidades de arranque fallidas, un montaje del NAS
+  caído con su contenedor, un respaldo lanzado antes que el NAS y un catálogo de Fáfnir sin inventarios,
+  y casi nada avisó.
+  - Espera a NTP, al NAS y a los montajes, y reintenta los que fallaron.
+  - Reintenta las unidades `*-arranque` que no convergieron y arranca los contenedores que murieron
+    durante el arranque.
+  - Relanza solo los jobs declarados (`BALDR_JOBS`) que corrieron antes de tiempo o fallaron.
+  - En midgard, a los 15 min, revisa las alertas y manda un push con el parte.
+  - Thor publica su estado (`yggdrasil_baldr_*`); `BaldrConPendientes` y `BaldrSinTerminar` salen también
+    en Hlidskjalf.
+- Thor publica las unidades de systemd en `failed` y los contenedores que murieron durante el arranque.
+  Avisan `UnidadFallida` y `ContenedorCaido`, sin duplicar lo que ya cubre `yggdrasil_servicio_ok`.
+
 ### Corregido
+- **`yggdrasil-arranque` reintenta si el stack no converge** (`Restart=on-failure`, 5 veces en 20 min).
+  Tras los apagones del 2026-10-24 y el 2026-10-28 falló porque Nornas aún no estaba sano, y nadie se
+  enteró.
+- La prueba de Thor ya no lee el estado real del túnel PIA ni el de Baldr cuando corre en midgard.
 - **Hlidskjalf: ninguna fila asoma por detrás del pie de Host.** Cuando Host no cabía, el pie
   nombraba las filas tapadas, pero la primera empezaba por encima de él y se veía cortada (la
   fila «Medios» de nidavellir, 2026-10-26). Ahora esas filas se ocultan sin mover las demás, y
