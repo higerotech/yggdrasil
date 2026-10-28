@@ -94,7 +94,7 @@ preparar() {   # un host recien arrancado: sin rastro de la pasada anterior
 
 stubs
 export STUB="$T" PATH="$T/bin:$PATH" BALDR_DIR="$T/baldr" BALDR_PROC="$T/proc" BALDR_PAUSA_S=0 \
-    BALDR_VERIFICAR_TRAS_S=0 AVISO_ENV="$T/aviso.env"
+    BALDR_VERIFICAR_TRAS_S=0 AVISO_ENV="$T/aviso.env" BALDR_CONF="$T/sin-conf"
 echo "AVISO_URL=https://ntfy.example/tema" > "$T/aviso.env"
 
 # --- 1. El apagon del 2026-10-28 ---------------------------------------------------------------
@@ -188,7 +188,7 @@ if [ -s "$T/curl.log" ]; then mal "reinicio ordenado sin nada roto: no hay push"
 # --- 3. Revision a mano: conserva la ventana, verifica, no avisa ------------------------------
 echo '[{"labels":{"alertname":"UnidadFallida","nombre":"x.service"}}]' > "$T/am.json"
 : > "$T/llamadas"
-bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+BALDR_VERIFICAR=1 bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
 igual "verificar: conserva la ventana" limpio 1
 igual "verificar: cuenta lo que hay ahora" pendientes 1
 resumen "verificar: la alerta nueva, con su nombre" "alerta UnidadFallida x.service"
@@ -202,6 +202,32 @@ echo '[{"boot_id":"bbb","last_entry":1}]' > "$T/boots.json"
 bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
 igual "primer arranque registrado: nada que reconstruir" apagon_inicio 0
 igual "primer arranque registrado: termina" fase 5
+
+# --- 5. verificar sin pasada previa en este arranque: calcula la ventana, no la supone ---------
+# (Baldr recien instalado el 2026-10-28: daba "Reinicio ordenado" tras un corte de 7 h)
+preparar
+printf '%s\n' "Starting morocota-vigia.service..." > "$T/ultimas"
+: > "$T/unidades-fallidas"; echo '[]' > "$T/am.json"; echo '{"data":{"result":[]}}' > "$T/prom.json"
+BALDR_VERIFICAR=1 bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+igual "verificar sin estado: detecta el corte" limpio 0
+igual "verificar sin estado: la caida" apagon_inicio "$caida"
+if grep -q "No such file" "$T/salida"; then mal "verificar sin estado: sin errores ruidosos"; else ok "verificar sin estado: sin errores ruidosos"; fi
+# un estado de un arranque anterior tampoco vale
+sed -i 's/^arranque .*/arranque 1/; s/^limpio .*/limpio 1/' "$T/baldr/estado"
+BALDR_VERIFICAR=1 bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+igual "verificar con estado de otro arranque: lo recalcula" limpio 0
+
+# --- 6. verificar en un host sin Mimir (nidavellir): no consulta Gjallarhorn -------------------
+: > "$T/llamadas"
+BALDR_VERIFICAR=0 bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+no_llamo "sin BALDR_VERIFICAR: no consulta Gjallarhorn" "docker exec"
+igual "sin BALDR_VERIFICAR: nada pendiente por no poder consultar" pendientes 0
+
+# --- 7. A mano, sin el entorno de la unidad: lee /etc/default/yggdrasil-baldr ------------------
+echo "BALDR_VERIFICAR=1" > "$T/conf"
+echo '[{"labels":{"alertname":"NasNoMontado"}}]' > "$T/am.json"
+BALDR_CONF="$T/conf" bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+resumen "a mano: usa la configuracion del host" "alerta NasNoMontado"
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
