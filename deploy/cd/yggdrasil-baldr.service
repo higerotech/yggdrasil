@@ -1,0 +1,21 @@
+[Unit]
+Description=Yggdrasil: Baldr, protocolo tras el arranque (montajes, convergencia, jobs pendientes, verificacion)
+Documentation=https://github.com/higerotech/yggdrasil/blob/main/docs/00-project/adr/ADR-0011-baldr-protocolo-post-apagon.md
+After=docker.service network-online.target time-sync.target
+Wants=network-online.target
+
+[Service]
+# simple y no oneshot: espera al NAS, reintenta y relanza respaldos, y puede tardar mas de una hora.
+# Como oneshot dejaria el sistema en "starting" todo ese tiempo.
+Type=simple
+# Montajes, jobs, contenedores y si verifica (solo midgard). Ejemplo: deploy/cd/yggdrasil-baldr.ejemplo
+EnvironmentFile=-/etc/default/yggdrasil-baldr
+ExecStart=/usr/local/sbin/yggdrasil-baldr.sh
+StateDirectory=yggdrasil-baldr
+StateDirectoryMode=0755
+RuntimeMaxSec=3h
+# Root: reinicia unidades, monta el NAS y arranca contenedores. Sin endurecer mas a proposito: lo
+# que hace es justo tocar el resto del sistema.
+
+[Install]
+WantedBy=multi-user.target

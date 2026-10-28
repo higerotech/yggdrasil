@@ -153,6 +153,14 @@ if [ -r /etc/fafnir/fafnir.toml ]; then
 else
   echo "   sin /etc/fafnir/fafnir.toml: Fáfnir instalado pero sin activar (ver deploy/fafnir/README.md)"
 fi
+echo "== 5i. Baldr: protocolo tras el arranque (ADR-0011)"
+# /etc/default/yggdrasil-baldr lleva la IP del NAS y los montajes de este host: la escribe el operador a partir
+# de deploy/cd/yggdrasil-baldr.ejemplo. Sin ella, Baldr converge y verifica, pero no espera al NAS ni relanza jobs.
+install -m 0755 "$APP_DIR/deploy/cd/yggdrasil-baldr.sh" /usr/local/sbin/yggdrasil-baldr.sh
+install -m 0644 "$APP_DIR/deploy/cd/yggdrasil-baldr.service" /etc/systemd/system/yggdrasil-baldr.service
+systemctl daemon-reload
+systemctl enable yggdrasil-baldr.service >/dev/null 2>&1 && echo "   yggdrasil-baldr.service habilitada (corre en el próximo arranque)"
+[ -r /etc/default/yggdrasil-baldr ] || echo "   sin /etc/default/yggdrasil-baldr: copiar deploy/cd/yggdrasil-baldr.ejemplo y ajustarlo"
 echo "== 6. nftables (proyecto de routing, /etc/nftables.conf): comprobación"
 if nft list chain inet router input 2>/dev/null | grep -q 'dport { 9115, 9469 }'; then
   echo "   regla de sondas presente (ip saddr DKR_NET tcp dport { 9115, 9469 } accept)"

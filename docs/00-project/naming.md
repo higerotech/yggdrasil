@@ -33,6 +33,7 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 | **Thor** | Métricas del host (recolector + httpd de busybox) | La fuerza de la máquina → salud del disco, espacio del NAS, qué WAN lleva el balanceador en la ruta (2026-10-16), estado de los servicios y último respaldo |
 | **Hlidskjalf** | Tablero de pared (página servida por Nornas + app Android kiosco en una tablet) | Hliðskjálf, el trono desde el que Odín ve todos los mundos → el estado de midgard de un vistazo (ADR-0007, 2026-10-16) |
 | **Fáfnir** | Catálogo del almacenamiento (script de Python + SQLite, en midgard y nidavellir) | El dragón que guarda el tesoro y sabe cada pieza que hay en él → inventaría el NAS y los discos, cuenta las copias de cada colección y avisa de lo que solo vive en un disco que falla (ADR-0010, 2026-10-25) |
+| **Baldr** | Protocolo tras el arranque (script + unidad de systemd, en midgard y nidavellir) | El dios que vuelve del reino de los muertos → tras un apagón espera al NAS, reintenta lo que no volvió, relanza los jobs perdidos y da el parte (ADR-0011, 2026-10-28) |
 | **Saga** | Grafana Tempo (trazas) | La diosa de la historia, que cada día bebe con Odín en Sökkvabekkr → guarda la historia de cada mensaje y se consulta desde Odín (ADR-0008, 2026-10-19) |
 
 ## Otros servicios de midgard (fuera de Yggdrasil)
