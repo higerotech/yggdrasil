@@ -33,6 +33,11 @@
 #   yggdrasil-baldr.sh verificar  solo la fase 4, sin push: para revisar a mano despues de arreglar algo
 set -uo pipefail
 
+# La unidad la carga con EnvironmentFile; a mano (`sudo yggdrasil-baldr.sh verificar`) nadie lo hace.
+CONF=${BALDR_CONF:-/etc/default/yggdrasil-baldr}
+# shellcheck disable=SC1090
+[ -r "$CONF" ] && . "$CONF"
+
 DIR=${BALDR_DIR:-/var/lib/yggdrasil-baldr}
 PROC=${BALDR_PROC:-/proc}
 NAS=${BALDR_NAS:-}
@@ -265,10 +270,15 @@ avisar() {
 # --- Principal ---------------------------------------------------------------------------------
 esperadas=(); inesperadas=()
 if [ "$MODO" = verificar ]; then
-    # Revision a mano: conserva la ventana y lo hecho por la pasada automatica
-    while read -r k v; do [ -n "$k" ] && E[$k]=$v; done < "$DIR/estado" 2>/dev/null
-    : "${E[arranque]:=$(arranque_ts)}" "${E[limpio]:=1}" "${E[apagon_inicio]:=0}"
-    verificar; locales
+    # Revision a mano: conserva la ventana y lo hecho por la pasada automatica de este arranque. Sin
+    # ella (Baldr recien instalado, o su estado es de un arranque anterior) la calcula: no supone nada.
+    if [ -r "$DIR/estado" ]; then
+        while read -r k v; do [ -n "$k" ] && E[$k]=$v; done < "$DIR/estado"
+    fi
+    [ "${E[arranque]:-}" = "$(arranque_ts)" ] || ventana
+    # Las alertas solo las mira el host que tiene Mimir (BALDR_VERIFICAR=1); los demas, lo suyo.
+    [ "$VERIFICAR" = 1 ] && verificar
+    locales
 else
     E=([fase]=0 [terminado]=0 [pendientes]=0 [relanzados]=0 [reintentados]=0)
     guardar

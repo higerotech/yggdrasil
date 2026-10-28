@@ -29,6 +29,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   Tras los apagones del 2026-10-24 y el 2026-10-28 falló porque Nornas aún no estaba sano, y nadie se
   enteró.
 - La prueba de Thor ya no lee el estado real del túnel PIA ni el de Baldr cuando corre en midgard.
+- `yggdrasil-baldr.sh verificar`, a mano, lee `/etc/default/yggdrasil-baldr`: sin él no verificaba nada.
+  Sin una pasada previa en este arranque, calcula la ventana en vez de darla por un reinicio ordenado.
+  En un host sin Mimir (`BALDR_VERIFICAR=0`) no consulta Gjallarhorn. Visto al instalarlo el 2026-10-28.
 - **Hlidskjalf: ninguna fila asoma por detrás del pie de Host.** Cuando Host no cabía, el pie
   nombraba las filas tapadas, pero la primera empezaba por encima de él y se veía cortada (la
   fila «Medios» de nidavellir, 2026-10-26). Ahora esas filas se ocultan sin mover las demás, y
