@@ -31,6 +31,17 @@ tercero en los dos hosts, y dio el parte por push.
   Avisan `UnidadFallida` y `ContenedorCaido`, sin duplicar lo que ya cubre `yggdrasil_servicio_ok`.
 
 ### Corregido
+- **Baldr recupera un montaje que cayó por su dependencia y lo que corría sin él** (ADR-0011 1.1.0). En el
+  corte del 2026-10-28 a las 18:28, el SSD de midgard no apareció antes de su `device-timeout` y
+  `/var/lib/bifrost` quedó sin montar: `bifrost-nats` en bucle y Hive 77 min sin bus, con un parte de
+  Baldr que decía que todo iba bien.
+  - Reintenta también el montaje `inactive` sin trabajo en cola, no solo el `failed`. El que aún pasa su
+    fsck se sigue esperando.
+  - Tras recuperarlo, reinicia los contenedores que ya corrían con un bind por debajo de él.
+  - Cuenta como pendiente un contenedor en bucle de reinicios o `unhealthy`.
+  - El ejemplo de midgard añade `/srv/rapido`, `/var/lib/bifrost` y `/var/lib/morocota` a
+    `BALDR_MONTAJES`.
+  - `prueba-baldr.sh`: 70/70 (10 nuevas).
 - **`yggdrasil-arranque` reintenta si el stack no converge** (`Restart=on-failure`, 5 veces en 20 min).
   Tras los apagones del 2026-10-24 y el 2026-10-28 falló porque Nornas aún no estaba sano, y nadie se
   enteró.
