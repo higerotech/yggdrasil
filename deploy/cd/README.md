@@ -301,6 +301,22 @@ Mimir avisa con dos alertas críticas:
 - **`AndvariSellado`**, con 2 minutos de margen: sin Andvari, el gateway no abre ninguna clave.
 - **`ServicioDePlataformaCaido`**, con 5 minutos. No salta por un Andvari sellado, que ya tiene la suya.
 
+Thor mira el contenedor una vez por minuto y cuenta como sano uno recién arrancado. Por eso un bucle de
+reinicios vuelve a poner a cero el `for`: el 2026-10-28 `bifrost-nats` pasó 77 min reiniciándose, con su
+almacén sin montar, y `ServicioDePlataformaCaido` tardó 33 min en dispararse. Para Bifröst está además
+**`BifrostCaido`** (`rules/hive-alertas.yml`): blackbox, que corre en host-mode, sondea `/healthz` de NATS en
+`127.0.0.1:8222`, el único sitio donde está publicado. Avisa cuando más de la mitad de las sondas de 2 min
+fallan, durante 1 min, así que una respuesta suelta no la reinicia.
+
+**Zitadel en nidavellir** (Hive, ADR-0029). En `rules/hive-alertas.yml`:
+
+- **`ZitadelExternoCaido`**: `https://hive-auth.higerotech.com/debug/healthz` no responde `ok` desde fuera
+  (job `zitadel_externo`). No salta sin ruta en la casa, porque ya avisa `HogarSinRuta`.
+- **`ZitadelRespaldoAtrasado`** (más de 26 h sin éxito), **`ZitadelRespaldoFallido`** (la última pasada dejó
+  `hive_idp_respaldo_resultado` a 0) y **`ZitadelRespaldoSinMetricas`**. Leen `hive_idp_respaldo.prom`, que el
+  respaldo de Hive escribe en el directorio de Thor de nidavellir (job `hive_idp_respaldo`).
+- Que nidavellir entero no responda lo dice `ThorSinMetricas`, con su etiqueta `host`.
+
 Sin respuesta legible de `bao status` no se publica el sello: un 0 diría que está abierto.
 
 **El túnel PIA (ADR-0009).** Con `pia-tunel.service` en marcha, Thor lee `/run/yggdrasil-pia/estado` y publica:
@@ -364,9 +380,12 @@ La configuración de nidavellir, con los discos por `by-id` (llevan el número d
 THOR_DISCOS="/dev/disk/by-id/ata-ADATA_SU650_<serie> /dev/disk/by-id/ata-WDC_WD10EZEX-<serie>"
 THOR_PUNTOS="/ /srv/medios/wd"
 THOR_WANS=""
-THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer"
-THOR_CONTENEDORES="cd-socket-proxy"
+THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer hive-idp-vigia.timer hive-idp-respaldo.timer"
+THOR_CONTENEDORES="cd-socket-proxy hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel"
 ```
+
+- Los `hive-idp*` son Zitadel (Hive, `deploy/idp`). Con ellos en la lista, `ServicioDeHostCaido` avisa del
+  contenedor concreto que cae; `ZitadelExternoCaido` solo dice que no se llega desde fuera.
 
 - `THOR_WANS=""` (vacía, no ausente): nidavellir no tiene `wan-balancer`. Sin ella publicaría las dos WAN fuera
   de la ruta.
