@@ -9,6 +9,14 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Corregido
+- **El MSS de los equipos desviados por PIA** (`deploy/host/pia-tunel.sh`, ADR-0009 1.1.2). La tabla
+  `inet yggdrasil_pia` gana la cadena `mss`, que recorta el SYN de lo que sale por `pia0` a la MTU del túnel
+  (`rt mtu`: 1380, MSS 1340). Sin ella anunciaban 1460. El 2026-10-28 el SMTP de Zitadel en Nidavellir, que
+  sale por PIA, no llegaba a Resend: el saludo pasaba y el TLS se colgaba al llegar el certificado. Desde
+  midgard, que no sale por el túnel, funcionaba. La ADR decía «MSS recortado» y solo lo estaba en las WAN.
+  `prueba-pia.sh` pasa a 70 comprobaciones.
+
 ## [0.5.21] - 2026-10-28
 
 **Baldr, el protocolo tras un apagón.** El 2026-10-28 hubo tres cortes de luz: de 7 h 47 min, 7 min y 11 min.

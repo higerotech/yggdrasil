@@ -156,6 +156,7 @@ hay "los nombres sin dominio, al dnsmasq de midgard" "$T/dnsmasq-args" '--server
 hay "el resto, al DNS de PIA" "$T/dnsmasq-args" '--server=10.0.0.243 '
 hay "el reenviador llega al DNS de PIA por el tunel" "$T/ip-args" "route replace 10.0.0.243/32 dev pia0"
 hay "masquerade por pia0" "$T/nft-tabla" 'oifname "pia0" masquerade'
+hay "el MSS de lo que sale por pia0, a la MTU del tunel" "$T/nft-tabla" 'oifname "pia0" tcp flags syn tcp option maxseg size set rt mtu'
 hay "el cambio es atomico: la tabla se declara y se borra antes" "$T/nft-tabla" 'delete table inet yggdrasil_pia'
 hay "la LAN y Docker siguen en local" "$T/reglas" 87
 hay "el resto, a la tabla del tunel" "$T/reglas" 88
