@@ -1,0 +1,156 @@
+# Pruebas de las alertas de Hive (Bifröst y Zitadel). Ejecutar:
+#   promtool test rules deploy/prometheus/tests/hive-alertas.test.yml
+rule_files:
+  - ../rules/hive-alertas.yml
+
+evaluation_interval: 15s
+
+tests:
+  # El caso del 2026-10-28: NATS en bucle de reinicios, con una sonda buena suelta cada 2 min.
+  - name: Bifröst en bucle de reinicios avisa a los ~2 min, aunque responda de vez en cuando
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="bifrost", instance="host.docker.internal:9115", target="http://127.0.0.1:8222/healthz"}'
+        # 2 min sano (8), y después siete fallos y un acierto, una y otra vez
+        values: '1x7 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1'
+    alert_rule_test:
+      - eval_time: 2m
+        alertname: BifrostCaido
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: BifrostCaido
+        exp_alerts: []          # la media de 2 min aún no baja de 0.5
+      - eval_time: 4m30s
+        alertname: BifrostCaido
+        exp_alerts: &bifrost_caido
+          - exp_labels:
+              severity: critical
+              servicio: bifrost
+              job: bifrost
+              instance: host.docker.internal:9115
+              target: http://127.0.0.1:8222/healthz
+            exp_annotations:
+              resumen: "Bifröst (NATS) no está sano: el motor de Hive no procesa mensajes"
+              descripcion: "`/healthz` de NATS no responde ok. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`, comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `/dev/sdb1[/bifrost]`."
+      - eval_time: 9m           # sigue avisando: las sondas buenas sueltas no la resuelven
+        alertname: BifrostCaido
+        exp_alerts: *bifrost_caido
+
+  - name: un fallo suelto de la sonda de Bifröst no avisa
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="bifrost", instance="b", target="t"}'
+        values: '1x10 0 0 1x30'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: BifrostCaido
+        exp_alerts: []
+
+  - name: Zitadel caído desde fuera avisa; sin ruta en la casa, no
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="zitadel_externo", instance="z", target="https://hive-auth.higerotech.com/debug/healthz", host="nidavellir"}'
+        values: '1x7 0x40'
+      - series: 'hogar:ruta_up'
+        values: '1x48'
+    alert_rule_test:
+      - eval_time: 3m
+        alertname: ZitadelExternoCaido
+        exp_alerts: []
+      - eval_time: 5m
+        alertname: ZitadelExternoCaido
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              servicio: zitadel
+              job: zitadel_externo
+              instance: z
+              target: https://hive-auth.higerotech.com/debug/healthz
+              host: nidavellir
+            exp_annotations:
+              resumen: "Zitadel (hive-auth.higerotech.com) no responde desde fuera"
+              descripcion: "Las personas no pueden entrar y hive-api no valida sus tokens. En nidavellir: `docker ps --filter name=hive-idp` y `docker logs hive-idp-tunel`. Si nidavellir no responde, salta también ThorSinMetricas."
+
+  - name: Zitadel caído con la casa sin ruta no avisa (ya salta HogarSinRuta)
+    interval: 15s
+    input_series:
+      - series: 'probe_success{job="zitadel_externo", instance="z", target="t", host="nidavellir"}'
+        values: '0x40'
+      - series: 'hogar:ruta_up'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ZitadelExternoCaido
+        exp_alerts: []
+
+  - name: el respaldo de Zitadel atrasado avisa pasadas 26 h
+    interval: 1m
+    input_series:
+      # Último éxito en t=0; la pasada siguiente no llega
+      - series: 'hive_idp_respaldo_ultimo_exito_segundos{job="hive_idp_respaldo", instance="n", host="nidavellir"}'
+        values: '0x1700'
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: ZitadelRespaldoAtrasado
+        exp_alerts: []
+      - eval_time: 26h5m
+        alertname: ZitadelRespaldoAtrasado
+        exp_alerts: []          # dentro del for de 10 min
+      - eval_time: 26h15m
+        alertname: ZitadelRespaldoAtrasado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: zitadel, job: hive_idp_respaldo, instance: n, host: nidavellir}
+            exp_annotations:
+              resumen: "El respaldo de Zitadel lleva más de 26 h sin salir bien"
+              descripcion: "Revisar `systemctl status hive-idp-respaldo` y `journalctl -u hive-idp-respaldo` en nidavellir, y que `/mnt/nas/respaldos` esté montado."
+
+  - name: una pasada fallida del respaldo de Zitadel avisa, y se resuelve con la siguiente buena
+    interval: 1m
+    input_series:
+      - series: 'hive_idp_respaldo_resultado{job="hive_idp_respaldo", instance="n", host="nidavellir"}'
+        values: '1x5 0x20 1x10'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: ZitadelRespaldoFallido
+        exp_alerts: []          # dentro del for de 5 min
+      - eval_time: 12m
+        alertname: ZitadelRespaldoFallido
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: zitadel, job: hive_idp_respaldo, instance: n, host: nidavellir}
+            exp_annotations:
+              resumen: "La última pasada del respaldo de Zitadel falló"
+              descripcion: "El motivo está en `journalctl -u hive-idp-respaldo` en nidavellir. Lanzarla otra vez tras arreglarlo: `sudo systemctl start hive-idp-respaldo.service`."
+      - eval_time: 30m
+        alertname: ZitadelRespaldoFallido
+        exp_alerts: []
+
+  - name: sin el fichero del respaldo avisa, salvo que nidavellir entero esté caído
+    interval: 1m
+    input_series:
+      - series: 'up{job="hive_idp_respaldo", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x40'
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1x40'
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: ZitadelRespaldoSinMetricas
+        exp_alerts: []
+      - eval_time: 35m
+        alertname: ZitadelRespaldoSinMetricas
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: zitadel, job: hive_idp_respaldo, instance: "192.168.10.2:9471", host: nidavellir}
+            exp_annotations:
+              resumen: "Mimir no recibe las métricas del respaldo de Zitadel"
+              descripcion: "`/var/lib/yggdrasil-thor/hive_idp_respaldo.prom` no existe o no se sirve en nidavellir. Lo escribe cada pasada de hive-idp-respaldo.service."
+
+  - name: con nidavellir caído, solo ThorSinMetricas
+    interval: 1m
+    input_series:
+      - series: 'up{job="hive_idp_respaldo", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x40'
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x40'
+    alert_rule_test:
+      - eval_time: 35m
+        alertname: ZitadelRespaldoSinMetricas
+        exp_alerts: []

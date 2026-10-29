@@ -148,3 +148,34 @@ scrape_configs:
       # directorio que sirve yggdrasil-thor-http.service, que solo admite a midgard.
       - targets: ["192.168.10.2:9471"]
         labels: {host: nidavellir}
+
+  # --- Hive: el bus de midgard y el IdP de nidavellir (reglas en rules/hive-alertas.yml) ---
+  # Bifröst (NATS): blackbox, en host-mode, sondea el monitor de NATS en el loopback de midgard, que es
+  # el único sitio donde está publicado. Con `target` = la URL, como las demás sondas.
+  - job_name: bifrost
+    metrics_path: /probe
+    params:
+      module: [http_nats_salud]
+    static_configs:
+      - targets: ["http://127.0.0.1:8222/healthz"]
+    relabel_configs: *sonda_relabel
+
+  # Zitadel desde fuera: el camino que siguen las personas y hive-api (túnel de Cloudflare).
+  - job_name: zitadel_externo
+    metrics_path: /probe
+    params:
+      module: [https_zitadel_salud]
+    static_configs:
+      - targets: ["https://hive-auth.higerotech.com/debug/healthz"]
+        labels: {host: nidavellir}
+    relabel_configs: *sonda_relabel
+
+  # Respaldo nocturno de Zitadel (hive, deploy/idp/respaldo): el script escribe hive_idp_respaldo.prom en
+  # el directorio que sirve yggdrasil-thor-http.service en nidavellir, como bragi.prom.
+  - job_name: hive_idp_respaldo
+    scrape_interval: 60s
+    metrics_path: /hive_idp_respaldo.prom
+    fallback_scrape_protocol: PrometheusText0.0.4
+    static_configs:
+      - targets: ["192.168.10.2:9471"]
+        labels: {host: nidavellir}

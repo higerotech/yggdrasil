@@ -75,3 +75,35 @@ modules:
       tls: true
       tls_config:
         server_name: www.gstatic.com
+
+  # --- Salud de servicios (sin source_ip_address, a propósito) ---
+  #
+  # No miden enlaces: comprueban que un servicio responde. Salen por la tabla `main`, como la casa.
+  #
+  # `http_nats_salud`: el `/healthz` de Bifröst (NATS) en 127.0.0.1:8222 de midgard. Blackbox corre en
+  # host-mode, así que ve el loopback del host: el monitor de NATS sigue publicado solo ahí, sin salir
+  # a la LAN. `/healthz` incluye JetStream. El 2026-10-28, con su almacén sin montar, NATS pasó 77 min
+  # en bucle de reinicios: entre arranque y arranque no hay nadie escuchando.
+  http_nats_salud:
+    prober: http
+    timeout: 5s
+    http:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      valid_status_codes: [200]
+      follow_redirects: false
+      fail_if_body_not_matches_regexp: ['"status":"ok"']
+
+  # `https_zitadel_salud`: Zitadel en nidavellir visto desde fuera, por su túnel de Cloudflare. Exige
+  # TLS válido y el cuerpo `ok` de `/debug/healthz`, no solo un 200: así no cuenta como sana ninguna
+  # página que sirva Cloudflare en su lugar.
+  https_zitadel_salud:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      valid_status_codes: [200]
+      follow_redirects: false
+      fail_if_not_ssl: true
+      fail_if_body_not_matches_regexp: ['^ok']

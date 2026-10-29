@@ -9,6 +9,39 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.22] - 2026-10-28
+
+**Lo que destapó el cuarto corte.** A las 18:28 del 2026-10-28 la luz se fue por cuarta vez. Al volver, el SSD de
+midgard llegó tarde y `/var/lib/bifrost` no se montó: Hive pasó 77 min sin bus, Baldr dio el parte por bueno y la
+alerta de la plataforma tardó 33 min.
+
+### Añadido
+- **Vigilancia de las piezas de Hive en la plataforma** (`rules/hive-alertas.yml`, con sus pruebas).
+  - **`BifrostCaido`.** Blackbox, en host-mode, sondea `/healthz` de NATS en `127.0.0.1:8222` de midgard
+    (job `bifrost`, módulo `http_nats_salud`). El 2026-10-28 `bifrost-nats` pasó 77 min en bucle de
+    reinicios con su almacén sin montar, y `ServicioDePlataformaCaido` tardó 33 min en avisar: Thor lo veía
+    sano en cada arranque y el `for` volvía a cero. La nueva avisa a los ~2 min, porque falla con la media de
+    las sondas, no con una sola.
+  - **`ZitadelExternoCaido`.** `https://hive-auth.higerotech.com/debug/healthz` debe responder `ok` desde
+    fuera (job `zitadel_externo`, módulo `https_zitadel_salud`).
+  - **El respaldo de Zitadel.** Mimir lee `hive_idp_respaldo.prom` de nidavellir (job `hive_idp_respaldo`).
+    Avisan `ZitadelRespaldoAtrasado` (más de 26 h), `ZitadelRespaldoFallido` y `ZitadelRespaldoSinMetricas`.
+  - **Nidavellir caído** ya lo cubría `ThorSinMetricas`. El README de `deploy/cd` añade los contenedores y
+    timers de Zitadel a la configuración de Thor en nidavellir.
+
+### Corregido
+- **Baldr recupera un montaje que cayó por su dependencia y lo que corría sin él** (ADR-0011 1.1.0). En el
+  corte del 2026-10-28 a las 18:28, el SSD de midgard no apareció antes de su `device-timeout` y
+  `/var/lib/bifrost` quedó sin montar: `bifrost-nats` en bucle y Hive 77 min sin bus, con un parte de
+  Baldr que decía que todo iba bien.
+  - Reintenta también el montaje `inactive` sin trabajo en cola, no solo el `failed`. El que aún pasa su
+    fsck se sigue esperando.
+  - Tras recuperarlo, reinicia los contenedores que ya corrían con un bind por debajo de él.
+  - Cuenta como pendiente un contenedor en bucle de reinicios o `unhealthy`.
+  - El ejemplo de midgard añade `/srv/rapido`, `/var/lib/bifrost` y `/var/lib/morocota` a
+    `BALDR_MONTAJES`.
+  - `prueba-baldr.sh`: 72/72 (10 nuevas).
+
 ## [0.5.21] - 2026-10-28
 
 **Baldr, el protocolo tras un apagón.** El 2026-10-28 hubo tres cortes de luz: de 7 h 47 min, 7 min y 11 min.
@@ -828,7 +861,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...HEAD
+[0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
 [0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...v0.5.19

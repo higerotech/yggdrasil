@@ -30,6 +30,8 @@ case "$1" in
   show) l=$(grep "^$u " "$STUB/jobs" 2>/dev/null); read -r _ inicio resultado <<<"$l"
         case "$3" in ExecMainStartTimestampMonotonic) echo "${inicio:-0}" ;; Result) echo "${resultado:-success}" ;; esac ;;
   list-units) cat "$STUB/unidades-fallidas" 2>/dev/null ;;
+  # un disco que aun pasa su fsck tiene su trabajo de arranque en cola hasta que monta
+  list-jobs) [ -f "$STUB/tarde-$u" ] && echo "1 $u start waiting"; exit 0 ;;
 esac
 EOF
 cat > "$T/bin/journalctl" <<'EOF'
@@ -40,13 +42,23 @@ case "$*" in
 esac
 EOF
 # $STUB/salidos: "<nombre> <politica> <codigo> <FinishedAt>"
+# $STUB/vivos: "<nombre> <StartedAt> <origen de cada bind...>" (corriendo o en bucle de reinicios)
+# $STUB/en-bucle y $STUB/unhealthy: un nombre por linea
 cat > "$T/bin/docker" <<'EOF'
 #!/usr/bin/env bash
 echo "docker $*" >> "$STUB/llamadas"
 case "$1" in
   info) exit 0 ;;
-  ps) awk '{print $1}' "$STUB/salidos" 2>/dev/null ;;
-  inspect) l=$(grep "^${*: -1} " "$STUB/salidos") || exit 1; echo "${l#* }" ;;
+  ps) case "$*" in
+        *status=running*) awk '{print $1}' "$STUB/vivos" 2>/dev/null ;;
+        *status=restarting*) cat "$STUB/en-bucle" 2>/dev/null ;;
+        *health=unhealthy*) cat "$STUB/unhealthy" 2>/dev/null ;;
+        *) awk '{print $1}' "$STUB/salidos" 2>/dev/null ;;
+      esac ;;
+  inspect) case "$*" in
+        *Mounts*) l=$(grep "^${*: -1} " "$STUB/vivos") || exit 1; echo "${l#* }" ;;
+        *) l=$(grep "^${*: -1} " "$STUB/salidos") || exit 1; echo "${l#* }" ;;
+      esac ;;
   start) [ "$2" != roto ] ;;
   restart) exit 0 ;;
   exec) case "${*: -1}" in *api/v2/alerts*) cat "$STUB/am.json" ;; *api/v1/query*) cat "$STUB/prom.json" ;; esac ;;
@@ -86,7 +98,7 @@ resumen() { if grep -qF -- "$2" "$T/baldr/resumen"; then ok "$1"; else mal "$1 (
 
 preparar() {   # un host recien arrancado: sin rastro de la pasada anterior
     rm -rf "$T/baldr" "$T/proc" "$T"/montad* "$T"/estado-* "$T"/arreglable-* "$T"/job-falla-* \
-        "$T/llamadas" "$T/curl.log" "$T/push.txt"
+        "$T/llamadas" "$T/curl.log" "$T/push.txt" "$T/vivos" "$T/en-bucle" "$T/unhealthy"
     mkdir -p "$T/proc" "$T/nas/respaldos" "$T/nas/descargas" "$T/nas/media"
     arranque=$(date -u -d 2026-10-28T11:50:46Z +%s)
     printf '%s\n' "cpu  1 2 3" "btime $arranque" > "$T/proc/stat"
@@ -263,6 +275,30 @@ igual "registro ilegible: se trata como corte" limpio 0
 igual "registro ilegible: termina" fase 5
 resumen "registro ilegible: lo dice" "no pude leer el registro del arranque anterior"
 resumen "registro ilegible: sin hora de caida" "Arranque tras un corte; volvio a las 11:50 UTC, sin hora de caida."
+
+# --- 10. El SSD que no llego a tiempo (midgard, 2026-10-28 18:32) ---------------------------------
+# Vencio x-systemd.device-timeout: /var/lib/bifrost cayo porque fallo su dependencia. Queda inactive,
+# no failed y sin trabajo en cola; bifrost-nats ya corria con el directorio de debajo (root 755).
+preparar
+mkdir -p "$T/rapido/bifrost"; rm -f "$T/montajes-fallidos"; touch "$T/montable-bifrost.mount"
+: > "$T/arranques"; : > "$T/jobs"; : > "$T/salidos"; : > "$T/unidades-fallidas"
+printf '%s\n' "bifrost-nats 2026-10-28T11:55:00Z $T/rapido/bifrost /srv/infra/bifrost/tls" \
+    "hive-api 2026-10-28T11:55:00Z /srv/apps/hive-gateway" \
+    "nuevo 2099-01-01T00:00:00Z $T/rapido/bifrost/sub" > "$T/vivos"
+BALDR_MONTAJES="$T/rapido/bifrost" bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
+llamo "montaje caido por su dependencia: se reintenta" "systemctl start bifrost.mount"
+resumen "montaje caido por su dependencia: recuperado" "montaje $T/rapido/bifrost recuperado"
+llamo "contenedor que corria sin el montaje: se reinicia" "docker restart bifrost-nats"
+resumen "contenedor que corria sin el montaje: en el resumen" "contenedor bifrost-nats reiniciado: corria sin $T/rapido/bifrost"
+no_llamo "contenedor sin bind en el montaje: no se toca" "docker restart hive-api"
+no_llamo "contenedor que arranco despues de pedir el montaje: no se toca" "docker restart nuevo"
+igual "SSD recuperado: nada pendiente" pendientes 0
+# lo que siga en bucle o unhealthy al terminar es un pendiente, aunque su *-arranque diga que bien
+echo bifrost-nats > "$T/en-bucle"; printf '%s\n' hive-ingest hive-classifier > "$T/unhealthy"
+BALDR_VERIFICAR=0 bash "$BALDR" verificar > "$T/salida" 2>&1 || mal "baldr verificar salio con error"
+resumen "contenedor en bucle de reinicios: pendiente" "contenedor bifrost-nats en bucle de reinicios"
+resumen "contenedor unhealthy: pendiente" "contenedor hive-classifier unhealthy"
+igual "en bucle y unhealthy, contados" pendientes 3
 
 echo
 [ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
