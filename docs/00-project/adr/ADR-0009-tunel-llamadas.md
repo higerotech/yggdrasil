@@ -4,7 +4,7 @@
 * **Fecha:** 2026-10-21
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.1.1
+* **Versión:** 1.1.2
 * **ID:** ADR-0009
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA en un fichero de root 600 que escribe Jeremi, nunca en el repo; clave privada y token solo en memoria), A09 (estado del túnel en Heimdall)
@@ -208,7 +208,8 @@ Lo que sigue es el diseño de la propuesta. Donde difiere, manda la decisión HI
   la llamada sigue (R1).
 - **Respaldo (R4):** wan-balancer sondea por `pia0` cada 5 s. Si el túnel no responde, retira la regla de
   `rt_media` y las llamadas salen directo.
-- **MTU de `pia0` en 1380**, por el agujero negro de MTU de wan2 (2026-10-06). MSS recortado.
+- **MTU de `pia0` en 1380**, por el agujero negro de MTU de wan2 (2026-10-06). El MSS de lo que sale por `pia0`
+  se recorta a esa MTU desde el 2026-10-28 (cadena `mss` de `inet yggdrasil_pia`); antes no lo estaba.
 - **Heimdall:**
   - sondas ICMP y TLS por `pia0`;
   - métrica de estado del túnel publicada por Thor;
