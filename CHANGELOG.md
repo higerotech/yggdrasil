@@ -17,11 +17,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   midgard, que no sale por el túnel, funcionaba. La ADR decía «MSS recortado» y solo lo estaba en las WAN.
   `prueba-pia.sh` pasa a 70 comprobaciones.
 
-## [0.5.21] - 2026-10-28
+## [0.5.22] - 2026-10-28
 
-**Baldr, el protocolo tras un apagón.** El 2026-10-28 hubo tres cortes de luz: de 7 h 47 min, 7 min y 11 min.
-Tras el primero, el arranque dejó cosas mal sin que nada avisara. Baldr ya gestionó solo el segundo y el
-tercero en los dos hosts, y dio el parte por push.
+**Lo que destapó el cuarto corte.** A las 18:28 del 2026-10-28 la luz se fue por cuarta vez. Al volver, el SSD de
+midgard llegó tarde y `/var/lib/bifrost` no se montó: Hive pasó 77 min sin bus, Baldr dio el parte por bueno y la
+alerta de la plataforma tardó 33 min.
 
 ### Añadido
 - **Vigilancia de las piezas de Hive en la plataforma** (`rules/hive-alertas.yml`, con sus pruebas).
@@ -36,6 +36,27 @@ tercero en los dos hosts, y dio el parte por push.
     Avisan `ZitadelRespaldoAtrasado` (más de 26 h), `ZitadelRespaldoFallido` y `ZitadelRespaldoSinMetricas`.
   - **Nidavellir caído** ya lo cubría `ThorSinMetricas`. El README de `deploy/cd` añade los contenedores y
     timers de Zitadel a la configuración de Thor en nidavellir.
+
+### Corregido
+- **Baldr recupera un montaje que cayó por su dependencia y lo que corría sin él** (ADR-0011 1.1.0). En el
+  corte del 2026-10-28 a las 18:28, el SSD de midgard no apareció antes de su `device-timeout` y
+  `/var/lib/bifrost` quedó sin montar: `bifrost-nats` en bucle y Hive 77 min sin bus, con un parte de
+  Baldr que decía que todo iba bien.
+  - Reintenta también el montaje `inactive` sin trabajo en cola, no solo el `failed`. El que aún pasa su
+    fsck se sigue esperando.
+  - Tras recuperarlo, reinicia los contenedores que ya corrían con un bind por debajo de él.
+  - Cuenta como pendiente un contenedor en bucle de reinicios o `unhealthy`.
+  - El ejemplo de midgard añade `/srv/rapido`, `/var/lib/bifrost` y `/var/lib/morocota` a
+    `BALDR_MONTAJES`.
+  - `prueba-baldr.sh`: 72/72 (10 nuevas).
+
+## [0.5.21] - 2026-10-28
+
+**Baldr, el protocolo tras un apagón.** El 2026-10-28 hubo tres cortes de luz: de 7 h 47 min, 7 min y 11 min.
+Tras el primero, el arranque dejó cosas mal sin que nada avisara. Baldr ya gestionó solo el segundo y el
+tercero en los dos hosts, y dio el parte por push.
+
+### Añadido
 - **Baldr, el protocolo tras un apagón** (ADR-0011). Corre una vez tras cada arranque en midgard y en
   nidavellir. El apagón del 2026-10-28 (7 h 47 min) dejó unidades de arranque fallidas, un montaje del NAS
   caído con su contenedor, un respaldo lanzado antes que el NAS y un catálogo de Fáfnir sin inventarios,
@@ -51,17 +72,6 @@ tercero en los dos hosts, y dio el parte por push.
   Avisan `UnidadFallida` y `ContenedorCaido`, sin duplicar lo que ya cubre `yggdrasil_servicio_ok`.
 
 ### Corregido
-- **Baldr recupera un montaje que cayó por su dependencia y lo que corría sin él** (ADR-0011 1.1.0). En el
-  corte del 2026-10-28 a las 18:28, el SSD de midgard no apareció antes de su `device-timeout` y
-  `/var/lib/bifrost` quedó sin montar: `bifrost-nats` en bucle y Hive 77 min sin bus, con un parte de
-  Baldr que decía que todo iba bien.
-  - Reintenta también el montaje `inactive` sin trabajo en cola, no solo el `failed`. El que aún pasa su
-    fsck se sigue esperando.
-  - Tras recuperarlo, reinicia los contenedores que ya corrían con un bind por debajo de él.
-  - Cuenta como pendiente un contenedor en bucle de reinicios o `unhealthy`.
-  - El ejemplo de midgard añade `/srv/rapido`, `/var/lib/bifrost` y `/var/lib/morocota` a
-    `BALDR_MONTAJES`.
-  - `prueba-baldr.sh`: 70/70 (10 nuevas).
 - **`yggdrasil-arranque` reintenta si el stack no converge** (`Restart=on-failure`, 5 veces en 20 min).
   Tras los apagones del 2026-10-24 y el 2026-10-28 falló porque Nornas aún no estaba sano, y nadie se
   enteró.
@@ -859,7 +869,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...HEAD
+[0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
 [0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...v0.5.20
 [0.5.19]: https://github.com/higerotech/yggdrasil/compare/v0.5.18...v0.5.19
