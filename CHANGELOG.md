@@ -9,6 +9,17 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Cambiado
+- **Los proveedores tienen nombre y el SLO de throughput es su garantía** (`wan:slo_throughput_mbps`).
+  `wan1` es Servitel (1000/1000 Mbps) y `wan2` es NetUno (400/400 Mbps), que sustituyó a Silverdata
+  (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan: los umbrales pasan de 800/800 y
+  800/400 a **900/900 y 360/360**. Con el umbral viejo, `WanThroughputBajo` llevaba días disparada para wan2
+  a 420 Mbps de bajada, por encima de lo contratado. Sobre los 30 días previos, los umbrales nuevos solo
+  habrían alertado del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps. Prueba nueva
+  `tests/throughput.test.yml` (falla con las reglas de develop). El panel de throughput de Odín dibuja
+  el SLO de cada WAN en vez de un umbral fijo de 800. Glosario, charter, PRD, arquitectura y despliegue
+  nombran a los proveedores.
+
 ### Corregido
 - **El MSS de los equipos desviados por PIA** (`deploy/host/pia-tunel.sh`, ADR-0009 1.1.2). La tabla
   `inet yggdrasil_pia` gana la cadena `mss`, que recorta el SYN de lo que sale por `pia0` a la MTU del túnel

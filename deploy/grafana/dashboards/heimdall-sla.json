@@ -1,6 +1,6 @@
 {
   "uid": "heimdall-sla",
-  "title": "Heimdall · SLA de internet (ISP1 vs ISP2)",
+  "title": "Heimdall · SLA de internet (Servitel vs NetUno)",
   "tags": [
     "yggdrasil",
     "heimdall",
@@ -410,7 +410,7 @@
     {
       "id": 6,
       "type": "timeseries",
-      "title": "Throughput por WAN (Mbps) · SLO = 80 % del nominal contratado",
+      "title": "Throughput por WAN (Mbps) · SLO = garantía contratada (Servitel 900, NetUno 360)",
       "datasource": {
         "type": "prometheus",
         "uid": "mimir"
@@ -431,31 +431,51 @@
           "legendFormat": "{{wan}} {{direccion}}",
           "refId": "A",
           "format": "time_series"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "mimir"
+          },
+          "expr": "max by (wan) (wan:slo_throughput_mbps)",
+          "legendFormat": "SLO {{wan}}",
+          "refId": "B",
+          "format": "time_series"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "thresholds"
+            "mode": "palette-classic"
           },
           "unit": "none",
           "decimals": 0,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
               {
-                "color": "red",
-                "value": null
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
               },
               {
-                "color": "green",
-                "value": 800
+                "id": "custom.lineWidth",
+                "value": 1
               }
             ]
           }
-        },
-        "overrides": []
+        ]
       },
       "options": {
         "legend": {

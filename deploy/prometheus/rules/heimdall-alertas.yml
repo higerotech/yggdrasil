@@ -1,6 +1,7 @@
 # Alertas del contrato (tabla "Alertas" en docs/02-design/architecture.md). Umbrales SLO de
 # Gate 0: pérdida < 1 %, p95 < 500 ms (Degradado), p95 < 200 ms (apto_llamadas), throughput
-# ≥ 80 % del nominal contratado por WAN y dirección (`wan:slo_throughput_mbps`, recording).
+# ≥ el % del plan que garantiza cada proveedor, por WAN y dirección (`wan:slo_throughput_mbps`,
+# recording: Servitel en wan1 900/900, NetUno en wan2 360/360).
 # `HogarSinRuta` es la única que no mira un enlace sino la tabla `main` (la ruta de la casa). Las anotaciones `estado` y `apto_llamadas` las consume el flujo de Nornas.
 groups:
   - name: heimdall_alertas
@@ -42,7 +43,7 @@ groups:
       # Dos mediciones consecutivas por debajo (cada WAN se mide cada 6 h → for: 12h).
       # Vigila las DOS direcciones: hasta el 2026-09-16 solo miraba la bajada, así que una caída
       # de la subida de cualquiera de las dos WAN pasaba inadvertida. El umbral no está escrito a
-      # mano: sale de `wan:slo_throughput_mbps`, que codifica el nominal contratado con cada ISP.
+      # mano: sale de `wan:slo_throughput_mbps`, que codifica la garantía contratada con cada ISP.
       - alert: WanThroughputBajo
         expr: >
           wan_throughput_mbps < on (wan, direccion) wan:slo_throughput_mbps
