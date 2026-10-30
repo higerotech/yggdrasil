@@ -62,8 +62,8 @@ C4Deployment
     Deployment_Node(tablet, "Galaxy Tab 2 en la pared", "Android 7.1, WebView 81, Wi-Fi") {
         Container(hlidskjalf, "Hlidskjalf", "APK kiosco", "GET /hlidskjalf/ y /resumen con Bearer de lectura")
     }
-    System_Ext(isp1, "ISP 1 (wan1)", "1000/1000 Mbps")
-    System_Ext(isp2, "ISP 2 (wan2)", "1000/500 Mbps, adaptador USB")
+    System_Ext(isp1, "Servitel (wan1)", "1000/1000 Mbps")
+    System_Ext(isp2, "NetUno (wan2)", "400/400 Mbps, adaptador USB")
     System_Ext(ntfy, "ntfy", "Tema privado de la casa")
     Rel(actions, ghcr, "push imagenes", "sha-7")
     Rel(actions, hook, "workflow_run firmado", "HTTPS")

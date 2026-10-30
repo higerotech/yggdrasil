@@ -56,6 +56,7 @@ jobs:
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/saga-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/fafnir-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/hive-alertas.test.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/throughput.test.yml
           python3 deploy/prometheus/tests/intervalos.py   # 2 x intervalo < lookback: series consultables
       - name: Saga (Tempo) -config.verify
         run: docker run --rm -v "$PWD/deploy/tempo:/etc/tempo:ro" "$TEMPO" -config.file=/etc/tempo/tempo.yaml -config.verify=true
