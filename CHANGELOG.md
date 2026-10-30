@@ -10,6 +10,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
 ### Cambiado
+- **Los proveedores tienen nombre y el SLO de throughput es su garantía** (`wan:slo_throughput_mbps`).
+  `wan1` es Servitel (1000/1000 Mbps) y `wan2` es NetUno (400/400 Mbps), que sustituyó a Silverdata
+  (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan: los umbrales pasan de 800/800 y
+  800/400 a **900/900 y 360/360**. Con el umbral viejo, `WanThroughputBajo` llevaba días disparada para wan2
+  a 420 Mbps de bajada, por encima de lo contratado. Sobre los 30 días previos, los umbrales nuevos solo
+  habrían alertado del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps. Prueba nueva
+  `tests/throughput.test.yml` (falla con las reglas de develop). El panel de throughput de Odín dibuja
+  el SLO de cada WAN en vez de un umbral fijo de 800. Glosario, charter, PRD, arquitectura y despliegue
+  nombran a los proveedores.
 - **El balanceador da más peso a Servitel** (`deploy/host/wan-balancer.sh`). La ruta multipath pasa de 1:1 a
   **5:2**, en proporción a los planes: Servitel (wan1) vende 1000/1000 y NetUno (wan2) 400/400. Con 1:1, la
   mitad de las conexiones de la casa iban al enlace de 400, que además pierde paquetes a ráfagas desde el

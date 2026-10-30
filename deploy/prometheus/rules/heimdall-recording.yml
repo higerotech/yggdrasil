@@ -66,22 +66,25 @@ groups:
     # deploy/prometheus/tests/intervalos.py exige intervalos <= 1m en el CI.
     interval: 1m
     rules:
-      # SLO de throughput = 80 % del nominal CONTRATADO con cada ISP (decisión de Gate 0).
-      # El 800 Mbps de Gate 0 sale de suponer 1 Gbps simétrico; no es el umbral, es un caso
-      # particular de la regla. El ISP2 vende 1:0.5, así que su subida contrata 500 Mbps y su
-      # umbral es 400, no 800. Codificarlo aquí evita que el contrato viva solo en la cabeza de
-      # quien opera y hace que un cambio de plan sea un commit trazable.
+      # SLO de throughput = el porcentaje del plan que GARANTIZA por contrato cada proveedor
+      # (decisión de Gate 0: el 80 % de entonces era la garantía del ISP2 de aquella época).
+      # Codificarlo aquí evita que el contrato viva solo en la cabeza de quien opera y hace que
+      # un cambio de plan sea un commit trazable. Planes vigentes desde el 2026-10-30:
       #
-      #   wan1  ISP1  1000 / 1000 Mbps  ->  800 bajada / 800 subida
-      #   wan2  ISP2  1000 /  500 Mbps  ->  800 bajada / 400 subida
+      #   wan1  Servitel  1000 / 1000 Mbps, garantía 90 %  ->  900 bajada / 900 subida
+      #   wan2  NetUno     400 /  400 Mbps, garantía 90 %  ->  360 bajada / 360 subida
+      #
+      # wan2 era Silverdata (1000 / 500, garantía 80 %: 800 / 400) hasta el cambio a NetUno
+      # hacia el 2026-10-19. Con estos umbrales, en los 30 días previos wan1 no habría alertado
+      # (una sola lectura de subida bajo 900, 828 Mbps) y wan2 solo entre el 21 y el 24-oct,
+      # cuando NetUno entregó 180-370 Mbps de bajada.
       #
       # `* 0 +` hereda las etiquetas (wan, direccion, job, instance) de la métrica de Sleipnir,
       # así que el umbral casa 1:1 con la serie que vigila.
       - record: wan:slo_throughput_mbps
         expr: |
-          (wan_throughput_mbps{wan="wan1"}                    * 0 + 800)
-          or (wan_throughput_mbps{wan="wan2", direccion="down"} * 0 + 800)
-          or (wan_throughput_mbps{wan="wan2", direccion="up"}   * 0 + 400)
+          (wan_throughput_mbps{wan="wan1"}    * 0 + 900)
+          or (wan_throughput_mbps{wan="wan2"} * 0 + 360)
 
   - name: heimdall_disponibilidad_30d
     # 1m: ver heimdall_slo_throughput.

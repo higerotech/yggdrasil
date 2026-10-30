@@ -1,0 +1,79 @@
+# Pruebas del SLO de throughput (wan:slo_throughput_mbps en rules/heimdall-recording.yml) y de
+# WanThroughputBajo (rules/heimdall-alertas.yml). El umbral es la garantía contratada: Servitel
+# (wan1) 1000/1000 al 90 % = 900/900; NetUno (wan2) 400/400 al 90 % = 360/360.
+#   promtool test rules deploy/prometheus/tests/throughput.test.yml
+rule_files:
+  - ../rules/heimdall-recording.yml
+  - ../rules/heimdall-alertas.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: umbrales por proveedor, y NetUno a 420 Mbps de bajada cumple su plan
+    interval: 1m
+    input_series:
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="down"}'
+        values: '956x840'
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="up"}'
+        values: '941x840'
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="down"}'
+        values: '420x840'
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="up"}'
+        values: '815x840'
+      - series: 'wan_throughput_medicion_ok{job="sleipnir", instance="sonda", wan="wan1"}'
+        values: '1x840'
+      - series: 'wan_throughput_medicion_ok{job="sleipnir", instance="sonda", wan="wan2"}'
+        values: '1x840'
+    promql_expr_test:
+      - expr: wan:slo_throughput_mbps
+        eval_time: 10m
+        exp_samples:
+          - labels: 'wan:slo_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="down"}'
+            value: 900
+          - labels: 'wan:slo_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="up"}'
+            value: 900
+          - labels: 'wan:slo_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="down"}'
+            value: 360
+          - labels: 'wan:slo_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="up"}'
+            value: 360
+    alert_rule_test:
+      - eval_time: 13h
+        alertname: WanThroughputBajo
+        exp_alerts: []
+
+  - name: NetUno bajo su garantía (300 de 360) dos mediciones seguidas
+    interval: 1m
+    input_series:
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="down"}'
+        values: '300x840'
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan2", direccion="up"}'
+        values: '400x840'
+      - series: 'wan_throughput_medicion_ok{job="sleipnir", instance="sonda", wan="wan2"}'
+        values: '1x840'
+    alert_rule_test:
+      - eval_time: 11h
+        alertname: WanThroughputBajo
+        exp_alerts: []          # aún dentro del for de 12 h
+      - eval_time: 13h
+        alertname: WanThroughputBajo
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: heimdall, wan: wan2, direccion: down}
+            exp_annotations:
+              resumen: "wan2 bajo el SLO de down: 300 Mbps"
+
+  - name: Servitel a 880 de subida incumple su garantía de 900
+    interval: 1m
+    input_series:
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="down"}'
+        values: '950x840'
+      - series: 'wan_throughput_mbps{job="sleipnir", instance="sonda", wan="wan1", direccion="up"}'
+        values: '880x840'
+      - series: 'wan_throughput_medicion_ok{job="sleipnir", instance="sonda", wan="wan1"}'
+        values: '1x840'
+    alert_rule_test:
+      - eval_time: 13h
+        alertname: WanThroughputBajo
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: heimdall, wan: wan1, direccion: up}
+            exp_annotations:
+              resumen: "wan1 bajo el SLO de up: 880 Mbps"
