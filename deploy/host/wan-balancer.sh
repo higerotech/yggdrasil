@@ -9,8 +9,13 @@
 
 set -u
 
-WAN1_IF="wan1"; WAN1_GW="192.168.1.1"; WAN1_TABLE="wan1"; WAN1_W=1
-WAN2_IF="wan2"; WAN2_GW="192.168.2.1"; WAN2_TABLE="wan2"; WAN2_W=1
+# Pesos del multipath en proporción al plan contratado (2026-10-30): Servitel en wan1 vende
+# 1000/1000 y NetUno en wan2 400/400, así que 5:2. Con 1:1 la mitad de las conexiones iban al
+# enlace de 400. El reparto es por conexión (fib_multipath_hash_policy=1), no por byte: una
+# descarga sola va entera por la WAN que le toque. Un cambio aquí exige reiniciar el servicio:
+# con el estado "11" estable, apply_default no vuelve a correr.
+WAN1_IF="wan1"; WAN1_GW="192.168.1.1"; WAN1_TABLE="wan1"; WAN1_W=5
+WAN2_IF="wan2"; WAN2_GW="192.168.2.1"; WAN2_TABLE="wan2"; WAN2_W=2
 
 # Clientes anclados: IPs de LAN que siempre salen por una WAN concreta.
 # (La MAC se fija a su IP con dhcp-host en dnsmasq; aqui se enruta la IP.)

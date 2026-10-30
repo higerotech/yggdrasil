@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Cambiado
+- **El balanceador da más peso a Servitel** (`deploy/host/wan-balancer.sh`). La ruta multipath pasa de 1:1 a
+  **5:2**, en proporción a los planes: Servitel (wan1) vende 1000/1000 y NetUno (wan2) 400/400. Con 1:1, la
+  mitad de las conexiones de la casa iban al enlace de 400, que además pierde paquetes a ráfagas desde el
+  cambio de proveedor. El reparto sigue siendo por conexión (`fib_multipath_hash_policy=1`).
+
 ### Corregido
 - **El MSS de los equipos desviados por PIA** (`deploy/host/pia-tunel.sh`, ADR-0009 1.1.2). La tabla
   `inet yggdrasil_pia` gana la cadena `mss`, que recorta el SYN de lo que sale por `pia0` a la MTU del túnel
