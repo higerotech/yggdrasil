@@ -352,4 +352,6 @@ para cerrar Gate 4 es de Jeremi y queda en la checklist.
   funcionando y `deploy.sh` es la vía manual.
 - **Hardware**: HDD con sectores pendientes al alza, SSD de datos que se cayó del bus el 2026-10-19,
   adaptador USB de `wan2` que puede colgarse al arrancar, sin UPS. Thor y sus alertas los vigilan;
-  no los arreglan.
+  no los arreglan. Desde el 2026-10-30 fallan **los dos** adaptadores de las WAN, en tres puertos de la
+  tarjeta USB 3.0 VIA VL805 (`-71`, `Tx timeout`). ADR-0012 propone sustituirla por una NIC PCIe de dos
+  puertos y mover aplicaciones a nidavellir tras un [piloto de una semana](piloto-nidavellir.md).
