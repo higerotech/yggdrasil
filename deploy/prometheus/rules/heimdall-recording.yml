@@ -79,12 +79,19 @@ groups:
       # (una sola lectura de subida bajo 900, 828 Mbps) y wan2 solo entre el 21 y el 24-oct,
       # cuando NetUno entregó 180-370 Mbps de bajada.
       #
+      # TOPE OPERATIVO de wan2 desde el 2026-11-01: el adaptador de NetUno va en un USB 2.0 de la
+      # placa (2-1.1, ehci) porque la tarjeta USB 3.0 VIA VL805 colgaba los adaptadores (ADR-0012).
+      # El USB 2.0 no llega a los 400 del plan: 9 pruebas Ookla contra los 3 servidores de
+      # Sleipnir dieron 336-346 bajada y 331-341 subida, sin pérdida. El tope es 340 / 340 y el
+      # SLO aplica el mismo 90 %: 306 / 306. Con 360, WanThroughputBajo saltaría por el
+      # adaptador y no por NetUno. Volver a 360 cuando wan2 vaya en la NIC PCIe de 2 puertos.
+      #
       # `* 0 +` hereda las etiquetas (wan, direccion, job, instance) de la métrica de Sleipnir,
       # así que el umbral casa 1:1 con la serie que vigila.
       - record: wan:slo_throughput_mbps
         expr: |
           (wan_throughput_mbps{wan="wan1"}    * 0 + 900)
-          or (wan_throughput_mbps{wan="wan2"} * 0 + 360)
+          or (wan_throughput_mbps{wan="wan2"} * 0 + 306)
 
   - name: heimdall_disponibilidad_30d
     # 1m: ver heimdall_slo_throughput.

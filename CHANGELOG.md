@@ -19,6 +19,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   ves-market completo), con prueba de estrés previa, criterios de corte y de éxito, y vuelta atrás.
 
 ### Cambiado
+- **El SLO de throughput de NetUno baja al tope del USB 2.0** (`wan:slo_throughput_mbps`, wan2 306/306). El
+  2026-11-01 el adaptador de wan2 pasó de la tarjeta USB 3.0 VIA VL805, que colgaba los dos adaptadores
+  (ADR-0012), a un puerto USB 2.0 de la placa. Nueve pruebas Ookla contra los tres servidores de Sleipnir
+  dieron 336–346 Mbps de bajada y 331–341 de subida, sin pérdida. El tope operativo es 340/340 y el umbral
+  aplica el mismo 90 % que el contrato: 306. Con 360, `WanThroughputBajo` habría saltado por el adaptador
+  y no por NetUno. Se vuelve a 360 cuando wan2 vaya en la NIC PCIe de dos puertos.
 - **Los proveedores tienen nombre y el SLO de throughput es su garantía** (`wan:slo_throughput_mbps`).
   `wan1` es Servitel (1000/1000 Mbps) y `wan2` es NetUno (400/400 Mbps), que sustituyó a Silverdata
   (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan: los umbrales pasan de 800/800 y
