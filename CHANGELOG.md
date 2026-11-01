@@ -9,6 +9,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **ADR-0012 (propuesto): reparto de servicios entre midgard y nidavellir.** midgard pasa a ser el router y
+  el observador: red de la casa, Heimdall y el stack de Yggdrasil. nidavellir pasa a ser el host de
+  aplicaciones. El router no se muda mientras no se cumplan tres condiciones: nidavellir 4 semanas sin
+  cuelgues, un memtest completo y una NIC PCIe para las WAN. Diagnóstico del 31-oct: las caídas de las dos
+  WAN vienen de la tarjeta USB 3.0 VIA VL805 de midgard, no de los proveedores. Nuevo
+  `docs/05-deployment/piloto-nidavellir.md`: una semana en dos olas (canario y transmission; luego
+  ves-market completo), con prueba de estrés previa, criterios de corte y de éxito, y vuelta atrás.
+
 ### Cambiado
 - **Los proveedores tienen nombre y el SLO de throughput es su garantía** (`wan:slo_throughput_mbps`).
   `wan1` es Servitel (1000/1000 Mbps) y `wan2` es NetUno (400/400 Mbps), que sustituyó a Silverdata
