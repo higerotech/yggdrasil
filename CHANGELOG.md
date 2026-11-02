@@ -19,6 +19,17 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   ves-market completo), con prueba de estrés previa, criterios de corte y de éxito, y vuelta atrás.
 
 ### Cambiado
+- **hive y morocota pasan a nidavellir con su infraestructura** (ADR-0012 0.2.0, fase 2 adelantada). El
+  2026-11-01 a las 20:32 UTC el SSD de datos de midgard se cayó del bus SATA con los almacenes de Bifröst y
+  morocota. En la noche del 1 al 2 de noviembre se mudaron a nidavellir hive, morocota, Andvari, Bifröst y
+  Hermod (21 contenedores). Bifröst y morocota se restauraron de los respaldos de esa madrugada y Andvari y
+  Hermod se copiaron vivos. No se publica nada nuevo en la LAN: las redes viajan con sus clientes.
+  - **`BifrostCaido`** (`rules/hive-alertas.yml`) deja la sonda de blackbox al loopback de midgard y mira la
+    salud del contenedor que publica el Thor de nidavellir. Avisa con una muestra mala en cada ventana de
+    5 min durante 6 min, para no perder un bucle de reinicios. Fuera el job `bifrost` y el módulo
+    `http_nats_salud`. Pruebas nuevas en `tests/hive-alertas.test.yml`: bucle, caída total y fallo suelto.
+  - El README de Thor y `yggdrasil-baldr.ejemplo` reparten la vigilancia entre los dos hosts. El piloto de
+    nidavellir sigue, con hive y morocota ya dentro.
 - **El SLO de throughput de NetUno baja al tope del USB 2.0** (`wan:slo_throughput_mbps`, wan2 306/306). El
   2026-11-01 el adaptador de wan2 pasó de la tarjeta USB 3.0 VIA VL805, que colgaba los dos adaptadores
   (ADR-0012), a un puerto USB 2.0 de la placa. Nueve pruebas Ookla contra los tres servidores de Sleipnir

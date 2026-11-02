@@ -1,27 +1,32 @@
-# Alertas de las piezas de Hive que viven en la plataforma: Bifröst (NATS de midgard), el bus del motor,
-# y Zitadel en nidavellir, el IdP de las personas (ADR-0029 de Hive). Sin etiqueta `wan`: Nornas las
-# entrega por ntfy.
+# Alertas de las piezas de Hive que viven en la plataforma: Bifröst (NATS), el bus del motor, y Zitadel,
+# el IdP de las personas (ADR-0029 de Hive). Desde el 2026-11-02 las dos corren en nidavellir (ADR-0012,
+# fase 2). Sin etiqueta `wan`: Nornas las entrega por ntfy.
 #
-# Las sondas fallan con `avg_over_time(...) < 0.5` y no con `== 0`. Un contenedor en bucle de reinicios
-# responde de vez en cuando: el 2026-10-28 `bifrost-nats` pasó 77 min reiniciándose cada minuto, la
-# muestra suelta en que estaba en marcha volvía a poner a cero el `for` de ServicioDePlataformaCaido y
-# el aviso llegó 33 min tarde.
+# Un contenedor en bucle de reinicios responde de vez en cuando: el 2026-10-28 `bifrost-nats` pasó 77 min
+# reiniciándose cada minuto, la muestra suelta en que estaba en marcha volvía a poner a cero el `for` de
+# ServicioDePlataformaCaido y el aviso llegó 33 min tarde. Por eso BifrostCaido no mira la última muestra.
 groups:
   - name: hive
     rules:
       # --- Bifröst ---------------------------------------------------------------------------------
-      # Más de la mitad de las sondas de 2 min fallidas, durante 1 min: avisa a los ~2 min de caer.
+      # Hasta el 2026-11-02 era una sonda de blackbox al `/healthz` de NATS en el loopback de midgard. En
+      # nidavellir ese puerto no sale del host, así que mira la salud del contenedor que publica Thor de
+      # nidavellir una vez por minuto (la del healthcheck de la imagen, que pide `/healthz` con JetStream).
+      # Thor cuenta como sano un contenedor recién arrancado, y en un bucle de reinicios alguna muestra sale
+      # sana: avisa cuando hay al menos una muestra mala en cada ventana de 5 min durante 6 min seguidos.
+      # Un fallo suelto no llega, porque su ventana dura 5 min. Si es todo nidavellir, avisa ThorSinMetricas.
       - alert: BifrostCaido
-        expr: avg_over_time(probe_success{job="bifrost"}[2m]) < 0.5
-        for: 1m
+        expr: min_over_time(yggdrasil_servicio_ok{tipo="contenedor",nombre="bifrost-nats"}[5m]) == 0
+        for: 6m
         labels:
           severity: critical
           servicio: bifrost
         annotations:
           resumen: "Bifröst (NATS) no está sano: el motor de Hive no procesa mensajes"
           descripcion: >-
-            `/healthz` de NATS no responde ok. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`,
-            comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `/dev/sdb1[/bifrost]`.
+            El contenedor `bifrost-nats` de nidavellir no está sano o se reinicia. Revisar `docker logs bifrost-nats`.
+            Con `Can't start JetStream`, comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe
+            mostrar `[/srv/datos/bifrost]`.
 
       # --- Zitadel ---------------------------------------------------------------------------------
       # Solo si la casa tiene ruta: sin ella ya salta HogarSinRuta.

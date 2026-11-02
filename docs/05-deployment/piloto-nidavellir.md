@@ -30,6 +30,11 @@ preguntas:
 **Fuera del piloto:** el router y Heimdall (ADR-0002), el stack de Yggdrasil (es el observador), hive y
 morocota (dependen de la infraestructura compartida de midgard).
 
+> **2026-11-02:** hive y morocota ya están en nidavellir, con Andvari, Bifröst y Hermod, tras caerse el SSD
+> de midgard ([revisión de ADR-0012](../00-project/adr/ADR-0012-ubicacion-servicios-midgard-nidavellir.md#revisión-del-2026-11-02-la-fase-2-se-adelanta-por-la-caída-del-ssd)).
+> El piloto sigue siendo necesario: la prueba de estrés del día 1 importa más ahora que nidavellir los
+> lleva. La línea base y los criterios de holgura deben contar con su carga.
+
 ## Calendario
 
 ```mermaid
