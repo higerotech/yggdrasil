@@ -28,6 +28,7 @@ env:
   MOSQ: eclipse-mosquitto:2.0.22
   NODERED: nodered/node-red:4.1.14-22
   TEMPO: grafana/tempo:3.1.0
+  SOCAT: alpine/socat:1.8.1.1
 
 jobs:
   configs:
@@ -154,7 +155,7 @@ jobs:
         run: docker run --rm -v "$PWD/deploy:/deploy:ro" aquasec/trivy:0.66.0 config --exit-code 0 --severity HIGH,CRITICAL /deploy
       - name: Trivy image (CRITICAL/HIGH, sin bloquear hasta triaje)
         run: |
-          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED" "$TEMPO"; do
+          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED" "$TEMPO" "$SOCAT"; do
             echo "== $img =="
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed "$img"
           done

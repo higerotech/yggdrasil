@@ -9,6 +9,16 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **Las trazas de hive vuelven a Saga desde nidavellir** (ADR-0008 1.1.0). Tras la fase 2 de ADR-0012, los
+  servicios de hive mandaban sus trazas a `saga:4318` por una red `yggdrasil_saga` vacía en nidavellir: no llegaban,
+  y cada worker escribía un error cada pocos segundos.
+  - **`yggdrasil-saga-rele`** (`deploy/nidavellir/saga-rele.yml`): socat con el alias `saga` en nidavellir, que
+    reenvía a midgard.
+  - **`yggdrasil-saga-puerta`** en midgard: publica el 4318 solo en la LAN y solo acepta a nidavellir
+    (`SAGA_EMISORES`, 192.168.10.2/32 por defecto). Saga sigue sin puertos publicados.
+  - **`alpine/socat:1.8.1.1`** pineada en `deploy/imagenes.md` y en el informe de Trivy.
+
 ### Cambiado
 - **hive y morocota pasan a nidavellir con su infraestructura** (ADR-0012 0.2.0, fase 2 adelantada). El
   2026-11-01 a las 20:32 UTC el SSD de datos de midgard se cayó del bus SATA con los almacenes de Bifröst y
