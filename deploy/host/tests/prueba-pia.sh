@@ -101,12 +101,14 @@ EOF
 printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/sysctl"
 chmod +x "$T/bin/"*
 export STUB="$T" PATH="$T/bin:$PATH" PIA_CONF="$T/pia.conf" PIA_CREDENCIALES="$T/pia.env" \
-    PIA_CA="$T/ca.crt" PIA_ESTADO_DIR="$T/run"
+    PIA_CA="$T/ca.crt" PIA_ESTADO_DIR="$T/run" PIA_DIRECTO="$T/directo.txt"
 : > "$T/log"; : > "$T/reglas"
 
-fallos=0
+# No `fallos`: pia-tunel.sh, que se carga aqui, cuenta con esa variable sus sondas fallidas y la pone a 0
+# en cada vuelta. Con ella, una prueba que fallaba no hacia fallar la ejecucion y desataba un rescate del tunel.
+fallidas=0
 ok()  { echo "ok   $1"; }
-mal() { echo "FALLO $1"; fallos=$((fallos + 1)); }
+mal() { echo "FALLO $1"; fallidas=$((fallidas + 1)); }
 es()  { if [ "$2" = "$3" ]; then ok "$1"; else mal "$1 (esperado '$3', sale '$2')"; fi; }
 hay() { if grep -qF -- "$3" "$2" 2>/dev/null; then ok "$1"; else mal "$1"; fi; }
 no_hay() { if grep -qF -- "$3" "$2" 2>/dev/null; then mal "$1"; else ok "$1"; fi; }
@@ -204,6 +206,35 @@ vuelta
 es "PIA_MACS vacia: sin desvio" "$(estado desvio)" 0
 es "PIA_MACS vacia: cero equipos" "$(estado equipos)" 0
 
+# --- Excepciones: un equipo sale directo a unos puertos y redes (Hive: Atlas y Meta) ---------
+printf '198.51.100.0/24\n# un comentario\n\nno-es-red\n203.0.113.0/25 resto\n' > "$T/directo.txt"
+printf 'PIA_MACS=30:9c:23:e0:fb:a3,f4:b5:20:19:46:59\nPIA_DIRECTO_MACS=F4:B5:20:19:46:59\nPIA_DIRECTO_PUERTOS=27015-27017,no,443\n' > "$T/pia.conf"
+: > "$T/log"
+vuelta
+hay "las MAC con excepciones van en su set, en minusculas" "$T/nft-tabla" "set directos"
+hay "y solo esas" "$T/nft-tabla" "        elements = { f4:b5:20:19:46:59 }"
+hay "los puertos salen directo" "$T/nft-tabla" 'ether saddr @directos meta nfproto ipv4 tcp dport { 27015-27017, 443 } accept'
+hay "las redes salen directo" "$T/nft-tabla" 'ip daddr @redes_directas accept'
+hay "las redes validas, sin comentarios ni restos" "$T/nft-tabla" "elements = { 198.51.100.0/24, 203.0.113.0/25 }"
+hay "las redes se fusionan si se solapan" "$T/nft-tabla" "auto-merge"
+hay "una red invalida se ignora y se registra" "$T/log" "'no-es-red' no es una red IPv4"
+hay "un puerto invalido se ignora y se registra" "$T/log" "PIA_DIRECTO_PUERTOS: 'no' no es un puerto"
+antes=$(grep -n 'accept$' "$T/nft-tabla" | head -1 | cut -d: -f1)
+marca=$(grep -n 'meta mark set' "$T/nft-tabla" | cut -d: -f1)
+[ -n "$antes" ] && [ "$antes" -lt "$marca" ] && ok "las excepciones van antes de marcar" || mal "las excepciones van antes de marcar"
+hay "el resto del equipo sigue por el tunel" "$T/nft-tabla" 'ether saddr @equipos meta nfproto ipv4 meta mark set 0x10'
+printf '198.51.100.0/24\n' > "$T/directo.txt"
+vuelta
+no_hay "un cambio en las redes rehace la tabla en la vuelta siguiente" "$T/nft-tabla" "203.0.113.0/25"
+printf 'PIA_MACS=30:9c:23:e0:fb:a3,f4:b5:20:19:46:59\n' > "$T/pia.conf"
+vuelta
+no_hay "sin PIA_DIRECTO_MACS no hay excepciones" "$T/nft-tabla" "set directos"
+no_hay "ni reglas que las usen" "$T/nft-tabla" "@directos"
+printf 'PIA_MACS=30:9c:23:e0:fb:a3,f4:b5:20:19:46:59\nPIA_DIRECTO_MACS=f4:b5:20:19:46:59\n' > "$T/pia.conf"
+rm -f "$T/directo.txt"
+vuelta
+no_hay "con MAC pero sin puertos ni redes, ninguna regla de excepcion" "$T/nft-tabla" "ether saddr @directos"
+
 # --- Fallos de PIA -----------------------------------------------------------------------
 printf 'PIA_MACS=30:9c:23:e0:fb:a3\n' > "$T/pia.conf"
 limpiar; token=""; : > "$T/log"
@@ -235,7 +266,14 @@ if [ "${NFT_REAL:-0}" = 1 ]; then
             mal "nft -c acepta la tabla del desvio (DNS a $d)"
         fi
     done
+    # Con las excepciones de Hive, y redes que se solapan: auto-merge las fusiona
+    excepciones="aa:bb:cc:dd:ee:01|27015-27017|57.144.0.0/14, 57.144.114.0/24, $(grep -v '^#' "$AQUI/../pia/directo.txt" | paste -sd, - | sed 's/,/, /g')"
+    if reglas_nft "30:9c:23:e0:fb:a3, aa:bb:cc:dd:ee:01" 192.168.10.1:5354 "$excepciones" | "$NFT_SISTEMA" -c -f -; then
+        ok "nft -c acepta la tabla con las excepciones de Hive (redes de Meta y puertos de Atlas)"
+    else
+        mal "nft -c acepta la tabla con las excepciones de Hive (redes de Meta y puertos de Atlas)"
+    fi
 fi
 
 echo
-[ "$fallos" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallos prueba(s) fallan"; exit 1; }
+[ "$fallidas" -eq 0 ] && echo "todas las pruebas pasan" || { echo "$fallidas prueba(s) fallan"; exit 1; }
