@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.24] - 2026-11-02
+
+**Hive y morocota en nidavellir.** La caída del SSD de datos de midgard adelanta la fase 2 de la ADR-0012:
+hive, morocota y su infraestructura (Andvari, Bifröst y Hermod) pasan a nidavellir. Yggdrasil vigila
+Bifröst desde el Thor de nidavellir y deja de dar la falsa `BifrostCaido` de la sonda al loopback de midgard.
+
 ### Cambiado
 - **hive y morocota pasan a nidavellir con su infraestructura** (ADR-0012 0.2.0, fase 2 adelantada). El
   2026-11-01 a las 20:32 UTC el SSD de datos de midgard se cayó del bus SATA con los almacenes de Bifröst y
@@ -919,7 +925,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...HEAD
+[0.5.24]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...v0.5.24
 [0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
 [0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
 [0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
