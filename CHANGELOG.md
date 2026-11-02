@@ -10,13 +10,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
 ### Añadido
-- **Recordatorios de pago de Servitel y NetUno** (`rules/recordatorios.yml`). El 2026-11-02 Servitel cortó
-  wan1 casi 8 h por facturación: el pago vence el día 1 y el corte llega esa madrugada. Parecía una avería
-  (el router devolvía `net unreachable` y la luz PON parpadeaba). `RecordatorioPagoServitel` avisa el día 1
-  de cada mes de 08:00 a 23:59 en Caracas, con un solo push. NetUno factura el día 1 y corta el 18:
-  `RecordatorioFacturaNetUno` avisa el día 1 y `RecordatorioPagoNetUno` el 17, último día de pago. Las
-  alertas con `tipo: recordatorio` no mandan push al resolverse en Nornas ni cuentan como pendientes en
-  Baldr. Pruebas en `tests/recordatorios.test.yml`, en `flujo.test.mjs` y en `prueba-baldr.sh`.
+- **Recordatorios de pago de Servitel y NetUno** (`rules/recordatorios.yml`). El 2026-11-02 los dos cortaron
+  por facturación: Servitel wan1 de madrugada, casi 8 h, y NetUno wan2 a media mañana. Los dos parecían
+  averías: el router de Servitel devolvía `net unreachable` y la luz PON parpadeaba; el de NetUno rechazaba
+  todo con `admin prohibited filter`. `RecordatorioPagoServitel` y `RecordatorioPagoNetUno` avisan el día 1
+  de cada mes de 08:00 a 23:59 en Caracas, con un solo push cada una. Las alertas con `tipo: recordatorio`
+  no mandan push al resolverse en Nornas ni cuentan como pendientes en Baldr. Pruebas en
+  `tests/recordatorios.test.yml`, en `flujo.test.mjs` y en `prueba-baldr.sh`.
 - **Las trazas de hive vuelven a Saga desde nidavellir** (ADR-0008 1.1.0). Tras la fase 2 de ADR-0012, los
   servicios de hive mandaban sus trazas a `saga:4318` por una red `yggdrasil_saga` vacía en nidavellir: no llegaban,
   y cada worker escribía un error cada pocos segundos.
