@@ -9,7 +9,7 @@
 # solo alcanza a Saga.
 services:
   saga-rele:
-    image: alpine/socat:1.8.1.1
+    image: alpine/socat:1.8.1.3@sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed
     container_name: yggdrasil-saga-rele
     restart: unless-stopped            # RNF02: vuelve solo tras un corte de energía
     security_opt:

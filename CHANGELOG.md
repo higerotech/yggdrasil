@@ -24,7 +24,9 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
     reenvía a midgard.
   - **`yggdrasil-saga-puerta`** en midgard: publica el 4318 solo en la LAN y solo acepta a nidavellir
     (`SAGA_EMISORES`, 192.168.10.2/32 por defecto). Saga sigue sin puertos publicados.
-  - **`alpine/socat:1.8.1.1`** pineada en `deploy/imagenes.md` y en el informe de Trivy.
+  - **`alpine/socat:1.8.1.3`**, pineada por digest en el Compose, en `deploy/imagenes.md` y en el informe de
+    Trivy. Es una excepción a la regla de las dos semanas, decisión de Jeremi: la 1.8.1.1 trae socat con
+    CVE-2026-56123 (CRÍTICA), arreglada en socat 1.8.1.2.
 
 ## [0.5.24] - 2026-11-02
 
