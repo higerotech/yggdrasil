@@ -136,6 +136,10 @@ El firewall vive en `/etc/nftables.conf` (proyecto de routing, con copia de trab
 - wan2: **MSS fijo de 1440**. El camino del ISP2 descarta los paquetes de 1500 B sin devolver
   "fragmentation needed" (1480 pasan), y `rt mtu` no sirve porque toma el MTU de la interfaz.
   wan1 sigue con `rt mtu`.
+- pia0: **`rt mtu`** (1380, así que MSS 1340), en la cadena `mss` de la tabla `inet yggdrasil_pia` que escribe
+  `pia-tunel.sh`, no en este fichero. Aquí sí sirve `rt mtu`: la MTU de la interfaz es la del túnel. Faltó hasta
+  el 2026-10-28: los equipos desviados anunciaban 1460, y el TLS con Resend (un balanceador de AWS) se colgaba
+  al llegar el certificado, mientras el saludo SMTP pasaba.
 
 Comprobación: `nft list chain inet router mss_reenvio` (los contadores suben) y un SYN capturado
 en wan2 con `mss 1440`. Si el ISP2 cambia, volver a medir con `ping -M do -s <n> -I <ip de wan2>`.

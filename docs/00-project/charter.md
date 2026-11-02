@@ -58,7 +58,7 @@ mindmap
 - Detección de caída de un ISP en < 2 min con notificación al móvil (SLO de alertado aceptado en Gate 3: ≈ 2,5 min de punta a punta).
 - Evidencia histórica exportable para reclamos al proveedor (≥ 30 días de retención).
 - Media de disponibilidad mensual de internet del hogar (≥ 1 WAN operativa) y por ISP, calculada automáticamente.
-- Cada ISP sostiene p95 < 500 ms y throughput ≥ 80 % del nominal contratado por dirección (wan1 800↓/800↑, wan2 800↓/400↑ — ver revisión al pie); p95 < 200 ms como referencia para llamadas críticas.
+- Cada ISP sostiene p95 < 500 ms y throughput ≥ la garantía contratada por dirección (Servitel en wan1 900↓/900↑, NetUno en wan2 360↓/360↑ — ver revisiones al pie); p95 < 200 ms como referencia para llamadas críticas.
 - Consumo del stack de monitoreo dentro del presupuesto de RAM.
 
 ## Riesgos de alto nivel
@@ -83,3 +83,15 @@ mindmap
 > - Fenrir se integró y salió de midgard (0.5.3).
 > - La métrica de caída cita el SLO de alertado aceptado en Gate 3.
 > - El jitter sigue en el alcance: se implementa tras la 0.5.13 (decisión de Jeremi, 2026-10-19).
+
+> **Revisión 2026-10-30 — proveedores con nombre y SLO = garantía contratada.** `wan1` es
+> **Servitel** (1000/1000 Mbps simétrico) y `wan2` es **NetUno** (400/400 Mbps simétrico), que
+> sustituyó a Silverdata (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan, y el
+> SLO de throughput pasa a ser esa garantía: **wan1 900↓/900↑, wan2 360↓/360↑**
+> (`wan:slo_throughput_mbps`). El 80 % de Gate 0 era la garantía de Silverdata; la regla de negocio
+> («el umbral es lo que el contrato garantiza») no cambia, cambian los contratos. Calibración sobre
+> los 30 días previos: wan1 no habría alertado (una sola lectura de subida bajo 900, de 828 Mbps) y
+> wan2 solo del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps de bajada. Con el umbral anterior,
+> `WanThroughputBajo` seguía disparada para wan2 a 420 Mbps de bajada, por encima de su plan. Los
+> contactos de soporte de cada proveedor no van en el repo, que es público. Planes y garantías
+> dados por el owner (Jeremi) el 2026-10-30.

@@ -10,7 +10,7 @@
 * **Nivel ASVS objetivo:** L1
 
 ## Problema y contexto
-La casa tiene dos ISPs de 1 Gbps con balanceo dual-WAN (el ISP2 es asimétrico 1:0.5 — 1 Gbps de bajada, 500 Mbps de subida; ver revisión al pie). Hoy no hay forma objetiva de saber si cada proveedor cumple su servicio: cuándo se degrada, cuánto dura una caída, qué throughput real entrega. Se necesita un servicio en el appliance que mida cada WAN de forma independiente, alerte ante degradación y acumule evidencia histórica para reclamos. Es además la primera pieza de la plataforma demo de monitoreo IoT/domótica.
+La casa tiene dos ISPs con balanceo dual-WAN: Servitel en wan1 (1000/1000 Mbps) y NetUno en wan2 (400/400 Mbps desde octubre de 2026; antes Silverdata, 1000/500; ver revisiones al pie). Hoy no hay forma objetiva de saber si cada proveedor cumple su servicio: cuándo se degrada, cuánto dura una caída, qué throughput real entrega. Se necesita un servicio en el appliance que mida cada WAN de forma independiente, alerte ante degradación y acumule evidencia histórica para reclamos. Es además la primera pieza de la plataforma demo de monitoreo IoT/domótica.
 
 ## Objetivos / No-objetivos
 Propósito del sondeo (confirmado por el owner el 2026-09-05): llevar registro del SLA que entrega cada proveedor, notificar las caídas del servicio y establecer la media de disponibilidad mensual de internet del hogar.
@@ -34,8 +34,8 @@ C4Context
         System(heimdall, "Heimdall — Monitor SLA", "Mide latencia, pérdida y throughput por WAN y emite alertas")
         System(domo, "Domótica — Nornas y Ratatosk", "Node-RED y Mosquitto, servicios de plataforma del propio Compose (ADR-0006)")
     }
-    System_Ext(isp1, "ISP 1 (wan1)", "Enlace 1 Gbps")
-    System_Ext(isp2, "ISP 2 (wan2)", "Enlace 1 Gbps")
+    System_Ext(isp1, "Servitel (wan1)", "1000/1000 Mbps")
+    System_Ext(isp2, "NetUno (wan2)", "400/400 Mbps")
     System_Ext(targets, "Objetivos de sondeo", "1.1.1.1, 8.8.8.8, 208.67.222.222 por ICMP; www.gstatic.com, 1.1.1.1 y 8.8.8.8 por TCP+TLS")
     Rel(jeremi, heimdall, "Consulta dashboards y recibe alertas", "HTTPS LAN / WireGuard")
     Rel(heimdall, isp1, "Sondea a través de", "ICMP/HTTP vía source IP de wan1")
@@ -91,7 +91,7 @@ journey
 | RF06 | Dashboard comparativo con 30 días de retención |
 | RF07 | Registrar percentiles p90, p95 y p99 de latencia por WAN como series de seguimiento (recording rules, ventana 5 min) comparables entre ISP1 e ISP2 |
 | RF08 | Calcular la disponibilidad en ventana de 30 días por WAN y del hogar (al menos una WAN operativa) y exponerla en el dashboard y en el reporte mensual |
-| RF09 | Evaluar el throughput medido contra el SLO por WAN **y dirección** (80 % del nominal contratado: wan1 800↓/800↑, wan2 800↓/400↑) y alertar (warning) tras dos mediciones consecutivas por debajo |
+| RF09 | Evaluar el throughput medido contra el SLO por WAN **y dirección** (garantía contratada con cada proveedor: Servitel en wan1 900↓/900↑, NetUno en wan2 360↓/360↑) y alertar (warning) tras dos mediciones consecutivas por debajo |
 | RNF01 | RAM total del stack ≤ 1.5 GB; CPU media < 10% |
 | RNF02 | Arranque automático tras corte de energía (restart policies) |
 | RS01 | Acceso a dashboards solo autenticado; acceso remoto solo por WireGuard |
@@ -105,7 +105,7 @@ journey
 | Latencia p95 (llamadas críticas) | < 200 ms | 5 min | Alerta info → indicador `apto_llamadas = no`; no cambia el estado del enlace | Confirmado por el owner el 2026-09-05 |
 | Latencia p90 y p99 | Sin umbral | 5 min | Solo seguimiento comparativo ISP1 vs ISP2 | Confirmado el 2026-09-05 |
 | Jitter | Sin umbral | 5 min | Solo seguimiento | Pendiente de implementar (`wan:jitter_ms:5m`), decidido el 2026-10-19 |
-| Throughput | ≥ 80 % del nominal contratado, por WAN y dirección: wan1 800↓/800↑, wan2 800↓/400↑ (ISP2 asimétrico 1:0.5) | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición calibrado ≥ 939 Mbps (Gate 3); umbral por dirección revisado el 2026-09-16 |
+| Throughput | ≥ la garantía contratada (90 % del plan), por WAN y dirección: Servitel (wan1) 900↓/900↑, NetUno (wan2) 360↓/360↑ | Medición cada 6 h; alerta tras 2 consecutivas | Alerta warning; no cambia el estado del enlace | Confirmado el 2026-09-05; techo de medición calibrado ≥ 939 Mbps (Gate 3); umbral por dirección revisado el 2026-09-16; garantía por proveedor el 2026-10-30 |
 | Disponibilidad mensual | Sin umbral de alerta; indicador por ISP y del hogar (≥ 1 WAN operativa) | 30 d | Reporte mensual y dashboard | Confirmado el 2026-09-05 |
 
 ### Hosts de sondeo
@@ -293,7 +293,7 @@ quadrantChart
 - Reporte mensual de disponibilidad por ISP generable desde el dashboard.
 - Percentiles p90, p95 y p99 de latencia por WAN visibles en el dashboard comparativo con 30 días de historia.
 - Media de disponibilidad mensual de internet del hogar y por ISP calculada automáticamente al cierre de cada mes, sin intervención manual.
-- Throughput por WAN **y dirección** evaluado contra su SLO (80 % del nominal contratado) en cada medición, con el techo de medición calibrado y documentado en el dashboard. Pendiente: el panel de Odín aún usa un umbral fijo de 800 (revisión 2026-10-19).
+- Throughput por WAN **y dirección** evaluado contra su SLO (la garantía contratada con cada proveedor) en cada medición, con el techo de medición calibrado y documentado en el dashboard. El panel de Odín dibuja el SLO de cada WAN desde el 2026-10-30.
 
 ## Dependencias y riesgos
 - Depende de: WANs operativas sobre la tarjeta VL805 (verificación pendiente con `lsusb -t`) y de Ratatosk y Nornas, servicios de plataforma del propio Compose de Yggdrasil (ADR-0006).
@@ -325,3 +325,15 @@ quadrantChart
 >   < 5 min se mantiene como intención.
 > - **Contexto C4.** Nornas y Ratatosk ya no son «existentes»: los despliega el Compose de
 >   Yggdrasil (ADR-0006).
+
+> **Revisión 2026-10-30 — proveedores con nombre y SLO = garantía contratada.** `wan1` es
+> **Servitel** (1000/1000 Mbps simétrico) y `wan2` es **NetUno** (400/400 Mbps simétrico), que
+> sustituyó a Silverdata (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan, y el
+> SLO de throughput pasa a ser esa garantía: **wan1 900↓/900↑, wan2 360↓/360↑**
+> (`wan:slo_throughput_mbps`). El 80 % de Gate 0 era la garantía de Silverdata; la regla de negocio
+> («el umbral es lo que el contrato garantiza») no cambia, cambian los contratos. Calibración sobre
+> los 30 días previos: wan1 no habría alertado (una sola lectura de subida bajo 900, de 828 Mbps) y
+> wan2 solo del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps de bajada. Con el umbral anterior,
+> `WanThroughputBajo` seguía disparada para wan2 a 420 Mbps de bajada, por encima de su plan. Los
+> contactos de soporte de cada proveedor no van en el repo, que es público. Planes y garantías
+> dados por el owner (Jeremi) el 2026-10-30.

@@ -9,6 +9,51 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.23] - 2026-11-01
+
+**Los proveedores con nombre y la tarjeta que tumbaba las WAN.** Servitel y NetUno pasan a tener nombre y
+umbral propio, el de su garantía. Entre el 30-oct y el 1-nov las dos WAN cayeron varias veces, y la causa no
+eran los proveedores sino la tarjeta USB 3.0 VIA VL805 de midgard. wan2 sale de ella a un USB 2.0 de la placa,
+y su umbral baja al techo medido de ese puerto. La ADR-0012 reparte los servicios entre midgard y nidavellir.
+
+### Añadido
+- **ADR-0012 (propuesto): reparto de servicios entre midgard y nidavellir.** midgard pasa a ser el router y
+  el observador: red de la casa, Heimdall y el stack de Yggdrasil. nidavellir pasa a ser el host de
+  aplicaciones. El router no se muda mientras no se cumplan tres condiciones: nidavellir 4 semanas sin
+  cuelgues, un memtest completo y una NIC PCIe para las WAN. Diagnóstico del 31-oct: las caídas de las dos
+  WAN vienen de la tarjeta USB 3.0 VIA VL805 de midgard, no de los proveedores. Nuevo
+  `docs/05-deployment/piloto-nidavellir.md`: una semana en dos olas (canario y transmission; luego
+  ves-market completo), con prueba de estrés previa, criterios de corte y de éxito, y vuelta atrás.
+
+### Cambiado
+- **El SLO de throughput de NetUno baja al tope del USB 2.0** (`wan:slo_throughput_mbps`, wan2 306/306). El
+  2026-11-01 el adaptador de wan2 pasó de la tarjeta USB 3.0 VIA VL805, que colgaba los dos adaptadores
+  (ADR-0012), a un puerto USB 2.0 de la placa. Nueve pruebas Ookla contra los tres servidores de Sleipnir
+  dieron 336–346 Mbps de bajada y 331–341 de subida, sin pérdida. El tope operativo es 340/340 y el umbral
+  aplica el mismo 90 % que el contrato: 306. Con 360, `WanThroughputBajo` habría saltado por el adaptador
+  y no por NetUno. Se vuelve a 360 cuando wan2 vaya en la NIC PCIe de dos puertos.
+- **Los proveedores tienen nombre y el SLO de throughput es su garantía** (`wan:slo_throughput_mbps`).
+  `wan1` es Servitel (1000/1000 Mbps) y `wan2` es NetUno (400/400 Mbps), que sustituyó a Silverdata
+  (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan: los umbrales pasan de 800/800 y
+  800/400 a **900/900 y 360/360**. Con el umbral viejo, `WanThroughputBajo` llevaba días disparada para wan2
+  a 420 Mbps de bajada, por encima de lo contratado. Sobre los 30 días previos, los umbrales nuevos solo
+  habrían alertado del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps. Prueba nueva
+  `tests/throughput.test.yml` (falla con las reglas de develop). El panel de throughput de Odín dibuja
+  el SLO de cada WAN en vez de un umbral fijo de 800. Glosario, charter, PRD, arquitectura y despliegue
+  nombran a los proveedores.
+- **El balanceador da más peso a Servitel** (`deploy/host/wan-balancer.sh`). La ruta multipath pasa de 1:1 a
+  **5:2**, en proporción a los planes: Servitel (wan1) vende 1000/1000 y NetUno (wan2) 400/400. Con 1:1, la
+  mitad de las conexiones de la casa iban al enlace de 400, que además pierde paquetes a ráfagas desde el
+  cambio de proveedor. El reparto sigue siendo por conexión (`fib_multipath_hash_policy=1`).
+
+### Corregido
+- **El MSS de los equipos desviados por PIA** (`deploy/host/pia-tunel.sh`, ADR-0009 1.1.2). La tabla
+  `inet yggdrasil_pia` gana la cadena `mss`, que recorta el SYN de lo que sale por `pia0` a la MTU del túnel
+  (`rt mtu`: 1380, MSS 1340). Sin ella anunciaban 1460. El 2026-10-28 el SMTP de Zitadel en Nidavellir, que
+  sale por PIA, no llegaba a Resend: el saludo pasaba y el TLS se colgaba al llegar el certificado. Desde
+  midgard, que no sale por el túnel, funcionaba. La ADR decía «MSS recortado» y solo lo estaba en las WAN.
+  `prueba-pia.sh` pasa a 70 comprobaciones.
+
 ## [0.5.22] - 2026-10-28
 
 **Lo que destapó el cuarto corte.** A las 18:28 del 2026-10-28 la luz se fue por cuarta vez. Al volver, el SSD de
@@ -861,7 +906,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...HEAD
+[0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
 [0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
 [0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...v0.5.20

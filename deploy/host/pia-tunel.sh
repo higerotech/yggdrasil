@@ -228,6 +228,13 @@ table inet $TABLA_NFT {
         type nat hook postrouting priority srcnat - 1; policy accept;
         oifname "$IFACE" masquerade
     }
+    # El MSS de los equipos, a la MTU del tunel (1380 - 40). Sin esto anuncian 1460 y el otro lado
+    # manda segmentos que no caben: los pequenos pasan y el certificado TLS se pierde sin aviso. Los
+    # balanceadores de AWS no lo corrigen (Resend, 2026-10-28). Las WAN ya lo tienen en nftables.conf.
+    chain mss {
+        type filter hook forward priority mangle; policy accept;
+        oifname "$IFACE" tcp flags syn tcp option maxseg size set rt mtu
+    }
 }
 EOF
 }

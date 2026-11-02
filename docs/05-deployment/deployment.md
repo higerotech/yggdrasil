@@ -62,8 +62,8 @@ C4Deployment
     Deployment_Node(tablet, "Galaxy Tab 2 en la pared", "Android 7.1, WebView 81, Wi-Fi") {
         Container(hlidskjalf, "Hlidskjalf", "APK kiosco", "GET /hlidskjalf/ y /resumen con Bearer de lectura")
     }
-    System_Ext(isp1, "ISP 1 (wan1)", "1000/1000 Mbps")
-    System_Ext(isp2, "ISP 2 (wan2)", "1000/500 Mbps, adaptador USB")
+    System_Ext(isp1, "Servitel (wan1)", "1000/1000 Mbps")
+    System_Ext(isp2, "NetUno (wan2)", "400/400 Mbps, adaptador USB")
     System_Ext(ntfy, "ntfy", "Tema privado de la casa")
     Rel(actions, ghcr, "push imagenes", "sha-7")
     Rel(actions, hook, "workflow_run firmado", "HTTPS")
@@ -352,4 +352,6 @@ para cerrar Gate 4 es de Jeremi y queda en la checklist.
   funcionando y `deploy.sh` es la vía manual.
 - **Hardware**: HDD con sectores pendientes al alza, SSD de datos que se cayó del bus el 2026-10-19,
   adaptador USB de `wan2` que puede colgarse al arrancar, sin UPS. Thor y sus alertas los vigilan;
-  no los arreglan.
+  no los arreglan. Desde el 2026-10-30 fallan **los dos** adaptadores de las WAN, en tres puertos de la
+  tarjeta USB 3.0 VIA VL805 (`-71`, `Tx timeout`). ADR-0012 propone sustituirla por una NIC PCIe de dos
+  puertos y mover aplicaciones a nidavellir tras un [piloto de una semana](piloto-nidavellir.md).

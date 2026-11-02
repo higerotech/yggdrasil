@@ -9,10 +9,11 @@
 
 | Término | Definición | Contexto acotado (Bounded Context) |
 |---|---|---|
-| Enlace WAN | Conexión física/lógica a un ISP (`wan1` = ISP1, `wan2` = ISP2, cada una un UE300) | Observabilidad SLA |
+| Enlace WAN | Conexión física/lógica a un ISP (`wan1` = Servitel, `wan2` = NetUno, cada una un UE300) | Observabilidad SLA |
+| Proveedor (ISP) | Empresa que da el servicio de una WAN; su contrato fija el SLO de throughput. **Servitel** en `wan1` (1000/1000 Mbps, 90 % garantizado) y **NetUno** en `wan2` (400/400 Mbps, 90 % garantizado; sustituyó a Silverdata hacia el 2026-10-19). Los documentos anteriores al 2026-10-30 los llaman ISP1 e ISP2 | Observabilidad SLA |
 | Sonda (probe) | Medición activa (ICMP, TCP+TLS o prueba de velocidad de Ookla) forzada a salir por una WAN concreta vía source IP | Observabilidad SLA |
 | SLI | Indicador medido: latencia (percentiles p90, p95 y p99), pérdida %, jitter (pendiente de implementar), Mbps, disponibilidad | Observabilidad SLA |
-| SLO | Objetivo sobre un SLI, en ventana de 5 min: pérdida < 1 %, p95 < 500 ms para servicios estándar y p95 < 200 ms para llamadas críticas; throughput ≥ 80 % del nominal contratado, por WAN y dirección (`wan:slo_throughput_mbps`: wan1 800↓/800↑, wan2 800↓/400↑). p90 y p99 se registran sin umbral, solo para seguimiento. Confirmados el 2026-09-05; umbral de throughput revisado el 2026-09-16 | Observabilidad SLA |
+| SLO | Objetivo sobre un SLI, en ventana de 5 min: pérdida < 1 %, p95 < 500 ms para servicios estándar y p95 < 200 ms para llamadas críticas; throughput ≥ la garantía contratada con cada proveedor, por WAN y dirección (`wan:slo_throughput_mbps`: Servitel en wan1 900↓/900↑, NetUno en wan2 360↓/360↑). p90 y p99 se registran sin umbral, solo para seguimiento. Confirmados el 2026-09-05; umbral de throughput revisado el 2026-09-16 y el 2026-10-30 | Observabilidad SLA |
 | Estado del enlace | Saludable / Degradado / Caído / Recuperando, derivado de los SLO | Observabilidad SLA |
 | Apto para llamadas | Indicador por WAN: `si` cuando p95 < 200 ms y pérdida < 1 % en 5 min; no altera el estado del enlace | Observabilidad SLA |
 | Disponibilidad mensual | Fracción del tiempo, en ventana de 30 días, en que una WAN no estuvo Caída; la del hogar cuenta el tiempo con al menos una WAN operativa | Observabilidad SLA |
@@ -35,3 +36,15 @@
 > **Revisión 2026-10-19 — objetivos y sondas.** Los objetivos de sondeo son seis desde la 0.5.10.
 > Las sondas ya no usan HTTP ni `speedtest-cli`. El jitter se marca como pendiente de
 > implementar (decisión de Jeremi del 2026-10-19).
+
+> **Revisión 2026-10-30 — proveedores con nombre y SLO = garantía contratada.** `wan1` es
+> **Servitel** (1000/1000 Mbps simétrico) y `wan2` es **NetUno** (400/400 Mbps simétrico), que
+> sustituyó a Silverdata (1000/500) hacia el 2026-10-19. Los dos garantizan el 90 % del plan, y el
+> SLO de throughput pasa a ser esa garantía: **wan1 900↓/900↑, wan2 360↓/360↑**
+> (`wan:slo_throughput_mbps`). El 80 % de Gate 0 era la garantía de Silverdata; la regla de negocio
+> («el umbral es lo que el contrato garantiza») no cambia, cambian los contratos. Calibración sobre
+> los 30 días previos: wan1 no habría alertado (una sola lectura de subida bajo 900, de 828 Mbps) y
+> wan2 solo del 21 al 24-oct, cuando NetUno entregó 180–370 Mbps de bajada. Con el umbral anterior,
+> `WanThroughputBajo` seguía disparada para wan2 a 420 Mbps de bajada, por encima de su plan. Los
+> contactos de soporte de cada proveedor no van en el repo, que es público. Planes y garantías
+> dados por el owner (Jeremi) el 2026-10-30.
