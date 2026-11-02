@@ -1,10 +1,10 @@
 # ADR-0012: Ubicación de los servicios entre midgard y nidavellir
 
 * **Estado:** proposed
-* **Fecha:** 2026-10-31
+* **Fecha:** 2026-10-31 (revisado el 2026-11-02: la fase 2 se adelanta, ver [Revisión](#revisión-del-2026-11-02-la-fase-2-se-adelanta-por-la-caída-del-ssd))
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 0.1.0
+* **Versión:** 0.2.0
 * **ID:** ADR-0012
 * **Supersede / Superseded-by:** — (complementa ADR-0002: el placement sigue siendo local; este ADR reparte entre los dos hosts)
 * **Controles OWASP afectados:** A04 (no concentrar en un solo host el router y las aplicaciones mientras no esté probado), A05 (el piloto no abre puertos nuevos en la LAN; la infraestructura compartida —NATS, RabbitMQ, OpenBao— no se expone fuera de midgard), A09 (el piloto se decide con métricas, no a ojo)
@@ -102,7 +102,8 @@ C4Deployment
   transmission y canario.
 - **hive y morocota se quedan en midgard por ahora.** Moverlos exige llevar con ellos Andvari, Bifröst y
   Hermod, o publicar NATS, RabbitMQ y OpenBao en la LAN, que es un cambio de superficie de ataque. Se
-  decide en una revisión de este ADR, con los datos del piloto.
+  decide en una revisión de este ADR, con los datos del piloto. *Revisado el 2026-11-02: se mudaron antes
+  del piloto, con su infraestructura, tras caerse el SSD de midgard. Ver la revisión al final.*
 
 ### 2. El router no se muda todavía
 
@@ -158,3 +159,56 @@ la tarjeta de red (proporcionalidad, como en ADR-0002).
   - nidavellir se cuelga;
   - llega la tarjeta de red de midgard;
   - se cumplen las tres condiciones del punto 2.
+
+## Revisión del 2026-11-02: la fase 2 se adelanta por la caída del SSD
+
+**Qué pasó.** El 2026-11-01 a las 20:32 UTC el SSD de datos de midgard (`sdb`, HP S700) dejó de responder en
+su puerto SATA. El kernel lo desactivó tras fallar el reinicio del enlace, y el sistema de ficheros abortó
+su diario. En él estaban los almacenes de Bifröst (`/var/lib/bifrost`) y de morocota (`/var/lib/morocota`),
+y las trazas de Saga (`/srv/rapido/saga`): hive y morocota quedaron sin servicio. Esta vez el SSD estaba casi
+parado (3 kB/s de escritura), así que apunta a la conexión física o a la alimentación, no al desgaste.
+Ese mismo día fallaba también la tarjeta USB de las WAN, que tira de la misma fuente.
+
+**Decisión de Jeremi.**
+- Mudar a nidavellir hive y morocota completos, con la infraestructura compartida (Andvari, Bifröst y
+  Hermod). Es la opción «mover todo menos el router», pero sin su contra principal: la infraestructura viaja
+  con sus clientes, así que **no se publica nada nuevo en la LAN**. Las redes de Docker se recrean en
+  nidavellir con las mismas subredes y todo sigue publicado solo en `127.0.0.1`.
+- Restaurar los datos del SSD desde los respaldos de esa madrugada, sin esperar a recuperar el disco.
+- Mantener la salida de nidavellir por PIA.
+
+**Cómo se hizo**, en la noche del 1 al 2 de noviembre, con cuatro scripts ejecutados desde el PC. Las claves
+viajaron por tubería ssh entre los dos hosts, sin escribirse ni mostrarse por el camino.
+1. Se copiaron a nidavellir las imágenes privadas exactas en uso (`docker save | docker load`), se
+   descargaron las públicas por digest y se crearon las redes compartidas.
+2. **Corte** (00:24–00:29 UTC):
+   - En midgard, morocota salió del inventario del receptor, se desactivaron 9 temporizadores y 4 unidades
+     de arranque, y se pararon 19 contenedores.
+   - Se copiaron configuración, claves, unidades, scripts y los datos vivos de Andvari y Hermod, con sha256
+     comparado en los dos hosts.
+   - Bifröst se restauró del respaldo de las 02:48 UTC y morocota del volcado de las 03:15 UTC, sobre una
+     base nueva migrada a la misma versión (0019).
+3. Thor y Baldr movieron su vigilancia de midgard a nidavellir. morocota entró en el inventario del receptor
+   de nidavellir, con las credenciales de GHCR. Los cuatro respaldos se probaron a mano.
+4. El almacén de Bifröst pasó a `/srv/datos/bifrost`, montado en `/var/lib/bifrost`, porque su respaldo
+   exige un punto de montaje.
+
+**Resultado.** Los 21 contenedores sanos en nidavellir, sin errores en los registros. Los túneles de
+Cloudflare tienen 4 conexiones cada uno, NATS recuperó sus streams y consumidores, y los respaldos al NAS
+funcionan. `BifrostCaido` mira ahora la salud del contenedor que publica el Thor de nidavellir, no una sonda
+al loopback de midgard.
+
+**Desviaciones respecto a la decisión original.**
+- La fase 2 va antes del piloto. nidavellir no ha pasado la prueba de estrés, que sigue pendiente y ahora
+  importa más: lleva hive y morocota.
+- **Datos perdidos:** lo escrito en Bifröst y morocota entre los respaldos (02:48 y 03:15 UTC) y la caída
+  del SSD (20:32). La copia de midgard queda en el SSD, por si vuelve.
+- **PIA:** morocota (PagoASAP, Auth0, Twilio, Meta, Resend, S3) y hive (LLM, Gmail, Facebook) salen por una
+  IP de VPN. Si un proveedor la bloquea, hay que sacar nidavellir de `PIA_MACS`.
+
+**Pendiente.**
+- **Saga (Tempo):** sigue en midgard con su almacén en el SSD caído, y la red `yggdrasil_saga` de nidavellir
+  está vacía. Hive no envía trazas hasta que Tempo tenga almacén y sea alcanzable desde nidavellir.
+- Revisar en midgard el cable y la alimentación del SSD y de la tarjeta USB.
+- Las configuraciones originales siguen en midgard, con sus unidades desactivadas. Retirarlas cuando
+  nidavellir lleve unas semanas estable.
