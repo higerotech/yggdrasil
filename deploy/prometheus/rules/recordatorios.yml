@@ -1,0 +1,46 @@
+# Recordatorios de calendario: no miden nada, avisan de algo que hay que hacer a mano. Llevan
+# `tipo: recordatorio`, y con eso Nornas no manda push al resolverse (nadie lo resolvió: se acabó el
+# día) y Baldr no los cuenta como pendientes tras un arranque.
+#
+# Prometheus calcula las fechas en UTC. La casa está en America/Caracas (UTC-4 todo el año, sin
+# horario de verano), así que se resta 4 h a `time()` antes de sacar el día y la hora.
+groups:
+  - name: recordatorios
+    rules:
+      # El 2026-11-02 a las 05:20 UTC (01:20 en Caracas) Servitel cortó wan1 por facturación: el
+      # pago vence el día 1 y el corte llega esa misma madrugada. Casi 8 h sin wan1, y el diagnóstico
+      # apuntaba a una avería (el router devolvía `net unreachable` y la luz PON parpadeaba).
+      # Avisa el día 1 de 08:00 a 23:59 hora de Caracas: un solo push al empezar.
+      - alert: RecordatorioPagoServitel
+        expr: >-
+          day_of_month(vector(time() - 4 * 3600)) == 1
+          and on () hour(vector(time() - 4 * 3600)) >= 8
+        labels:
+          severity: warning
+          servicio: heimdall
+          tipo: recordatorio
+          proveedor: servitel
+        annotations:
+          resumen: "Hoy vence el pago de Servitel (wan1)"
+          descripcion: >-
+            Si no se paga hoy, Servitel corta wan1 en la madrugada del día 2. Así se ve el corte: el
+            router de Servitel responde, pero devuelve `net unreachable` a todo lo de fuera y la luz
+            PON de la ONT parpadea. No es una avería; se arregla pagando.
+
+      # NetUno: el pago también vence el día 1. El 2026-11-02 a las 15:16 UTC (11:16 en Caracas) cortó
+      # wan2; su router respondía, pero rechazaba todo lo de fuera con `admin prohibited filter`.
+      - alert: RecordatorioPagoNetUno
+        expr: >-
+          day_of_month(vector(time() - 4 * 3600)) == 1
+          and on () hour(vector(time() - 4 * 3600)) >= 8
+        labels:
+          severity: warning
+          servicio: heimdall
+          tipo: recordatorio
+          proveedor: netuno
+        annotations:
+          resumen: "Hoy vence el pago de NetUno (wan2)"
+          descripcion: >-
+            Si no se paga hoy, NetUno corta wan2 el día 2. Así se ve el corte: su router responde, pero
+            rechaza todo lo de fuera con `admin prohibited filter` y su DNS contesta REFUSED. No es una
+            avería; se arregla pagando.

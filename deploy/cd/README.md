@@ -119,7 +119,8 @@ servicio aún no está sano, la unidad reintenta cada minuto (`Restart=on-failur
    política de reinicio que murieron durante el arranque;
 3. relanza los jobs de `BALDR_JOBS` que corrieron antes de que todo eso estuviera listo, o que fallaron;
 4. en midgard (`BALDR_VERIFICAR=1`), a los 15 min del arranque, revisa las alertas y lo que Thor publica de
-   los otros hosts, y manda un push con el resumen si hubo corte o si queda algo pendiente.
+   los otros hosts, y manda un push con el resumen si hubo corte o si queda algo pendiente. Los
+   recordatorios (`tipo: recordatorio`, p. ej. los pagos de Servitel y NetUno) no cuentan.
 
 Instalación: `bootstrap-midgard.sh` (paso 5i) en midgard. En nidavellir, a mano:
 
@@ -361,6 +362,19 @@ atómico y el contenedor monta el **directorio**, no el fichero (ver la 0.5.7).
 Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom` o, en Mimir,
 `up{job="thor"}`. Pruebas: `bash deploy/cd/tests/prueba-thor.sh` y
 `promtool test rules deploy/prometheus/tests/thor-alertas.test.yml`.
+
+### Saga desde nidavellir (ADR-0008 1.1.0)
+
+hive emite sus trazas desde nidavellir a `saga:4318`. Allí `saga` es un relé que reenvía a la puerta de Saga en
+midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez:
+
+```bash
+# nidavellir, con el clon de yggdrasil en /srv/apps/yggdrasil
+docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+```
+
+Comprobar desde nidavellir: `nc -zv 192.168.10.1 4318` conecta, y los logs de hive dejan de decir `saga`. Desde
+otra máquina de la LAN, el mismo `nc` conecta pero socat cierra en el acto.
 
 ### Thor en otro host (nidavellir)
 

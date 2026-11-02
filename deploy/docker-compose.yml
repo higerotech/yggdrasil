@@ -189,6 +189,24 @@ services:
           create_host_path: false
     networks: [heimdall, saga]
 
+  # La puerta de Saga para los emisores de otro host (ADR-0008 1.1.0): hive corre en nidavellir desde la fase 2 de
+  # ADR-0012 y su relé (deploy/nidavellir/saga-rele.yml) entra por aquí. Publica el 4318 solo en la LAN de midgard y
+  # socat no acepta más origen que el de SAGA_EMISORES (nidavellir): el resto de la LAN no llega a Saga. Saga sigue
+  # sin puertos publicados; la puerta entra por yggdrasil_saga, como cualquier emisor.
+  saga-puerta:
+    <<: *comun
+    image: alpine/socat:1.8.1.3@sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed
+    container_name: yggdrasil-saga-puerta
+    user: "65534:65534"
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 32m
+    pids_limit: 64
+    ports:
+      - "${HOST_LAN_IP}:4318:4318"   # solo nidavellir: lo filtra socat (range)
+    command: ["TCP-LISTEN:4318,fork,reuseaddr,range=${SAGA_EMISORES:-192.168.10.2/32}", "TCP:saga:4318,connect-timeout=5"]
+    networks: [saga]
+
   # --- Servicios de plataforma (ADR-0006): compartidos por Heimdall y la domótica ---
 
   # Ratatosk — Mosquitto 2: bus de eventos. Auth obligatoria y ACL por usuario (T3); el archivo de

@@ -2,7 +2,8 @@
 # plataforma (ADR-0008). Saga, diosa de la historia, bebe cada día con Odín: Tempo se consulta desde Grafana.
 #
 # - Solo recibe OTLP por HTTP (4318) y sirve consultas en el 3200, sin puertos publicados: los emisores entran por
-#   la red yggdrasil_saga; Odín y Mimir, por heimdall.
+#   la red yggdrasil_saga; Odín y Mimir, por heimdall. Los de nidavellir llegan por su relé y la puerta de Saga
+#   (yggdrasil-saga-puerta), que solo los acepta a ellos (ADR-0008 1.1.0).
 # - Almacén local en /var/tempo, que es /srv/rapido/saga, en el SSD: Tempo no está probado en discos mecánicos.
 # - 15 días de retención (decisión del 2026-10-19).
 # - Sin metrics_generator: necesitaría escritura remota en Mimir, que no la tiene activada.

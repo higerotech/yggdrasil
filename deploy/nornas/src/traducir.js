@@ -48,6 +48,10 @@ for (const a of alertas) {
     const nueva = firing && !avisados[fp];
     const resuelta = !firing && !!avisados[fp];
     if (firing) { if (nueva) avisados[fp] = ahora; } else delete avisados[fp];
+    if (l.tipo === "recordatorio") {              // calendario (rules/recordatorios.yml): sin push al acabar el día
+        if (nueva) aviso(`Recordatorio: ${an.resumen || nombre}`, an.descripcion || "", prio, ["calendar"]);
+        continue;
+    }
     if (!wan) {                                   // p. ej. SondaCaida o las de Bragi: aviso y resolución
         if (nueva) aviso(`Heimdall: ${nombre}`, an.resumen || "", prio, ["warning"]);
         if (resuelta) aviso(`Heimdall: ${nombre} resuelta`, an.resumen || "", 2, ["white_check_mark"]);

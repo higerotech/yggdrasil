@@ -28,6 +28,7 @@ env:
   MOSQ: eclipse-mosquitto:2.0.22
   NODERED: nodered/node-red:4.1.14-22
   TEMPO: grafana/tempo:3.1.0
+  SOCAT: alpine/socat:1.8.1.3
 
 jobs:
   configs:
@@ -49,7 +50,7 @@ jobs:
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
-          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml /etc/prometheus/rules/hive-alertas.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml /etc/prometheus/rules/hive-alertas.yml /etc/prometheus/rules/recordatorios.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/thor-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/wan-up.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/perdida.test.yml
@@ -57,6 +58,7 @@ jobs:
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/fafnir-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/hive-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/throughput.test.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/recordatorios.test.yml
           python3 deploy/prometheus/tests/intervalos.py   # 2 x intervalo < lookback: series consultables
       - name: Saga (Tempo) -config.verify
         run: docker run --rm -v "$PWD/deploy/tempo:/etc/tempo:ro" "$TEMPO" -config.file=/etc/tempo/tempo.yaml -config.verify=true
@@ -154,7 +156,7 @@ jobs:
         run: docker run --rm -v "$PWD/deploy:/deploy:ro" aquasec/trivy:0.66.0 config --exit-code 0 --severity HIGH,CRITICAL /deploy
       - name: Trivy image (CRITICAL/HIGH, sin bloquear hasta triaje)
         run: |
-          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED" "$TEMPO"; do
+          for img in "$PROM" "$AM" "$BB" "$GRAFANA" "$MOSQ" "$NODERED" "$TEMPO" "$SOCAT"; do
             echo "== $img =="
             docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.66.0 image --exit-code 0 --severity HIGH,CRITICAL --ignore-unfixed "$img"
           done

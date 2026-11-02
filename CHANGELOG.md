@@ -9,6 +9,31 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.25] - 2026-11-02
+
+**Saga recibe otra vez las trazas de hive, y los recordatorios de pago.** Una puerta en midgard y un relé en
+nidavellir devuelven a Saga las trazas que hive dejó de mandar al mudarse (ADR-0008 1.1.0). Heimdall recuerda los
+pagos de Servitel y NetUno.
+
+### Añadido
+- **Recordatorios de pago de Servitel y NetUno** (`rules/recordatorios.yml`). El 2026-11-02 los dos cortaron
+  por facturación: Servitel wan1 de madrugada, casi 8 h, y NetUno wan2 a media mañana. Los dos parecían
+  averías: el router de Servitel devolvía `net unreachable` y la luz PON parpadeaba; el de NetUno rechazaba
+  todo con `admin prohibited filter`. `RecordatorioPagoServitel` y `RecordatorioPagoNetUno` avisan el día 1
+  de cada mes de 08:00 a 23:59 en Caracas, con un solo push cada una. Las alertas con `tipo: recordatorio`
+  no mandan push al resolverse en Nornas ni cuentan como pendientes en Baldr. Pruebas en
+  `tests/recordatorios.test.yml`, en `flujo.test.mjs` y en `prueba-baldr.sh`.
+- **Las trazas de hive vuelven a Saga desde nidavellir** (ADR-0008 1.1.0). Tras la fase 2 de ADR-0012, los
+  servicios de hive mandaban sus trazas a `saga:4318` por una red `yggdrasil_saga` vacía en nidavellir: no llegaban,
+  y cada worker escribía un error cada pocos segundos.
+  - **`yggdrasil-saga-rele`** (`deploy/nidavellir/saga-rele.yml`): socat con el alias `saga` en nidavellir, que
+    reenvía a midgard.
+  - **`yggdrasil-saga-puerta`** en midgard: publica el 4318 solo en la LAN y solo acepta a nidavellir
+    (`SAGA_EMISORES`, 192.168.10.2/32 por defecto). Saga sigue sin puertos publicados.
+  - **`alpine/socat:1.8.1.3`**, pineada por digest en el Compose, en `deploy/imagenes.md` y en el informe de
+    Trivy. Es una excepción a la regla de las dos semanas, decisión de Jeremi: la 1.8.1.1 trae socat con
+    CVE-2026-56123 (CRÍTICA), arreglada en socat 1.8.1.2.
+
 ## [0.5.24] - 2026-11-02
 
 **Hive y morocota en nidavellir.** La caída del SSD de datos de midgard adelanta la fase 2 de la ADR-0012:
@@ -925,7 +950,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...HEAD
+[0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25
 [0.5.24]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...v0.5.24
 [0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
 [0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
