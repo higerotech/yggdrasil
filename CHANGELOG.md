@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.26] - 2026-11-02
+
+**Hive sale directo hacia Atlas y Meta.** El túnel de PIA aprende excepciones por equipo: nidavellir sigue en PIA,
+pero las conexiones de Hive a Atlas y a Meta salen sin túnel, y cada mensaje gana unos 1,8 s (ADR-0009 1.2.0).
+
 ### Añadido
 - **Excepciones del túnel PIA por equipo: el tráfico de Hive hacia Atlas y Meta sale directo** (ADR-0009 1.2.0).
   - **El problema:** nidavellir sale por PIA, y PIA le añade a Hive unos 1,8 s por mensaje, medidos el 2026-11-02 con la GPU libre.
@@ -965,7 +970,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...HEAD
+[0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
 [0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25
 [0.5.24]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...v0.5.24
 [0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
