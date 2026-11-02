@@ -26,3 +26,33 @@ groups:
             Si no se paga hoy, Servitel corta wan1 en la madrugada del día 2. Así se ve el corte: el
             router de Servitel responde, pero devuelve `net unreachable` a todo lo de fuera y la luz
             PON de la ONT parpadea. No es una avería; se arregla pagando.
+
+      # NetUno factura el día 1 y corta el 18: un aviso con la factura y otro el último día de pago.
+      - alert: RecordatorioFacturaNetUno
+        expr: >-
+          day_of_month(vector(time() - 4 * 3600)) == 1
+          and on () hour(vector(time() - 4 * 3600)) >= 8
+        labels:
+          severity: warning
+          servicio: heimdall
+          tipo: recordatorio
+          proveedor: netuno
+        annotations:
+          resumen: "NetUno (wan2) emitió la factura del mes: vence el día 17"
+          descripcion: >-
+            NetUno corta wan2 el día 18 si la factura sigue sin pagar. El día 17 llega otro recordatorio.
+
+      - alert: RecordatorioPagoNetUno
+        expr: >-
+          day_of_month(vector(time() - 4 * 3600)) == 17
+          and on () hour(vector(time() - 4 * 3600)) >= 8
+        labels:
+          severity: warning
+          servicio: heimdall
+          tipo: recordatorio
+          proveedor: netuno
+        annotations:
+          resumen: "Último día para pagar NetUno (wan2): mañana corta"
+          descripcion: >-
+            Si la factura del día 1 sigue sin pagar, NetUno corta wan2 el día 18. Con wan2 cortada, todo
+            el tráfico de la casa sale por wan1.

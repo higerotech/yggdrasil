@@ -192,6 +192,8 @@ Recordatorios de calendario (`recordatorios.yml`, `tipo: recordatorio`):
 | Alerta | Severidad | Condición | Efecto |
 |---|---|---|---|
 | `RecordatorioPagoServitel` | warning | día 1 del mes, de 08:00 a 23:59 en Caracas (UTC-4) | un push al empezar, sin push al acabar el día; Baldr no la cuenta como pendiente |
+| `RecordatorioFacturaNetUno` | warning | día 1 del mes, de 08:00 a 23:59 en Caracas | igual |
+| `RecordatorioPagoNetUno` | warning | día 17 del mes (NetUno corta el 18), de 08:00 a 23:59 en Caracas | igual |
 
 Alertas del host (Thor, `thor-alertas.yml`):
 | Alerta | Severidad | Condición |
