@@ -149,16 +149,9 @@ scrape_configs:
       - targets: ["192.168.10.2:9471"]
         labels: {host: nidavellir}
 
-  # --- Hive: el bus de midgard y el IdP de nidavellir (reglas en rules/hive-alertas.yml) ---
-  # Bifröst (NATS): blackbox, en host-mode, sondea el monitor de NATS en el loopback de midgard, que es
-  # el único sitio donde está publicado. Con `target` = la URL, como las demás sondas.
-  - job_name: bifrost
-    metrics_path: /probe
-    params:
-      module: [http_nats_salud]
-    static_configs:
-      - targets: ["http://127.0.0.1:8222/healthz"]
-    relabel_configs: *sonda_relabel
+  # --- Hive: el IdP de nidavellir (reglas en rules/hive-alertas.yml) ---
+  # Bifröst (NATS) ya no tiene sonda aquí: desde el 2026-11-02 corre en nidavellir (ADR-0012, fase 2) y su
+  # monitor solo escucha en el loopback de ese host. BifrostCaido mira la salud que publica su Thor.
 
   # Zitadel desde fuera: el camino que siguen las personas y hive-api (túnel de Cloudflare).
   - job_name: zitadel_externo

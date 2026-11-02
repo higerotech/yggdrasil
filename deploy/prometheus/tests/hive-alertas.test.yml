@@ -6,45 +6,68 @@ rule_files:
 evaluation_interval: 15s
 
 tests:
-  # El caso del 2026-10-28: NATS en bucle de reinicios, con una sonda buena suelta cada 2 min.
-  - name: Bifröst en bucle de reinicios avisa a los ~2 min, aunque responda de vez en cuando
-    interval: 15s
+  # El caso del 2026-10-28 visto por Thor (una muestra por minuto): NATS en bucle de reinicios, con una
+  # muestra sana de vez en cuando porque Thor cuenta como sano un contenedor recién arrancado.
+  - name: Bifröst en bucle de reinicios avisa aunque Thor lo vea sano de vez en cuando
+    interval: 1m
     input_series:
-      - series: 'probe_success{job="bifrost", instance="host.docker.internal:9115", target="http://127.0.0.1:8222/healthz"}'
-        # 2 min sano (8), y después siete fallos y un acierto, una y otra vez
-        values: '1x7 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 1'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="192.168.10.2:9471", host="nidavellir", tipo="contenedor", nombre="bifrost-nats"}'
+        # 5 min sano, y después dos fallos y un acierto, una y otra vez
+        values: '1x4 0 0 1 0 0 1 0 0 1 0 0 1 0 0 1 0 0 1 0 0 1'
     alert_rule_test:
-      - eval_time: 2m
+      - eval_time: 5m
         alertname: BifrostCaido
         exp_alerts: []
-      - eval_time: 3m
+      - eval_time: 10m
         alertname: BifrostCaido
-        exp_alerts: []          # la media de 2 min aún no baja de 0.5
-      - eval_time: 4m30s
+        exp_alerts: []          # aún dentro del for de 6 min
+      - eval_time: 12m
         alertname: BifrostCaido
         exp_alerts: &bifrost_caido
           - exp_labels:
               severity: critical
               servicio: bifrost
-              job: bifrost
-              instance: host.docker.internal:9115
-              target: http://127.0.0.1:8222/healthz
+              job: thor
+              instance: 192.168.10.2:9471
+              host: nidavellir
+              tipo: contenedor
+              nombre: bifrost-nats
             exp_annotations:
               resumen: "Bifröst (NATS) no está sano: el motor de Hive no procesa mensajes"
-              descripcion: "`/healthz` de NATS no responde ok. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`, comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `/dev/sdb1[/bifrost]`."
-      - eval_time: 9m           # sigue avisando: las sondas buenas sueltas no la resuelven
+              descripcion: "El contenedor `bifrost-nats` de nidavellir no está sano o se reinicia. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`, comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `[/srv/datos/bifrost]`."
+      - eval_time: 20m          # sigue avisando: las muestras sanas sueltas no la resuelven
         alertname: BifrostCaido
         exp_alerts: *bifrost_caido
 
-  - name: un fallo suelto de la sonda de Bifröst no avisa
-    interval: 15s
+  - name: un fallo suelto de Bifröst no avisa
+    interval: 1m
     input_series:
-      - series: 'probe_success{job="bifrost", instance="b", target="t"}'
-        values: '1x10 0 0 1x30'
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="i", host="nidavellir", tipo="contenedor", nombre="bifrost-nats"}'
+        values: '1x10 0 1x30'
     alert_rule_test:
-      - eval_time: 4m
+      - eval_time: 14m
         alertname: BifrostCaido
         exp_alerts: []
+      - eval_time: 20m
+        alertname: BifrostCaido
+        exp_alerts: []
+
+  - name: Bifröst caído del todo avisa a los ~6 min
+    interval: 1m
+    input_series:
+      - series: 'yggdrasil_servicio_ok{job="thor", instance="i", host="nidavellir", tipo="contenedor", nombre="bifrost-nats"}'
+        values: '1x4 0x30'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: BifrostCaido
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: BifrostCaido
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: bifrost, job: thor, instance: i, host: nidavellir, tipo: contenedor, nombre: bifrost-nats}
+            exp_annotations:
+              resumen: "Bifröst (NATS) no está sano: el motor de Hive no procesa mensajes"
+              descripcion: "El contenedor `bifrost-nats` de nidavellir no está sano o se reinicia. Revisar `docker logs bifrost-nats`. Con `Can't start JetStream`, comprobar que el almacén está montado: `findmnt /var/lib/bifrost` debe mostrar `[/srv/datos/bifrost]`."
 
   - name: Zitadel caído desde fuera avisa; sin ruta en la casa, no
     interval: 15s

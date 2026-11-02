@@ -275,15 +275,20 @@ Alertas (`prometheus/rules/thor-alertas.yml`, entregadas por Nornas a ntfy):
 La unidad lee `/etc/default/yggdrasil-thor` si existe. Va en el host y no en el repositorio, que es
 público: ahí se nombran los discos, y un `by-id` lleva el número de serie. Sin el fichero, Thor
 vigila `/dev/sda`, `/` y el NAS. La etiqueta `disco` es siempre el nombre del kernel (`sda`, `sdb`),
-también con una ruta `by-id`. En midgard, con el SSD de datos y los respaldos de Bifröst, Hermod y Andvari:
+también con una ruta `by-id`. Desde el 2026-11-02 la infraestructura de Hive (Bifröst, Hermod y Andvari) y
+morocota corren en nidavellir (ADR-0012, fase 2), así que su vigilancia va en el Thor de ese host. En midgard
+queda el SSD de datos y el respaldo de Yggdrasil:
 
 ```sh
-# /etc/default/yggdrasil-thor (root, 644)
+# /etc/default/yggdrasil-thor de midgard (root, 644)
 THOR_DISCOS="/dev/sda /dev/sdb"
 THOR_PUNTOS="/ /mnt/nas/respaldos /srv/rapido"
-THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito bifrost=/var/lib/bifrost-respaldo/ultimo-exito hermod=/var/lib/hermod-respaldo/ultimo-exito andvari=/var/lib/andvari-respaldo/ultimo-exito"
-THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer bifrost-arranque.service bifrost-respaldo.timer bifrost-respaldo-vigia.timer vigilar-ssd.timer hermod-arranque.service hermod-respaldo.timer hermod-respaldo-vigia.timer andvari-arranque.service andvari-respaldo.timer andvari-respaldo-vigia.timer"
-THOR_CONTENEDORES="andvari-openbao bifrost-nats hermod-rabbitmq"
+THOR_RESPALDOS="yggdrasil=/var/lib/yggdrasil-respaldo/ultimo-exito"
+THOR_UNIDADES="docker.service wan-balancer.service dnsmasq.service cd-receiver.service wan-watchdog.timer yggdrasil-respaldo.timer yggdrasil-respaldo-vigia.timer yggdrasil-vigia-servicios.timer vigilar-ssd.timer"
+
+# añadido al /etc/default/yggdrasil-thor de nidavellir
+THOR_RESPALDOS="bifrost=/var/lib/bifrost-respaldo/ultimo-exito hermod=/var/lib/hermod-respaldo/ultimo-exito andvari=/var/lib/andvari-respaldo/ultimo-exito morocota=/var/lib/morocota-respaldo/ultimo-exito"
+THOR_CONTENEDORES="… andvari-openbao bifrost-nats hermod-rabbitmq hive-api hive-webhook hive-ingest hive-docs hive-tunel hive-portal hive-classifier hive-coordinator hive-responder hive-evaluator hive-notifier"
 THOR_ANDVARI="andvari-openbao"
 ```
 
@@ -304,9 +309,10 @@ Mimir avisa con dos alertas críticas:
 Thor mira el contenedor una vez por minuto y cuenta como sano uno recién arrancado. Por eso un bucle de
 reinicios vuelve a poner a cero el `for`: el 2026-10-28 `bifrost-nats` pasó 77 min reiniciándose, con su
 almacén sin montar, y `ServicioDePlataformaCaido` tardó 33 min en dispararse. Para Bifröst está además
-**`BifrostCaido`** (`rules/hive-alertas.yml`): blackbox, que corre en host-mode, sondea `/healthz` de NATS en
-`127.0.0.1:8222`, el único sitio donde está publicado. Avisa cuando más de la mitad de las sondas de 2 min
-fallan, durante 1 min, así que una respuesta suelta no la reinicia.
+**`BifrostCaido`** (`rules/hive-alertas.yml`). Mira la misma salud del contenedor, pero avisa cuando hay al
+menos una muestra mala en cada ventana de 5 min durante 6 min seguidos: un bucle de reinicios no la reinicia
+y un fallo suelto no llega. Hasta el 2026-11-02 era una sonda de blackbox a `/healthz` en el loopback de
+midgard; en nidavellir ese puerto no sale del host.
 
 **Zitadel en nidavellir** (Hive, ADR-0029). En `rules/hive-alertas.yml`:
 
