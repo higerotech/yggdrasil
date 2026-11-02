@@ -1,0 +1,35 @@
+# Relé de Saga en nidavellir (ADR-0008 1.1.0): los servicios de hive, que corren aquí desde la fase 2 de ADR-0012,
+# mandan sus trazas a http://saga:4318 por la red yggdrasil_saga. Saga sigue en midgard. Este contenedor es `saga`
+# en esa red y reenvía cada conexión a la puerta de Saga en midgard (yggdrasil-saga-puerta, 192.168.10.1:4318), que
+# solo acepta a nidavellir. Los emisores no cambian nada.
+#
+#   docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+#
+# La red es la de los emisores, creada por la fase 2: no se crea aquí. Como en midgard, un emisor que entra en ella
+# solo alcanza a Saga.
+services:
+  saga-rele:
+    image: alpine/socat:1.8.1.1
+    container_name: yggdrasil-saga-rele
+    restart: unless-stopped            # RNF02: vuelve solo tras un corte de energía
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 32m
+    pids_limit: 64
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: ["TCP-LISTEN:4318,fork,reuseaddr", "TCP:${SAGA_MIDGARD:-192.168.10.1}:4318,connect-timeout=5"]
+    networks:
+      saga:
+        aliases: [saga]
+
+networks:
+  saga:
+    external: true
+    name: yggdrasil_saga

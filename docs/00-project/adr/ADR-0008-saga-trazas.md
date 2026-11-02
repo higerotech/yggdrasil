@@ -4,10 +4,26 @@
 * **Fecha:** 2026-10-19
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.0.0
+* **Versión:** 1.1.0
 * **ID:** ADR-0008
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A01 (los emisores solo alcanzan Saga, no Mimir ni Odín), A05 (sin puertos publicados), A09 (las trazas no llevan datos personales: lo fija cada emisor)
+
+## Enmienda 1.1.0 (2026-11-02): emisores en nidavellir
+
+La fase 2 de ADR-0012 mudó hive a nidavellir, y Saga sigue en midgard. Los servicios de hive mandan sus trazas a
+`http://saga:4318` por la red `yggdrasil_saga`, que en nidavellir quedó vacía, así que desde la mudanza las trazas no
+llegaban. Decisión de Jeremi: un relé, sin tocar a los emisores.
+
+- **En nidavellir, `yggdrasil-saga-rele`** (`deploy/nidavellir/saga-rele.yml`): socat con el alias `saga` en
+  `yggdrasil_saga`, que reenvía cada conexión a midgard.
+- **En midgard, `yggdrasil-saga-puerta`:** socat en `yggdrasil_saga` que publica el 4318 solo en la IP de la LAN de
+  midgard, y no acepta más origen que nidavellir (`range=192.168.10.2/32`, `SAGA_EMISORES`). Saga sigue sin
+  puertos publicados.
+- **Lo que cambia del modelo:** hay un puerto más en la LAN de midgard, pero solo atiende a nidavellir y solo lleva a
+  Saga, que solo recibe trazas. El tráfico va en claro por la LAN, igual que dentro de una red Docker. Las trazas
+  siguen sin datos personales: eso lo fija cada emisor (A09).
+- **Si Saga se muda** a nidavellir, sobran los dos relés.
 
 ## Contexto
 

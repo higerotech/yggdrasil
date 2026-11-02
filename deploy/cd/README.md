@@ -362,6 +362,19 @@ Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom
 `up{job="thor"}`. Pruebas: `bash deploy/cd/tests/prueba-thor.sh` y
 `promtool test rules deploy/prometheus/tests/thor-alertas.test.yml`.
 
+### Saga desde nidavellir (ADR-0008 1.1.0)
+
+hive emite sus trazas desde nidavellir a `saga:4318`. Allí `saga` es un relé que reenvía a la puerta de Saga en
+midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez:
+
+```bash
+# nidavellir, con el clon de yggdrasil en /srv/apps/yggdrasil
+docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+```
+
+Comprobar desde nidavellir: `nc -zv 192.168.10.1 4318` conecta, y los logs de hive dejan de decir `saga`. Desde
+otra máquina de la LAN, el mismo `nc` conecta pero socat cierra en el acto.
+
 ### Thor en otro host (nidavellir)
 
 Thor corre igual en un host sin el Compose de Yggdrasil (ADR-0007 1.1.0). Allí no hay contenedor `thor` ni
