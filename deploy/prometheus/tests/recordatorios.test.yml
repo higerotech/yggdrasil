@@ -1,0 +1,43 @@
+# Pruebas de los recordatorios de calendario. Ejecutar:
+#   promtool test rules deploy/prometheus/tests/recordatorios.test.yml
+# promtool empieza en t=0 = 1970-01-01 00:00 UTC, que en Caracas (UTC-4) es el 31-dic a las 20:00.
+# El día 1 de enero en Caracas va de 04:00 UTC (4h) a 04:00 UTC del 2 (28h); las 08:00 son las 12h.
+rule_files:
+  - ../rules/recordatorios.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: el pago de Servitel avisa el día 1 de 08:00 a 23:59 hora de Caracas
+    interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 3h59m      # 31-dic 23:59 en Caracas
+        alertname: RecordatorioPagoServitel
+        exp_alerts: []
+      - eval_time: 11h59m     # 1-ene 07:59 en Caracas: aún no
+        alertname: RecordatorioPagoServitel
+        exp_alerts: []
+      - eval_time: 12h        # 1-ene 08:00 en Caracas
+        alertname: RecordatorioPagoServitel
+        exp_alerts: &pago_servitel
+          - exp_labels:
+              severity: warning
+              servicio: heimdall
+              tipo: recordatorio
+              proveedor: servitel
+            exp_annotations:
+              resumen: "Hoy vence el pago de Servitel (wan1)"
+              descripcion: "Si no se paga hoy, Servitel corta wan1 en la madrugada del día 2. Así se ve el corte: el router de Servitel responde, pero devuelve `net unreachable` a todo lo de fuera y la luz PON de la ONT parpadea. No es una avería; se arregla pagando."
+      - eval_time: 27h59m     # 1-ene 23:59 en Caracas: sigue
+        alertname: RecordatorioPagoServitel
+        exp_alerts: *pago_servitel
+      - eval_time: 28h        # 2-ene 00:00 en Caracas: se acabó el día 1
+        alertname: RecordatorioPagoServitel
+        exp_alerts: []
+      - eval_time: 400h       # 17-ene: ningún otro día
+        alertname: RecordatorioPagoServitel
+        exp_alerts: []
+      - eval_time: 768h       # 1-feb 20:00 en Caracas: el mes siguiente también
+        alertname: RecordatorioPagoServitel
+        exp_alerts: *pago_servitel

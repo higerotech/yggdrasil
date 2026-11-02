@@ -122,6 +122,24 @@ test("alertas de Thor sin WAN (disco, NAS): aviso y resolucion", () => {
     assert.equal(pushes(t.ejecutar(webhook(alerta("DiscoEmpeora", "resolved"))))[0].topic, "Heimdall: DiscoEmpeora resuelta");
 });
 
+test("recordatorio: un push con su descripción al empezar, nada al acabar el día", () => {
+    const t = nodo("traducir.js");
+    const r = (estado) => {
+        const a = alerta("RecordatorioPagoServitel", estado, { resumen: "Hoy vence el pago de Servitel (wan1)" });
+        a.labels.tipo = "recordatorio";
+        a.annotations.descripcion = "Si no se paga hoy, Servitel corta wan1.";
+        return a;
+    };
+    const p = pushes(t.ejecutar(webhook(r("firing"))));
+    assert.equal(p.length, 1);
+    assert.equal(p[0].topic, "Recordatorio: Hoy vence el pago de Servitel (wan1)");
+    assert.equal(p[0].payload, "Si no se paga hoy, Servitel corta wan1.");
+    assert.equal(p[0].prioridad, 3);
+    assert.equal(pushes(t.ejecutar(webhook(r("firing")))).length, 0);     // reenvío de las 4 h
+    assert.equal(pushes(t.ejecutar(webhook(r("resolved")))).length, 0);   // se acabó el día, no se pagó nada
+    assert.equal(pushes(t.ejecutar(webhook(r("firing")))).length, 1);     // el mes siguiente vuelve a avisar
+});
+
 const URL_PRUEBA = "https://ntfy.example/tema-de-prueba-123";
 
 test("ntfy: sin NTFY_URL no envía nada", () => {

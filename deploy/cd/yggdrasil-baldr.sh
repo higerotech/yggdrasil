@@ -264,7 +264,7 @@ verificar() {
             [ -n "$nombre" ] || continue
             [[ "$nombre" == BaldrConPendientes || "$nombre" == BaldrSinTerminar ]] && continue
             if [[ "$nombre" =~ ^($ESPERADAS)$ ]]; then esperadas+=("$nombre$detalle"); else inesperadas+=("$nombre$detalle"); fi
-        done < <(printf '%s' "$alertas" | jq -r '.[] | [.labels.alertname,
+        done < <(printf '%s' "$alertas" | jq -r '.[] | select(.labels.tipo != "recordatorio") | [.labels.alertname,
             ((if .labels.wan then " " + .labels.wan else "" end) + (if .labels.host then " (" + .labels.host + ")" else "" end)
              + (if .labels.nombre then " " + .labels.nombre else "" end))] | @tsv' 2>/dev/null | sort -u)
         for a in "${inesperadas[@]}"; do pendientes+=("alerta $a"); done
