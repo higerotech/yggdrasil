@@ -9,6 +9,26 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.26] - 2026-11-02
+
+**Hive sale directo hacia Atlas y Meta.** El túnel de PIA aprende excepciones por equipo: nidavellir sigue en PIA,
+pero las conexiones de Hive a Atlas y a Meta salen sin túnel, y cada mensaje gana unos 1,8 s (ADR-0009 1.2.0).
+
+### Añadido
+- **Excepciones del túnel PIA por equipo: el tráfico de Hive hacia Atlas y Meta sale directo** (ADR-0009 1.2.0).
+  - **El problema:** nidavellir sale por PIA, y PIA le añade a Hive unos 1,8 s por mensaje, medidos el 2026-11-02 con la GPU libre.
+  - **La configuración:** `PIA_DIRECTO_MACS` y `PIA_DIRECTO_PUERTOS` en `/etc/yggdrasil-pia.conf`, y las redes en
+    `/etc/yggdrasil-pia-directo.txt`. Hoy son Atlas (puertos 27015-27017) y las 34 redes IPv4 de Meta (AS32934, de
+    RIPEstat, en `deploy/host/pia/directo.txt`, que instala `install-host.sh`).
+  - **Cómo funciona:** las excepciones van en la cadena `marcar`, antes de la marca, y las redes en un set con
+    `auto-merge`. El resto del tráfico del equipo sigue por PIA, y sin `PIA_DIRECTO_MACS` no cambia nada.
+  - **Pruebas:** `tests/prueba-pia.sh` gana casos para las excepciones y un `nft -c` de la tabla con las redes de Meta.
+
+### Corregido
+- **`tests/prueba-pia.sh` contaba sus fallos en `fallos`**, la misma variable con la que `pia-tunel.sh` cuenta las
+  sondas fallidas y que pone a 0 en cada vuelta. Una prueba que fallaba no hacía fallar la ejecución, y además podía
+  desatar un rescate del túnel que descuadraba otras. Ahora cuenta en `fallidas`.
+
 ## [0.5.25] - 2026-11-02
 
 **Saga recibe otra vez las trazas de hive, y los recordatorios de pago.** Una puerta en midgard y un relé en
@@ -950,7 +970,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...HEAD
+[0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
 [0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25
 [0.5.24]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...v0.5.24
 [0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
