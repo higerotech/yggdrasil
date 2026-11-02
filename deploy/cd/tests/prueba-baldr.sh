@@ -193,11 +193,13 @@ touch "$T/montado-respaldos.mount"; : > "$T/montajes-fallidos"
 echo "yggdrasil-arranque.service enabled enabled" > "$T/arranques"; echo active > "$T/estado-yggdrasil-arranque.service"
 : > "$T/salidos"; : > "$T/unidades-fallidas"
 echo "fafnir-catalogo.service 700000000 success" > "$T/jobs"
-echo '[{"labels":{"alertname":"HostReiniciado"}}]' > "$T/am.json"; echo '{"data":{"result":[]}}' > "$T/prom.json"
+# Un reinicio el dia 1: el recordatorio de pago esta activo y no es nada que arreglar
+echo '[{"labels":{"alertname":"HostReiniciado"}},{"labels":{"alertname":"RecordatorioPagoServitel","tipo":"recordatorio"}}]' > "$T/am.json"; echo '{"data":{"result":[]}}' > "$T/prom.json"
 BALDR_MONTAJES="$T/nas/respaldos" BALDR_JOBS="fafnir-catalogo.service" BALDR_CONTENEDORES="yggdrasil-throughput-probe" \
 BALDR_VERIFICAR=1 bash "$BALDR" > "$T/salida" 2>&1 || mal "baldr salio con error"
 igual "reinicio ordenado: limpio" limpio 1
 igual "reinicio ordenado: nada pendiente" pendientes 0
+if grep -q "RecordatorioPagoServitel" "$T/baldr/resumen"; then mal "un recordatorio no es pendiente ni esperable"; else ok "un recordatorio no es pendiente ni esperable"; fi
 resumen "reinicio ordenado: dice cuando volvio" "Reinicio ordenado; volvio a las 11:50 UTC."
 resumen "reinicio ordenado: nada pendiente en el resumen" "Nada pendiente."
 no_llamo "reinicio ordenado: Sleipnir no se reinicia" "docker restart"

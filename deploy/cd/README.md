@@ -119,7 +119,8 @@ servicio aún no está sano, la unidad reintenta cada minuto (`Restart=on-failur
    política de reinicio que murieron durante el arranque;
 3. relanza los jobs de `BALDR_JOBS` que corrieron antes de que todo eso estuviera listo, o que fallaron;
 4. en midgard (`BALDR_VERIFICAR=1`), a los 15 min del arranque, revisa las alertas y lo que Thor publica de
-   los otros hosts, y manda un push con el resumen si hubo corte o si queda algo pendiente.
+   los otros hosts, y manda un push con el resumen si hubo corte o si queda algo pendiente. Los
+   recordatorios (`tipo: recordatorio`, p. ej. los pagos de Servitel y NetUno) no cuentan.
 
 Instalación: `bootstrap-midgard.sh` (paso 5i) en midgard. En nidavellir, a mano:
 

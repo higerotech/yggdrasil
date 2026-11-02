@@ -188,6 +188,12 @@ Alertas de Heimdall (contrato Alertmanager → Node-RED, `heimdall-alertas.yml`)
 | `SleipnirSinMedicion` | warning | más de 8 h sin medición válida en una WAN | push |
 | `SondaCaida` | warning | Mimir no consigue scrapear una sonda durante 5 min | push. **Hueco**: su regex (`blackbox_.*\|huginn_muninn\|sleipnir`) no incluye `hogar_icmp` ni `hogar_tls`; pendiente de corregir en las reglas |
 
+Recordatorios de calendario (`recordatorios.yml`, `tipo: recordatorio`):
+| Alerta | Severidad | Condición | Efecto |
+|---|---|---|---|
+| `RecordatorioPagoServitel` | warning | día 1 del mes, de 08:00 a 23:59 en Caracas (UTC-4) | un push al empezar, sin push al acabar el día; Baldr no la cuenta como pendiente |
+| `RecordatorioPagoNetUno` | warning | día 1 del mes, de 08:00 a 23:59 en Caracas | igual |
+
 Alertas del host (Thor, `thor-alertas.yml`):
 | Alerta | Severidad | Condición |
 |---|---|---|
