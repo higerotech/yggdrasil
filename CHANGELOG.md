@@ -9,6 +9,21 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+- **Excepciones del túnel PIA por equipo: el tráfico de Hive hacia Atlas y Meta sale directo** (ADR-0009 1.2.0).
+  - **El problema:** nidavellir sale por PIA, y PIA le añade a Hive unos 1,8 s por mensaje, medidos el 2026-11-02 con la GPU libre.
+  - **La configuración:** `PIA_DIRECTO_MACS` y `PIA_DIRECTO_PUERTOS` en `/etc/yggdrasil-pia.conf`, y las redes en
+    `/etc/yggdrasil-pia-directo.txt`. Hoy son Atlas (puertos 27015-27017) y las 34 redes IPv4 de Meta (AS32934, de
+    RIPEstat, en `deploy/host/pia/directo.txt`, que instala `install-host.sh`).
+  - **Cómo funciona:** las excepciones van en la cadena `marcar`, antes de la marca, y las redes en un set con
+    `auto-merge`. El resto del tráfico del equipo sigue por PIA, y sin `PIA_DIRECTO_MACS` no cambia nada.
+  - **Pruebas:** `tests/prueba-pia.sh` gana casos para las excepciones y un `nft -c` de la tabla con las redes de Meta.
+
+### Corregido
+- **`tests/prueba-pia.sh` contaba sus fallos en `fallos`**, la misma variable con la que `pia-tunel.sh` cuenta las
+  sondas fallidas y que pone a 0 en cada vuelta. Una prueba que fallaba no hacía fallar la ejecución, y además podía
+  desatar un rescate del túnel que descuadraba otras. Ahora cuenta en `fallidas`.
+
 ## [0.5.25] - 2026-11-02
 
 **Saga recibe otra vez las trazas de hive, y los recordatorios de pago.** Una puerta en midgard y un relé en

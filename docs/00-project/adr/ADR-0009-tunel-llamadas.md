@@ -4,7 +4,7 @@
 * **Fecha:** 2026-10-21
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 1.1.2
+* **Versión:** 1.2.0
 * **ID:** ADR-0009
 * **Supersede / Superseded-by:** —
 * **Controles OWASP afectados:** A02 (cifrado en tránsito del túnel), A05 (ningún puerto nuevo en midgard), A07 (credenciales de PIA en un fichero de root 600 que escribe Jeremi, nunca en el repo; clave privada y token solo en memoria), A09 (estado del túnel en Heimdall)
@@ -235,6 +235,26 @@ Las cinco de la matriz más las descartadas. Tres variantes de C2:
 - **Un túnel de PIA por WAN.** Cada sesión tiene otra IP de salida, así que pasar de uno a otro corta la llamada,
   igual que hoy.
 - **Encadenar el VPS a PIA.** Suma latencia y no aporta continuidad ni tolerancia a pérdida.
+
+## Enmienda 1.2.0 (2026-11-02): excepciones por equipo, para Hive
+
+Desde la fase 2 de ADR-0012, Hive corre en nidavellir, que sale por PIA. Medido el 2026-11-02 con la GPU libre, PIA
+añade unos 1,8 s a cada mensaje: un viaje a Atlas tarda 143 ms por el túnel y 75 ms directo, y el webhook, el envío
+a Meta y el historial también se alargan. Decisión de Jeremi: nidavellir sigue en PIA, salvo el tráfico de Hive hacia
+Atlas y Meta.
+
+- **`PIA_DIRECTO_MACS`** en `/etc/yggdrasil-pia.conf`: los equipos a los que se aplican las excepciones (nidavellir).
+- **`PIA_DIRECTO_PUERTOS`:** los puertos TCP que salen directo, por ejemplo los de MongoDB Atlas (27015-27017). Ir
+  por puerto no depende de las IP del clúster, que cambian.
+- **`/etc/yggdrasil-pia-directo.txt`:** las redes que salen directo. Lo instala `install-host.sh` desde
+  `deploy/host/pia/directo.txt`, con las redes IPv4 de Meta (AS32934) según RIPEstat.
+- **En `marcar`:** las excepciones van antes de la marca. Lo que no se marca sale por la ruta por defecto, con la IP
+  de la casa. Las redes van en un set con `auto-merge`, para que una red solapada no tumbe la tabla, porque sin tabla
+  el equipo entero saldría directo.
+- **Lo que cambia:**
+  - Atlas y Meta ven la IP de la casa en esas conexiones, y PIA deja de ver sus metadatos.
+  - El resto del tráfico de nidavellir, como los túneles de Cloudflare o morocota, sigue por PIA.
+  - Sin `PIA_DIRECTO_MACS` no cambia nada.
 
 ## Consecuencias
 

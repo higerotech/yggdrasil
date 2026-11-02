@@ -76,6 +76,8 @@ echo "== Tunel PIA (pia-tunel, ADR-0009) =="
 cambio_pia=0
 ejecutar install -d -m 0755 /usr/local/share/yggdrasil
 copiar_si_cambia "$ORIGEN/pia/ca.rsa.4096.crt" /usr/local/share/yggdrasil/pia-ca.rsa.4096.crt 0644 || true
+# Las redes de Meta que salen directo para PIA_DIRECTO_MACS: el servicio las relee en cada vuelta
+copiar_si_cambia "$ORIGEN/pia/directo.txt"     /etc/yggdrasil-pia-directo.txt                0644 || true
 copiar_si_cambia "$ORIGEN/pia-tunel.sh"      "$DESTINO_BIN/pia-tunel.sh"           0755 && cambio_pia=1 || true
 copiar_si_cambia "$ORIGEN/pia-tunel.service" "$DESTINO_UNIDADES/pia-tunel.service" 0644 && cambio_pia=1 || true
 [[ $cambio_pia == 1 ]] && ejecutar systemctl daemon-reload

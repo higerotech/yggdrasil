@@ -22,6 +22,7 @@ set -u
 
 CONF=${PIA_CONF:-/etc/yggdrasil-pia.conf}               # PIA_REGION, PIA_MACS: sin secretos
 CREDENCIALES=${PIA_CREDENCIALES:-/etc/yggdrasil-pia.env} # PIA_USER, PIA_PASS: root 600
+DIRECTO=${PIA_DIRECTO:-/etc/yggdrasil-pia-directo.txt}  # redes que salen directo para PIA_DIRECTO_MACS
 CA=${PIA_CA:-/usr/local/share/yggdrasil/pia-ca.rsa.4096.crt}
 ESTADO_DIR=${PIA_ESTADO_DIR:-/run/yggdrasil-pia}
 LISTA_URL="https://serverlist.piaservers.net/vpninfo/servers/v6"
@@ -46,7 +47,7 @@ DOMINIO=${PIA_DOMINIO:-casa.lan}
 
 token=""; token_desde=0
 srv_ip=""; srv_cn=""; srv_region=""; dns_pia=""
-tunel=0; desvio=0; fallos=0; ultimo_intento=0; macs_aplicadas=""; dns_aplicado=""
+tunel=0; desvio=0; fallos=0; ultimo_intento=0; macs_aplicadas=""; dns_aplicado=""; directo_aplicado=""
 reenviador_pid=""; reenviador_dns=""; reenviador_intento=0
 # Contadores para la revision de la ADR-0009 (deploy/cd/revisar-adr-0009.sh), que Thor publica. Las
 # sondas solo cuentan con el desvio activo: miden lo que vive el equipo, no un tunel sin usar.
@@ -70,6 +71,55 @@ macs() {
         fi
     done
     printf '%s' "$lista"
+}
+
+# directo_macs: las MAC de PIA_DIRECTO_MACS validas: sus conexiones a los destinos directos no van por el tunel
+directo_macs() {
+    local m lista=""
+    for m in $(leer_clave "$CONF" PIA_DIRECTO_MACS | tr 'A-F,' 'a-f '); do
+        if [[ "$m" =~ ^([0-9a-f]{2}:){5}[0-9a-f]{2}$ ]]; then
+            lista+="${lista:+, }$m"
+        else
+            log "PIA_DIRECTO_MACS: '$m' no es una MAC, se ignora"
+        fi
+    done
+    printf '%s' "$lista"
+}
+
+# directo_puertos: los puertos TCP de PIA_DIRECTO_PUERTOS validos (n o n-m), que salen directo
+directo_puertos() {
+    local p lista=""
+    for p in $(leer_clave "$CONF" PIA_DIRECTO_PUERTOS | tr ',' ' '); do
+        if [[ "$p" =~ ^[0-9]{1,5}(-[0-9]{1,5})?$ ]]; then
+            lista+="${lista:+, }$p"
+        else
+            log "PIA_DIRECTO_PUERTOS: '$p' no es un puerto, se ignora"
+        fi
+    done
+    printf '%s' "$lista"
+}
+
+# directo_redes: las redes IPv4 de $DIRECTO, una por linea (# comenta), que salen directo
+directo_redes() {
+    local r lista=""
+    [[ -r "$DIRECTO" ]] || return 0
+    while read -r r _; do
+        [[ -z "$r" || "$r" == "#"* ]] && continue
+        if [[ "$r" =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+            lista+="${lista:+, }$r"
+        else
+            log "$DIRECTO: '$r' no es una red IPv4, se ignora"
+        fi
+    done < "$DIRECTO"
+    printf '%s' "$lista"
+}
+
+# directo: las excepciones como "macs|puertos|redes", para la tabla y para saber si cambiaron. Vacia sin MAC.
+directo() {
+    local dm
+    dm=$(directo_macs)
+    [[ -n "$dm" ]] || return 0
+    printf '%s|%s|%s' "$dm" "$(directo_puertos)" "$(directo_redes)"
 }
 
 pedir_token() {  # deja el token en `token`; 0 si lo consiguio
@@ -203,10 +253,14 @@ destino_dns() {  # adonde va el DNS de los equipos: el reenviador si vive, si no
     if reenviador_vivo; then printf '%s:%s' "$(lan_ip)" "$DNS_PUERTO"; else printf '%s' "$dns_pia"; fi
 }
 
-# reglas_nft <macs> <destino DNS>: la tabla propia del desvio, para `nft -f -`. Se declara y se borra
-# antes de crearla: el cambio es atomico y no toca las tablas del router (/etc/nftables.conf) ni las
-# de Docker.
+# reglas_nft <macs> <destino DNS> [<excepciones de directo()>]: la tabla propia del desvio, para
+# `nft -f -`. Se declara y se borra antes de crearla: el cambio es atomico y no toca las tablas del router
+# (/etc/nftables.conf) ni las de Docker. Las excepciones van antes de marcar: lo que no se marca sale
+# directo, por la ruta por defecto. Las redes van en un set con auto-merge: una red que se solapa con otra
+# no hace que nft rechace la tabla, lo que dejaria al equipo entero fuera del tunel.
 reglas_nft() {
+    local dm="" dp="" dr=""
+    IFS='|' read -r dm dp dr <<< "${3:-}"
     cat <<EOF
 table inet $TABLA_NFT
 delete table inet $TABLA_NFT
@@ -215,8 +269,22 @@ table inet $TABLA_NFT {
         type ether_addr
         elements = { $1 }
     }
-    chain marcar {
-        type filter hook prerouting priority mangle + 1; policy accept;
+EOF
+    if [[ -n "$dm" ]]; then
+        printf '    set directos {\n        type ether_addr\n        elements = { %s }\n    }\n' "$dm"
+    fi
+    if [[ -n "$dm" && -n "$dr" ]]; then
+        printf '    set redes_directas {\n        type ipv4_addr\n        flags interval\n        auto-merge\n'
+        printf '        elements = { %s }\n    }\n' "$dr"
+    fi
+    printf '    chain marcar {\n        type filter hook prerouting priority mangle + 1; policy accept;\n'
+    if [[ -n "$dm" && -n "$dp" ]]; then
+        printf '        iifname "%s" ether saddr @directos meta nfproto ipv4 tcp dport { %s } accept\n' "$LAN_IF" "$dp"
+    fi
+    if [[ -n "$dm" && -n "$dr" ]]; then
+        printf '        iifname "%s" ether saddr @directos ip daddr @redes_directas accept\n' "$LAN_IF"
+    fi
+    cat <<EOF
         iifname "$LAN_IF" ether saddr @equipos meta nfproto ipv4 meta mark set $MARCA
         iifname "$LAN_IF" ether saddr @equipos meta nfproto ipv6 ip6 daddr != { fe80::/10, ff00::/8 } drop
     }
@@ -245,15 +313,16 @@ borrar_reglas_ip() {
 }
 
 activar_desvio() {  # activar_desvio <macs>
-    local dns
-    dns=$(destino_dns)
-    reglas_nft "$1" "$dns" | nft -f - || { log "nft rechazo la tabla del desvio"; return 1; }
+    local dns excepciones
+    dns=$(destino_dns); excepciones=$(directo)
+    reglas_nft "$1" "$dns" "$excepciones" | nft -f - || { log "nft rechazo la tabla del desvio"; return 1; }
     borrar_reglas_ip
     ip rule add fwmark "$MARCA" lookup main suppress_prefixlength 0 priority "$PRIO_SUPRIMIR"
     ip rule add fwmark "$MARCA" lookup "$TABLA" priority "$PRIO_TUNEL"
     ip route flush cache 2>/dev/null || true
-    desvio=1; macs_aplicadas="$1"; dns_aplicado=$dns
+    desvio=1; macs_aplicadas="$1"; dns_aplicado=$dns; directo_aplicado=$excepciones
     log "desvio activo: $1 salen por PIA ($srv_region), DNS a $dns"
+    [[ -n "$excepciones" ]] && log "excepciones: ${excepciones%%|*} salen directo a sus puertos y redes"
 }
 
 desactivar_desvio() {  # desactivar_desvio <motivo>
@@ -261,7 +330,7 @@ desactivar_desvio() {  # desactivar_desvio <motivo>
     borrar_reglas_ip
     ip route flush cache 2>/dev/null || true
     if (( desvio )); then log "desvio retirado ($1): los equipos salen directo"; fi
-    desvio=0; macs_aplicadas=""; dns_aplicado=""
+    desvio=0; macs_aplicadas=""; dns_aplicado=""; directo_aplicado=""
 }
 
 # desvio_intacto: la tabla y las dos reglas siguen ahi. Una recarga de nftables, un `ip rule flush`
@@ -341,6 +410,7 @@ vuelta() {
     if (( tunel )) && [[ -n "$m" ]]; then
         arrancar_reenviador || true
         if (( ! desvio )) || [[ "$m" != "$macs_aplicadas" ]] || [[ "$(destino_dns)" != "$dns_aplicado" ]] \
+                || [[ "$(directo)" != "$directo_aplicado" ]] \
                 || ! desvio_intacto; then
             activar_desvio "$m" || true
         fi

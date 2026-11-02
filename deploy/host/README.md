@@ -181,6 +181,13 @@ conexiones abiertas se cortan una vez, porque su NAT cambia, y las aplicaciones 
 - **`/etc/yggdrasil-pia.conf`** (644):
   - `PIA_MACS`: MAC de los equipos, separadas por comas o espacios.
   - `PIA_REGION`: un `id` de `serverlist.piaservers.net/vpninfo/servers/v6`. Por defecto, `us_florida`.
+  - `PIA_DIRECTO_MACS` (opcional): de entre las MAC de `PIA_MACS`, las que salen directo, sin túnel, hacia los
+    puertos y las redes de abajo (ADR-0009 1.2.0). Hoy, nidavellir: Hive, hacia Atlas y Meta.
+  - `PIA_DIRECTO_PUERTOS` (opcional): los puertos TCP que salen directo, `n` o `n-m`, separados por comas. Para
+    Atlas, `27015-27017`.
+- **`/etc/yggdrasil-pia-directo.txt`** (644): las redes IPv4 que salen directo para `PIA_DIRECTO_MACS`, una por línea.
+  Lo instala `install-host.sh` desde `pia/directo.txt`, con las redes de Meta. El servicio relee los tres en cada
+  vuelta, cada 5 s, y rehace la tabla si cambian.
 - **`/etc/yggdrasil-pia.env`** (root 600): `PIA_USER` y `PIA_PASS`.
   - **Lo escribe Jeremi**, desde su terminal; Claude nunca ve la contraseña:
 
