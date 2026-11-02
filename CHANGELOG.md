@@ -9,6 +9,13 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.23] - 2026-11-01
+
+**Los proveedores con nombre y la tarjeta que tumbaba las WAN.** Servitel y NetUno pasan a tener nombre y
+umbral propio, el de su garantía. Entre el 30-oct y el 1-nov las dos WAN cayeron varias veces, y la causa no
+eran los proveedores sino la tarjeta USB 3.0 VIA VL805 de midgard. wan2 sale de ella a un USB 2.0 de la placa,
+y su umbral baja al techo medido de ese puerto. La ADR-0012 reparte los servicios entre midgard y nidavellir.
+
 ### Añadido
 - **ADR-0012 (propuesto): reparto de servicios entre midgard y nidavellir.** midgard pasa a ser el router y
   el observador: red de la casa, Heimdall y el stack de Yggdrasil. nidavellir pasa a ser el host de
@@ -910,7 +917,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...HEAD
+[0.5.23]: https://github.com/higerotech/yggdrasil/compare/v0.5.22...v0.5.23
 [0.5.22]: https://github.com/higerotech/yggdrasil/compare/v0.5.21...v0.5.22
 [0.5.21]: https://github.com/higerotech/yggdrasil/compare/v0.5.20...v0.5.21
 [0.5.20]: https://github.com/higerotech/yggdrasil/compare/v0.5.19...v0.5.20
