@@ -373,12 +373,19 @@ Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom
 ### Saga desde nidavellir (ADR-0008 1.1.0)
 
 hive emite sus trazas desde nidavellir a `saga:4318`. Allí `saga` es un relé que reenvía a la puerta de Saga en
-midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez:
+midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez.
+nidavellir no tiene un clon de este repo, así que el fichero llega por `scp` y vive en `/srv/apps/yggdrasil-saga/`:
 
 ```bash
-# nidavellir, con el clon de yggdrasil en /srv/apps/yggdrasil
-docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+# desde el equipo con el clon
+scp -i ~/.ssh/id_ed25519_hgtech001 deploy/nidavellir/saga-rele.yml jalcala@192.168.10.2:/tmp/saga-rele.yml
+# en nidavellir
+sudo install -D -m 0644 /tmp/saga-rele.yml /srv/apps/yggdrasil-saga/saga-rele.yml && rm /tmp/saga-rele.yml
+sudo docker compose -f /srv/apps/yggdrasil-saga/saga-rele.yml -p yggdrasil-saga up -d
 ```
+
+Para cambiar la imagen se repiten los tres pasos. `yggdrasil-saga-rele` está en `THOR_CONTENEDORES` de nidavellir
+(«Thor en otro host», abajo): si cae, `ServicioDeHostCaido` lo nombra.
 
 Comprobar desde nidavellir: `nc -zv 192.168.10.1 4318` conecta, y los logs de hive dejan de decir `saga`. Desde
 otra máquina de la LAN, el mismo `nc` conecta pero socat cierra en el acto.
@@ -408,11 +415,14 @@ THOR_DISCOS="/dev/disk/by-id/ata-ADATA_SU650_<serie> /dev/disk/by-id/ata-WDC_WD1
 THOR_PUNTOS="/ /srv/medios/wd"
 THOR_WANS=""
 THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer hive-idp-vigia.timer hive-idp-respaldo.timer"
-THOR_CONTENEDORES="cd-socket-proxy hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel"
+THOR_CONTENEDORES="cd-socket-proxy deploy-service-tunnel bragi bragi-tunel hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel andvari-openbao bifrost-nats hermod-rabbitmq hive-api hive-webhook hive-ingest hive-docs hive-tunel hive-portal hive-classifier hive-coordinator hive-responder hive-evaluator hive-notifier yggdrasil-saga-rele"
 ```
 
 - Los `hive-idp*` son Zitadel (Hive, `deploy/idp`). Con ellos en la lista, `ServicioDeHostCaido` avisa del
   contenedor concreto que cae; `ZitadelExternoCaido` solo dice que no se llega desde fuera.
+- Desde la fase 2 de ADR-0012 (2026-11-02), Hive, Andvari, Bifröst y Hermod corren aquí, con la misma lista que
+  tenían en midgard. `yggdrasil-saga-rele` entra el 2026-11-03. Los `morocota-*` no están: morocota tiene su propia
+  vigilancia.
 - `deploy-service-tunnel` (túnel de `deploy.higerotech.com`, `/srv/apps/deploy-tunnel`) entra en la lista
   el 2026-11-03, cuando pasa a nidavellir. En midgard no se vigilaba.
 
