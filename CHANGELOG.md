@@ -19,6 +19,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
   rollback (`deployment.md` §3.2). Antes de moverlo hubo que arreglar el reconciliador
   (`despliegue-continuo` #16: no veía las 6 apps de ves) e igualar el `WEBHOOK_SECRET` de nidavellir con
   el de midgard (`deploy/cd/README.md` §3).
+- **Thor vigila `yggdrasil-saga-rele` en nidavellir.** Si el relé cae, las trazas de Hive dejan de llegar a Saga sin
+  que nada avise. Ahora está en `THOR_CONTENEDORES`, y `ServicioDeHostCaido` lo nombra. La lista de nidavellir del
+  README de `deploy/cd` se pone al día con la que corre allí desde la fase 2.
+
+### Corregido
+
+- **La ruta del relé de Saga.** El README de `deploy/cd` y la cabecera de `deploy/nidavellir/saga-rele.yml` decían
+  que nidavellir tenía un clon del repo en `/srv/apps/yggdrasil`. No lo tiene: el fichero llega por `scp` y vive en
+  `/srv/apps/yggdrasil-saga/`, que es como se instaló el 2026-11-02.
 
 ## [0.5.26] - 2026-11-02
 

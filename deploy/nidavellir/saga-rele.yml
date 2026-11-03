@@ -3,7 +3,11 @@
 # en esa red y reenvía cada conexión a la puerta de Saga en midgard (yggdrasil-saga-puerta, 192.168.10.1:4318), que
 # solo acepta a nidavellir. Los emisores no cambian nada.
 #
-#   docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+#   sudo install -D -m 0644 saga-rele.yml /srv/apps/yggdrasil-saga/saga-rele.yml
+#   sudo docker compose -f /srv/apps/yggdrasil-saga/saga-rele.yml -p yggdrasil-saga up -d
+#
+# nidavellir no tiene un clon de este repo: el fichero llega por scp (deploy/cd/README.md, «Saga desde nidavellir»).
+# Thor lo vigila con el resto de contenedores (THOR_CONTENEDORES en /etc/default/yggdrasil-thor).
 #
 # La red es la de los emisores, creada por la fase 2: no se crea aquí. Como en midgard, un emisor que entra en ella
 # solo alcanza a Saga.
