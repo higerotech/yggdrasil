@@ -9,6 +9,17 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Cambiado
+
+- **El túnel de despliegue pasa a nidavellir, y midgard despliega con el reconciliador** (ADR-0012,
+  revisión del 2026-11-03; ADR-0005). Los webhooks de bragi y morocota llegaban a midgard, que los
+  ignoraba: morocota no se desplegaba. El conector de `deploy.higerotech.com` corre ahora en nidavellir
+  (`/srv/apps/deploy-tunnel`). El receptor de midgard consulta cada 300 s el último `build` correcto,
+  así que un despliegue tarda hasta unos 7 min tras el merge y `gh run rerun` deja de servir como
+  rollback (`deployment.md` §3.2). Antes de moverlo hubo que arreglar el reconciliador
+  (`despliegue-continuo` #16: no veía las 6 apps de ves) e igualar el `WEBHOOK_SECRET` de nidavellir con
+  el de midgard (`deploy/cd/README.md` §3).
+
 ## [0.5.26] - 2026-11-02
 
 **Hive sale directo hacia Atlas y Meta.** El túnel de PIA aprende excepciones por equipo: nidavellir sigue en PIA,
