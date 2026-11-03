@@ -56,6 +56,11 @@ Adoptar el receptor de `despliegue-continuo` como mecanismo de despliegue de Ygg
 - Impacto en threat model: el webhook firmado y el receptor están cubiertos por el threat model de
   `despliegue-continuo`; en Yggdrasil se añade el bind mount de escritura del clon (T7 de `threat-model.md`; este ADR lo
   llamaba T6, identificador que la revisión del 2026-10-16 dio al tablero de Hlidskjalf).
+- **Revisión del 2026-11-03:** el webhook ya no llega a midgard. El túnel de `deploy.higerotech.com`
+  pasó a nidavellir, y midgard despliega con el reconciliador del receptor (ADR-0011 de
+  `despliegue-continuo`), que consulta el último `build` correcto cada 300 s. La decisión de este ADR no
+  cambia: mismo receptor, mismo SHA, mismo healthcheck y rollback. Cambia el disparador, y con él la
+  latencia (hasta unos 7 min). Detalle en ADR-0012 y `docs/05-deployment/deployment.md`.
 - Condiciones de revisión: si el receptor incorpora hooks de pre-despliegue o `git sync` nativo,
   eliminar la tarea sync; si la latencia de "compose con un despliegue de retraso" molesta, mover el
   compose fuera del clon.

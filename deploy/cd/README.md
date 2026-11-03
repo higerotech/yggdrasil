@@ -48,6 +48,13 @@ gh api repos/higerotech/yggdrasil/hooks -X POST \
 unset SECRET
 ```
 
+**Desde el 2026-11-03 el túnel de `deploy.higerotech.com` está en nidavellir** (ADR-0012, revisión del
+2026-11-03), y este webhook llega a su receptor, que lo ignora porque yggdrasil no está en su inventario.
+midgard despliega con el reconciliador. Los webhooks de todos los repos comparten un único secreto, así
+que el `WEBHOOK_SECRET` de los dos `receiver.env` debe ser **el mismo**: si no, la entrega da 401
+«firma invalida» y GitHub no la reintenta. Compáralo por hash, sin imprimirlo:
+`sudo grep '^WEBHOOK_SECRET=' /etc/cd-receiver/receiver.env | sha256sum` en cada host.
+
 ## 3b. Paquetes GHCR públicos (una vez por imagen)
 
 Los paquetes nuevos de la organización nacen **privados** y el receptor hace `pull` anónimo, así que
@@ -406,6 +413,8 @@ THOR_CONTENEDORES="cd-socket-proxy hive-idp hive-idp-db hive-idp-login hive-idp-
 
 - Los `hive-idp*` son Zitadel (Hive, `deploy/idp`). Con ellos en la lista, `ServicioDeHostCaido` avisa del
   contenedor concreto que cae; `ZitadelExternoCaido` solo dice que no se llega desde fuera.
+- `deploy-service-tunnel` (túnel de `deploy.higerotech.com`, `/srv/apps/deploy-tunnel`) entra en la lista
+  el 2026-11-03, cuando pasa a nidavellir. En midgard no se vigilaba.
 
 - `THOR_WANS=""` (vacía, no ausente): nidavellir no tiene `wan-balancer`. Sin ella publicaría las dos WAN fuera
   de la ruta.

@@ -1,10 +1,10 @@
 # ADR-0012: Ubicación de los servicios entre midgard y nidavellir
 
 * **Estado:** proposed
-* **Fecha:** 2026-10-31 (revisado el 2026-11-02: la fase 2 se adelanta, ver [Revisión](#revisión-del-2026-11-02-la-fase-2-se-adelanta-por-la-caída-del-ssd))
+* **Fecha:** 2026-10-31 (revisado el 2026-11-02: la fase 2 se adelanta, ver [Revisión](#revisión-del-2026-11-02-la-fase-2-se-adelanta-por-la-caída-del-ssd); y el 2026-11-03: el túnel de despliegue pasa a nidavellir, ver [Revisión](#revisión-del-2026-11-03-el-túnel-de-despliegue-pasa-a-nidavellir))
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 02-design
-* **Versión:** 0.2.0
+* **Versión:** 0.3.0
 * **ID:** ADR-0012
 * **Supersede / Superseded-by:** — (complementa ADR-0002: el placement sigue siendo local; este ADR reparte entre los dos hosts)
 * **Controles OWASP afectados:** A04 (no concentrar en un solo host el router y las aplicaciones mientras no esté probado), A05 (el piloto no abre puertos nuevos en la LAN; la infraestructura compartida —NATS, RabbitMQ, OpenBao— no se expone fuera de midgard), A09 (el piloto se decide con métricas, no a ojo)
@@ -83,6 +83,7 @@ C4Deployment
     }
     Deployment_Node(nidavellir, "nidavellir", "Ubuntu 24.04, Ryzen 3 2200G, 16 GB") {
         Deployment_Node(apps, "Aplicaciones", "Docker Compose, receptor con reconciliador") {
+            Container(tunel, "deploy-service-tunnel", "cloudflared", "deploy.higerotech.com desde el 3-nov")
             Container(bragi, "Bragi", "Jellyfin", "Desde el 26-oct")
             Container(idp, "hive-idp", "Zitadel", "Desde el 26-oct")
             Container(ves, "ves-market", "TimescaleDB, RabbitMQ, ingestores", "Piloto, ola 2")
@@ -212,3 +213,46 @@ al loopback de midgard.
 - Revisar en midgard el cable y la alimentación del SSD y de la tarjeta USB.
 - Las configuraciones originales siguen en midgard, con sus unidades desactivadas. Retirarlas cuando
   nidavellir lleve unas semanas estable.
+
+## Revisión del 2026-11-03: el túnel de despliegue pasa a nidavellir
+
+**Contexto.** Tras la fase 2, los webhooks de bragi y morocota seguían llegando a midgard por
+`deploy.higerotech.com`, y su receptor los ignoraba porque esas apps ya no estaban en su inventario.
+bragi se desplegaba por el reconciliador de nidavellir. morocota no se desplegaba: su repo es privado y
+ese reconciliador no tenía token.
+
+**Decisión de Jeremi.** Mover a nidavellir el conector del túnel. midgard pasa a desplegar solo con su
+reconciliador, en lugar de abrir su receptor a la LAN con un segundo hostname.
+
+**Qué se encontró antes de moverlo.**
+- El reconciliador de midgard, en modo observar desde el 23-oct, no veía las 6 apps de ves: consultaba
+  los 100 últimos runs del repo y los llenaba el sondeo programado. Se corrigió en `despliegue-continuo`
+  (PR #16: runs por workflow). Con el arreglo, las 8 apps de midgard salieron «al día» antes de dejarlo
+  actuar.
+- El `WEBHOOK_SECRET` de nidavellir no era el de los webhooks de GitHub, que se configuraron con el de
+  midgard. Las primeras entregas reenviadas dieron 401. Se copió el de midgard.
+
+**Cómo se hizo**, desde el PC, con el token y el secreto por tubería ssh y comparados por sha256:
+1. Receptor actualizado al merge del PR #16 en los dos hosts (`deploy/install.sh`, idempotente).
+2. Reconciliador de midgard a modo desplegar (`RECONCILE_DRY_RUN=false`).
+3. En nidavellir, `/srv/apps/deploy-tunnel/docker-compose.yml` con la misma imagen por digest, red de
+   host, solo lectura y `cap_drop: ALL`. Las métricas quedan en `127.0.0.1:20241`; en midgard escuchaban
+   en `*:20241`.
+4. Corte: el contenedor de midgard se paró y se le quitó el reinicio automático, y después arrancó el de
+   nidavellir. Nunca corrieron los dos a la vez, porque Cloudflare habría repartido los webhooks entre
+   ambos. Quedó listo con 4 conexiones.
+
+**Verificación.**
+- Desde fuera, `/webhook` responde 401 sin firma, y `/status`, `/reload` y `/` responden 404 en el borde
+  (ADR-0004 de `despliegue-continuo`).
+- Dos entregas reenviadas devolvieron 202 en nidavellir. El receptor ignoró `build-api` de morocota en
+  `develop` por la rama, y `build` de yggdrasil porque esa app no está en su inventario.
+
+**Consecuencias.**
+- midgard ya no depende de Cloudflare ni de nidavellir para desplegar. A cambio, cada despliegue tarda
+  hasta unos 7 minutos tras el build, y `gh run rerun` deja de servir como rollback (`deployment.md`
+  §3.2).
+- El túnel sale a internet por PIA, como los demás de nidavellir.
+- El contenedor parado en midgard es la vuelta atrás: `docker update --restart=unless-stopped
+  deploy-service-tunnel && docker start deploy-service-tunnel`, después de parar el de nidavellir.
+  Retirarlo cuando lleve unos días estable.
