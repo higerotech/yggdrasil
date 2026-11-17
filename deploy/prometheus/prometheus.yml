@@ -172,3 +172,13 @@ scrape_configs:
     static_configs:
       - targets: ["192.168.10.2:9471"]
         labels: {host: nidavellir}
+
+  # Eventos de seguridad de Hive (hive, deploy/seguridad; HIG-140): hive-seguridad.timer cuenta cada minuto en
+  # los logs de los contenedores y escribe hive_seguridad.prom en el mismo directorio de Thor.
+  - job_name: hive_seguridad
+    scrape_interval: 60s
+    metrics_path: /hive_seguridad.prom
+    fallback_scrape_protocol: PrometheusText0.0.4
+    static_configs:
+      - targets: ["192.168.10.2:9471"]
+        labels: {host: nidavellir}

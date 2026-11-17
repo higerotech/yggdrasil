@@ -1,0 +1,14 @@
+# Odín (Grafana): dashboards de Hive cargados desde archivo (solo lectura en la UI), en su carpeta. Van en otro
+# directorio que los de Heimdall porque el proveedor de ficheros recorre también los subdirectorios: dentro de
+# /etc/grafana/dashboards los cargarían los dos proveedores.
+apiVersion: 1
+providers:
+  - name: hive
+    folder: Hive
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /etc/grafana/dashboards-hive
+      foldersFromFilesStructure: false
