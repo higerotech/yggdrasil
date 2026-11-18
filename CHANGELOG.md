@@ -9,6 +9,22 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+
+- **Alertas y dashboard de los eventos de seguridad de Hive** (HIG-140, Gate 5 de Hive). Hive cuenta cada minuto en
+  sus logs nueve eventos de seguridad y deja los contadores en `hive_seguridad.prom`, que Thor sirve en nidavellir:
+  - **El scrape:** el job `hive_seguridad`, cada 60 s.
+  - **Ocho alertas** en el grupo `hive-seguridad` de `rules/hive-alertas.yml`, que avisan por Nornas:
+    - rechazos repetidos de `/oauth/token`, su límite frenando a alguien y rutas denegadas a un rol;
+    - avisos al webhook que no son de Meta y bots que pasan a ERR;
+    - Andvari, Bifröst o MongoDB que Hive no puede usar durante 6 min;
+    - el contador sin métricas o sin poder leer un contenedor.
+
+    Los umbrales salen de 48 h de producción, y cada uno tiene su prueba de promtool por debajo y por encima.
+  - **El dashboard «Hive · seguridad»** de Odín, en la carpeta Hive (`grafana/dashboards-hive/`).
+
+  Está descrito en `deploy/cd/README.md`.
+
 ### Cambiado
 
 - **El túnel de despliegue pasa a nidavellir, y midgard despliega con el reconciliador** (ADR-0012,

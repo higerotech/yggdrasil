@@ -86,3 +86,134 @@ groups:
           descripcion: >-
             `/var/lib/yggdrasil-thor/hive_idp_respaldo.prom` no existe o no se sirve en nidavellir. Lo escribe
             cada pasada de hive-idp-respaldo.service.
+
+  # --- Eventos de seguridad de Hive (HIG-140, Gate 5) ------------------------------------------------
+  # hive-seguridad.timer de nidavellir cuenta cada minuto en los logs de Hive y deja los contadores en
+  # hive_seguridad.prom (job hive_seguridad). Qué cuenta cada `evento` y la prueba que fija sus frases están
+  # en docs/06-monitoring/eventos-de-seguridad.md de Hive. Los contadores salen a 0 aunque no pase nada, así
+  # que increase() siempre tiene de dónde partir; si el contador pierde su estado y vuelve a 0, Prometheus
+  # lo trata como un reinicio.
+  #
+  # Los umbrales parten de la pasada de prueba del 2026-11-16 sobre 48 h de producción: 4 rechazos de
+  # /oauth/token y ningún otro evento. Lo que en uso normal no pasa nunca avisa a la primera; los rechazos de
+  # tokens, que sí pasan (un reloj desfasado, una aserción caducada), avisan cuando se repiten.
+  - name: hive-seguridad
+    rules:
+      # Diez en 10 min es el doble de lo que se vio en 48 h, y en poco tiempo: alguien prueba claves o
+      # aserciones robadas o caducadas, o un cliente tiene un bucle con la suya mal.
+      - alert: HiveTokenRechazosRepetidos
+        expr: sum(increase(hive_seguridad_eventos_total{evento="token_rechazado"}[10m])) >= 10
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "Hive rechaza muchas peticiones de token en /oauth/token"
+          descripcion: >-
+            Diez o más rechazos en 10 min. Cada línea dice el motivo: en nidavellir, `docker logs hive-api
+            --since 15m 2>&1 | grep -E 'Rejected (a request|an exchange) for an access token'`. Si es siempre el
+            mismo cliente, revisar su clave; si son muchos orígenes, es un intento de entrar.
+
+      # El freno de /oauth/token solo actúa cuando un origen o una persona pasa su límite.
+      - alert: HiveTokenFrenado
+        expr: sum(increase(hive_seguridad_eventos_total{evento="token_frenado"}[10m])) > 0
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "El límite de /oauth/token frenó peticiones"
+          descripcion: >-
+            Un origen o una persona pasó su límite de tokens: fuerza bruta o un cliente en bucle. En nidavellir,
+            `docker logs hive-api --since 15m 2>&1 | grep 'Turned away'` dice cuál.
+
+      - alert: HiveRutasDenegadas
+        expr: sum(increase(hive_seguridad_eventos_total{evento="ruta_denegada"}[10m])) >= 5
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "Hive deniega rutas a un rol que no las tiene"
+          descripcion: >-
+            Cinco o más en 10 min: un analista, el motor o un cliente pide lo que su rol no le deja. En
+            nidavellir, `docker logs hive-api --since 15m 2>&1 | grep 'was denied'` dice el rol y el cliente.
+
+      # Meta firma todos sus avisos y no repite la verificación: uno solo ya es de otro.
+      - alert: HiveWebhookRechazado
+        expr: >-
+          sum by (evento) (
+            increase(hive_seguridad_eventos_total{evento=~"firma_webhook|verificacion_webhook"}[10m])
+          ) > 0
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "El webhook de Hive rechazó avisos que no son de Meta ({{ $labels.evento }})"
+          descripcion: >-
+            Alguien que no es Meta llama al webhook: sin firma o con una firma mala, o con un verifyToken
+            equivocado. En nidavellir, `docker logs hive-webhook --since 15m 2>&1 | grep 'Rejected webhook'`
+            dice el chatbot. Si son muchos o siguen, el secreto de la app o el verifyToken pueden estar
+            filtrados.
+
+      # Un bot en ERR deja de responder a sus contactos hasta que su cliente le pone un token nuevo.
+      - alert: HiveBotEnError
+        expr: sum(increase(hive_seguridad_eventos_total{evento="bot_err"}[10m])) > 0
+        labels:
+          severity: critical
+          servicio: hive
+        annotations:
+          resumen: "Meta rechazó el token de un bot de Hive, que pasa a ERR"
+          descripcion: >-
+            El bot no responde hasta que su cliente le pone un token nuevo. En nidavellir, `docker logs
+            hive-ingest --since 15m 2>&1 | grep 'is now ERR'` (o hive-api, hive-webhook) dice el bot, el cliente
+            y el código de Meta. Un token revocado sin que el cliente lo pidiera puede ser una filtración.
+
+      # Como BifrostCaido: al menos un fallo en cada ventana de 5 min durante 6 min seguidos. Un fallo suelto
+      # no llega. Con el contenedor caído avisan también BifrostCaido o ServicioDePlataformaCaido; esta mira
+      # lo que esas no ven: un contenedor sano que Hive no puede usar (credenciales, red, Atlas).
+      - alert: HiveDependenciaFallando
+        expr: >-
+          sum by (evento) (
+            increase(hive_seguridad_eventos_total{evento=~"andvari|bifrost|mongodb"}[5m])
+          ) > 0
+        for: 6m
+        labels:
+          severity: critical
+          servicio: hive
+        annotations:
+          resumen: "Hive no puede usar {{ $labels.evento }} desde hace más de 6 min"
+          descripcion: >-
+            Las rutas que lo necesitan dan 503 y los mensajes no avanzan. En nidavellir, `docker ps` y los logs
+            de hive-api, hive-webhook, hive-ingest y del motor. Andvari: `bao status`; Bifröst: `docker logs
+            bifrost-nats`; MongoDB: el estado de Atlas.
+
+      # Sin el fichero, o con el contador parado, ninguna de las de arriba puede saltar. Si es todo
+      # nidavellir, ya avisa ThorSinMetricas.
+      - alert: HiveSeguridadSinMetricas
+        expr: >-
+          (
+            up{job="hive_seguridad"} == 0
+            or (time() - hive_seguridad_ultima_pasada_segundos) > 300
+          )
+          unless on () (up{job="thor",host="nidavellir"} == 0)
+        for: 10m
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "Mimir no recibe los eventos de seguridad de Hive"
+          descripcion: >-
+            Sin ellos no avisa ninguna alerta de seguridad de Hive. En nidavellir: `systemctl list-timers
+            hive-seguridad.timer`, `journalctl -u hive-seguridad` y que exista
+            `/var/lib/yggdrasil-thor/hive_seguridad.prom`.
+
+      # Lo que escribió un contenedor que no se pudo leer no se cuenta. Si está caído, ya avisa Thor.
+      - alert: HiveSeguridadContenedorSinLeer
+        expr: hive_seguridad_contenedor_leido == 0
+        for: 15m
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "El contador de seguridad de Hive no puede leer {{ $labels.contenedor }}"
+          descripcion: >-
+            Lo que escribe ese contenedor no se cuenta. En nidavellir:
+            `docker logs --tail 1 {{ $labels.contenedor }}` y `journalctl -u hive-seguridad`.

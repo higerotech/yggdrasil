@@ -331,6 +331,32 @@ midgard; en nidavellir ese puerto no sale del host.
   respaldo de Hive escribe en el directorio de Thor de nidavellir (job `hive_idp_respaldo`).
 - Que nidavellir entero no responda lo dice `ThorSinMetricas`, con su etiqueta `host`.
 
+**Los eventos de seguridad de Hive** (HIG-140, Gate 5). En nidavellir, `hive-seguridad.timer` de Hive cuenta cada
+minuto en los logs de sus contenedores y escribe `hive_seguridad.prom` en el directorio de Thor (job
+`hive_seguridad`). Qué cuenta cada evento, y la prueba que fija sus frases, está en
+`docs/06-monitoring/eventos-de-seguridad.md` de Hive. El grupo `hive-seguridad` de `rules/hive-alertas.yml` avisa
+por Nornas con la etiqueta `servicio: hive`:
+
+| Alerta | Severidad | Cuándo |
+|---|---|---|
+| `HiveTokenRechazosRepetidos` | warning | 10 o más rechazos de `/oauth/token` en 10 min |
+| `HiveTokenFrenado` | warning | El límite de `/oauth/token` frena a alguien |
+| `HiveRutasDenegadas` | warning | 5 o más rutas denegadas en 10 min |
+| `HiveWebhookRechazado` | warning | Un aviso al webhook sin firma de Meta o una verificación con el `verifyToken` equivocado |
+| `HiveBotEnError` | critical | Meta rechaza el token de un bot, que pasa a ERR |
+| `HiveDependenciaFallando` | critical | Hive no puede usar Andvari, Bifröst o MongoDB: fallos en cada ventana de 5 min durante 6 min |
+| `HiveSeguridadSinMetricas` | warning | 10 min sin el fichero o con el contador parado; no salta con nidavellir entero caído |
+| `HiveSeguridadContenedorSinLeer` | warning | 15 min sin poder leer el log de un contenedor |
+
+Los umbrales salen de la pasada de prueba del 2026-11-16 sobre 48 h de producción: 4 rechazos de `/oauth/token` y
+ningún otro evento. Lo que en uso normal no pasa nunca avisa a la primera, y los rechazos de tokens, que sí pasan,
+avisan cuando se repiten. `HiveDependenciaFallando` coincide con `BifrostCaido` o `ServicioDePlataformaCaido` cuando
+el contenedor está caído; lo que añade es el caso en que el contenedor está sano y Hive no puede usarlo.
+
+Odín muestra los contadores en el dashboard **«Hive · seguridad»** (`grafana/dashboards-hive/hive-seguridad.json`,
+carpeta Hive). Va en su propio directorio porque el proveedor de ficheros de Grafana recorre los subdirectorios, y
+dentro de `grafana/dashboards/` lo cargaría también el de Heimdall.
+
 Sin respuesta legible de `bao status` no se publica el sello: un 0 diría que está abierto.
 
 **El túnel PIA (ADR-0009).** Con `pia-tunel.service` en marcha, Thor lee `/run/yggdrasil-pia/estado` y publica:

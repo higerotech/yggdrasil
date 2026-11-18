@@ -75,6 +75,7 @@ jobs:
       - name: JSON del dashboard y flujo de Nornas sincronizado con src/
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
+          python3 -m json.tool deploy/grafana/dashboards-hive/hive-seguridad.json > /dev/null
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
       - name: Configs renderizadas montadas como directorio (blackbox real, con control negativo)

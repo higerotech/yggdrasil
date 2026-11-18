@@ -159,6 +159,7 @@ services:
     volumes:
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/etc/grafana/dashboards:ro
+      - ./grafana/dashboards-hive:/etc/grafana/dashboards-hive:ro   # «Hive · seguridad» (HIG-140)
       - odin-datos:/var/lib/grafana
     networks: [heimdall]
     depends_on: [mimir]
