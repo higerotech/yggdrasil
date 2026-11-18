@@ -41,20 +41,30 @@ mapfile -t sandbox < <(grep -E '^(ProtectSystem|ProtectHome|PrivateTmp|NoNewPriv
 grep -q '^ProtectSystem=' <<<"$(printf '%s\n' "${sandbox[@]}")" \
     || { echo "la unidad ya no declara ProtectSystem: revisar esta prueba"; exit 1; }
 
+# Como el guardian (wan-watchdog.sh): setpriv deja los privilegios de root sin setuid, asi que funciona con
+# NoNewPrivileges. Con `sudo -u`, la sudo de Ubuntu 26.04 se niega a correr con esa marca.
 render_en_sandbox() {  # render_en_sandbox <directivas...>
     local args=() d
     for d in "$@"; do args+=(-p "$d"); done
     systemd-run --quiet --wait --pipe --collect "${args[@]}" \
-        sudo -u "$USUARIO" bash "$DESTINO/scripts/render.sh" --sin-recarga
+        setpriv --reuid="$USUARIO" --regid="$(id -g "$USUARIO")" --init-groups --reset-env \
+        bash "$DESTINO/scripts/render.sh" --sin-recarga
 }
 
+# El control tiene que fallar por el sandbox, no por otra cosa: en noviembre de 2026, con el runner en Ubuntu
+# 26.04, fallaba porque sudo no arrancaba, y el control "pasaba" sin probar nada.
 echo "== control negativo: el mismo sandbox SIN ReadWritePaths tiene que fallar"
 mapfile -t sin_rw < <(printf '%s\n' "${sandbox[@]}" | grep -v '^ReadWritePaths=')
-if render_en_sandbox "${sin_rw[@]}" >/dev/null 2>&1; then
+if salida=$(render_en_sandbox "${sin_rw[@]}" 2>&1); then
     echo "FALLO: el render funciono sin ReadWritePaths; el sandbox ya no protege /srv y la prueba no prueba nada"
     exit 1
 fi
-echo "ok: sin ReadWritePaths el render falla"
+grep -q "Read-only file system" <<<"$salida" || {
+    echo "FALLO: sin ReadWritePaths el render fallo, pero no por el sistema de ficheros de solo lectura:"
+    tail -n 3 <<<"$salida"
+    exit 1
+}
+echo "ok: sin ReadWritePaths el render falla con Read-only file system"
 
 echo "== render con el sandbox de la unidad"
 printf '   %s\n' "${sandbox[@]}"

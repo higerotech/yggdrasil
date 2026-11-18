@@ -41,6 +41,15 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 ### Corregido
 
+- **El guardián ejecuta el render de las sondas con `setpriv`, no con `sudo -u`.** `wan-watchdog.service` tiene
+  `NoNewPrivileges`, y la sudo de Ubuntu 26.04 se niega a correr con esa marca aunque ya sea root. Lo vio la prueba del
+  sandbox el 2026-11-17, cuando el runner `ubuntu-latest` pasó a 26.04. midgard sigue en 24.04 y no fallaba, pero lo
+  haría al actualizarse. `setpriv --reuid --regid --init-groups --reset-env` solo deja privilegios, así que funciona
+  en las dos. Probado en midgard con `systemd-run` y el sandbox de la unidad: el render corre como `deploy`, con su
+  HOME, igual que antes.
+- **El control negativo de esa prueba exige el motivo correcto.** Con el runner nuevo, fallaba porque sudo no arrancaba,
+  y el control daba por bueno ese fallo. Ahora el render sin `ReadWritePaths` tiene que fallar con
+  `Read-only file system`.
 - **La ruta del relé de Saga.** El README de `deploy/cd` y la cabecera de `deploy/nidavellir/saga-rele.yml` decían
   que nidavellir tenía un clon del repo en `/srv/apps/yggdrasil`. No lo tiene: el fichero llega por `scp` y vive en
   `/srv/apps/yggdrasil-saga/`, que es como se instaló el 2026-11-02.
