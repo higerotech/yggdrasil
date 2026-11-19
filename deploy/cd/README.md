@@ -48,6 +48,13 @@ gh api repos/higerotech/yggdrasil/hooks -X POST \
 unset SECRET
 ```
 
+**Desde el 2026-11-03 el túnel de `deploy.higerotech.com` está en nidavellir** (ADR-0012, revisión del
+2026-11-03), y este webhook llega a su receptor, que lo ignora porque yggdrasil no está en su inventario.
+midgard despliega con el reconciliador. Los webhooks de todos los repos comparten un único secreto, así
+que el `WEBHOOK_SECRET` de los dos `receiver.env` debe ser **el mismo**: si no, la entrega da 401
+«firma invalida» y GitHub no la reintenta. Compáralo por hash, sin imprimirlo:
+`sudo grep '^WEBHOOK_SECRET=' /etc/cd-receiver/receiver.env | sha256sum` en cada host.
+
 ## 3b. Paquetes GHCR públicos (una vez por imagen)
 
 Los paquetes nuevos de la organización nacen **privados** y el receptor hace `pull` anónimo, así que
@@ -324,6 +331,32 @@ midgard; en nidavellir ese puerto no sale del host.
   respaldo de Hive escribe en el directorio de Thor de nidavellir (job `hive_idp_respaldo`).
 - Que nidavellir entero no responda lo dice `ThorSinMetricas`, con su etiqueta `host`.
 
+**Los eventos de seguridad de Hive** (HIG-140, Gate 5). En nidavellir, `hive-seguridad.timer` de Hive cuenta cada
+minuto en los logs de sus contenedores y escribe `hive_seguridad.prom` en el directorio de Thor (job
+`hive_seguridad`). Qué cuenta cada evento, y la prueba que fija sus frases, está en
+`docs/06-monitoring/eventos-de-seguridad.md` de Hive. El grupo `hive-seguridad` de `rules/hive-alertas.yml` avisa
+por Nornas con la etiqueta `servicio: hive`:
+
+| Alerta | Severidad | Cuándo |
+|---|---|---|
+| `HiveTokenRechazosRepetidos` | warning | 10 o más rechazos de `/oauth/token` en 10 min |
+| `HiveTokenFrenado` | warning | El límite de `/oauth/token` frena a alguien |
+| `HiveRutasDenegadas` | warning | 5 o más rutas denegadas en 10 min |
+| `HiveWebhookRechazado` | warning | Un aviso al webhook sin firma de Meta o una verificación con el `verifyToken` equivocado |
+| `HiveBotEnError` | critical | Meta rechaza el token de un bot, que pasa a ERR |
+| `HiveDependenciaFallando` | critical | Hive no puede usar Andvari, Bifröst o MongoDB: fallos en cada ventana de 5 min durante 6 min |
+| `HiveSeguridadSinMetricas` | warning | 10 min sin el fichero o con el contador parado; no salta con nidavellir entero caído |
+| `HiveSeguridadContenedorSinLeer` | warning | 15 min sin poder leer el log de un contenedor |
+
+Los umbrales salen de la pasada de prueba del 2026-11-16 sobre 48 h de producción: 4 rechazos de `/oauth/token` y
+ningún otro evento. Lo que en uso normal no pasa nunca avisa a la primera, y los rechazos de tokens, que sí pasan,
+avisan cuando se repiten. `HiveDependenciaFallando` coincide con `BifrostCaido` o `ServicioDePlataformaCaido` cuando
+el contenedor está caído; lo que añade es el caso en que el contenedor está sano y Hive no puede usarlo.
+
+Odín muestra los contadores en el dashboard **«Hive · seguridad»** (`grafana/dashboards-hive/hive-seguridad.json`,
+carpeta Hive). Va en su propio directorio porque el proveedor de ficheros de Grafana recorre los subdirectorios, y
+dentro de `grafana/dashboards/` lo cargaría también el de Heimdall.
+
 Sin respuesta legible de `bao status` no se publica el sello: un 0 diría que está abierto.
 
 **El túnel PIA (ADR-0009).** Con `pia-tunel.service` en marcha, Thor lee `/run/yggdrasil-pia/estado` y publica:
@@ -366,12 +399,19 @@ Comprobación: `curl -s http://<IP de thor en yggdrasil_heimdall>:9471/host.prom
 ### Saga desde nidavellir (ADR-0008 1.1.0)
 
 hive emite sus trazas desde nidavellir a `saga:4318`. Allí `saga` es un relé que reenvía a la puerta de Saga en
-midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez:
+midgard (`yggdrasil-saga-puerta`, que llega con el despliegue de este repo). El relé se instala a mano, una vez.
+nidavellir no tiene un clon de este repo, así que el fichero llega por `scp` y vive en `/srv/apps/yggdrasil-saga/`:
 
 ```bash
-# nidavellir, con el clon de yggdrasil en /srv/apps/yggdrasil
-docker compose -f /srv/apps/yggdrasil/deploy/nidavellir/saga-rele.yml -p yggdrasil-saga up -d
+# desde el equipo con el clon
+scp -i ~/.ssh/id_ed25519_hgtech001 deploy/nidavellir/saga-rele.yml jalcala@192.168.10.2:/tmp/saga-rele.yml
+# en nidavellir
+sudo install -D -m 0644 /tmp/saga-rele.yml /srv/apps/yggdrasil-saga/saga-rele.yml && rm /tmp/saga-rele.yml
+sudo docker compose -f /srv/apps/yggdrasil-saga/saga-rele.yml -p yggdrasil-saga up -d
 ```
+
+Para cambiar la imagen se repiten los tres pasos. `yggdrasil-saga-rele` está en `THOR_CONTENEDORES` de nidavellir
+(«Thor en otro host», abajo): si cae, `ServicioDeHostCaido` lo nombra.
 
 Comprobar desde nidavellir: `nc -zv 192.168.10.1 4318` conecta, y los logs de hive dejan de decir `saga`. Desde
 otra máquina de la LAN, el mismo `nc` conecta pero socat cierra en el acto.
@@ -401,11 +441,16 @@ THOR_DISCOS="/dev/disk/by-id/ata-ADATA_SU650_<serie> /dev/disk/by-id/ata-WDC_WD1
 THOR_PUNTOS="/ /srv/medios/wd"
 THOR_WANS=""
 THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer hive-idp-vigia.timer hive-idp-respaldo.timer"
-THOR_CONTENEDORES="cd-socket-proxy hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel"
+THOR_CONTENEDORES="cd-socket-proxy deploy-service-tunnel bragi bragi-tunel hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel andvari-openbao bifrost-nats hermod-rabbitmq hive-api hive-webhook hive-ingest hive-docs hive-tunel hive-portal hive-classifier hive-coordinator hive-responder hive-evaluator hive-notifier yggdrasil-saga-rele"
 ```
 
 - Los `hive-idp*` son Zitadel (Hive, `deploy/idp`). Con ellos en la lista, `ServicioDeHostCaido` avisa del
   contenedor concreto que cae; `ZitadelExternoCaido` solo dice que no se llega desde fuera.
+- Desde la fase 2 de ADR-0012 (2026-11-02), Hive, Andvari, Bifröst y Hermod corren aquí, con la misma lista que
+  tenían en midgard. `yggdrasil-saga-rele` entra el 2026-11-03. Los `morocota-*` no están: morocota tiene su propia
+  vigilancia.
+- `deploy-service-tunnel` (túnel de `deploy.higerotech.com`, `/srv/apps/deploy-tunnel`) entra en la lista
+  el 2026-11-03, cuando pasa a nidavellir. En midgard no se vigilaba.
 
 - `THOR_WANS=""` (vacía, no ausente): nidavellir no tiene `wan-balancer`. Sin ella publicaría las dos WAN fuera
   de la ruta.

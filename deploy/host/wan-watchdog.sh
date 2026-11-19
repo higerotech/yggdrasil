@@ -237,8 +237,12 @@ reconciliar_sondas() {
     # tiene por que tener acceso a Docker. La salida de render.sh solo lleva IPs y nombres de
     # receptor, asi que se registra si falla: el 2026-10-06 se tiraba a /dev/null y el motivo
     # ("Read-only file system") hubo que reproducirlo a mano.
+    # setpriv y no `sudo -u`: la unidad tiene NoNewPrivileges, y la sudo de Ubuntu 26.04 se niega a correr
+    # con esa marca aunque ya sea root. setpriv solo deja privilegios, sin setuid ni PAM, y con --reset-env
+    # el render arranca con el entorno limpio del usuario, como con sudo.
     local salida
-    if salida=$(sudo -u "$RENDER_USER" bash "$RENDER_SH" --sin-recarga 2>&1); then
+    if salida=$(setpriv --reuid="$RENDER_USER" --regid="$(id -g "$RENDER_USER")" --init-groups --reset-env \
+            bash "$RENDER_SH" --sin-recarga 2>&1); then
         curl -fsS -m 10 -X POST "$BLACKBOX_RELOAD" >/dev/null 2>&1 || true
         local resto=""
         for iface in "$WAN1_IF" "$WAN2_IF"; do resto+="$iface=$(ip_en_blackbox "$iface") "; done

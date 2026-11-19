@@ -1,10 +1,10 @@
 # Despliegue — Yggdrasil en midgard
 
 * **Estado:** review
-* **Fecha:** 2026-10-19
+* **Fecha:** 2026-10-19 (revisado el 2026-11-03: midgard despliega con el reconciliador, el túnel pasa a nidavellir)
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 05-deployment
-* **Versión:** 0.1.0
+* **Versión:** 0.2.0
 * **Gate:** 4
 * **Entorno objetivo:** midgard (Ubuntu Server 24.04, i3-3240, 8 GB; router dual-WAN de la casa), un único entorno: no hay staging
 * **Estrategia de release:** GitFlow; cada merge en `main` lleva tag `vX.Y.Z` y despliega solo, por SHA, con healthcheck y rollback (ADR-0005). Releases pequeñas y frecuentes (27 tags entre el 2026-09-05 y el 2026-10-19)
@@ -28,12 +28,12 @@ C4Deployment
         Container(actions, "GitHub Actions", "validar-configs, build, gitflow-guard", "Valida en cada PR; construye en cada push a main")
         ContainerDb(ghcr, "GHCR", "registro OCI", "yggdrasil-sleipnir y yggdrasil-sync, tag sha-7")
     }
-    Deployment_Node(cf, "Cloudflare Tunnel", "deploy.higerotech.com") {
-        Container(hook, "Webhook workflow_run", "HTTPS, firma HMAC", "Llega al receptor en 127.0.0.1:9000")
+    Deployment_Node(cf, "Cloudflare Tunnel", "deploy.higerotech.com, conector en nidavellir") {
+        Container(hook, "Webhook workflow_run", "HTTPS, firma HMAC", "Va al receptor de nidavellir; a midgard ya no llega")
     }
     Deployment_Node(midgard, "midgard", "Ubuntu Server 24.04, Docker + Compose") {
         Deployment_Node(systemd, "systemd (host)", "unidades y temporizadores") {
-            Container(receptor, "cd-receiver", "despliegue-continuo", "pull, up -d, healthcheck, rollback")
+            Container(receptor, "cd-receiver", "despliegue-continuo, reconciliador cada 300 s", "pull, up -d, healthcheck, rollback")
             Container(balancer, "wan-balancer", "bash, cada 5 s", "Multipath wan1/wan2 por mayoria TCP")
             Container(watchdog, "wan-watchdog.timer", "bash, cada minuto", "Ruta main, DNS, reconcilia sondas")
             Container(thorsh, "yggdrasil-thor.timer", "bash, cada minuto", "Escribe host.prom")
@@ -67,7 +67,7 @@ C4Deployment
     System_Ext(ntfy, "ntfy", "Tema privado de la casa")
     Rel(actions, ghcr, "push imagenes", "sha-7")
     Rel(actions, hook, "workflow_run firmado", "HTTPS")
-    Rel(hook, receptor, "despliega ese SHA", "localhost 9000")
+    Rel(receptor, actions, "consulta el ultimo run correcto de build", "API de GitHub, cada 300 s")
     Rel(receptor, ghcr, "pull", "anonimo")
     Rel(synchost, github, "git fetch y checkout", "HTTPS")
     Rel(mimir, blackbox, "scrape", "host.docker.internal:9115")
@@ -88,6 +88,13 @@ Notas de la topología:
   entorno de pruebas intermedio: la primera ejecución de un cambio en producción es el propio
   despliegue, y por eso las pruebas con dobles del CI (`docs/04-testing/inventario-pruebas.md`) y
   la vista previa de la tablet son el único colchón.
+- **midgard despliega sin webhook desde el 2026-11-03.** El conector del túnel de
+  `deploy.higerotech.com` pasó a nidavellir (contenedor `deploy-service-tunnel`,
+  `/srv/apps/deploy-tunnel`), cuyo receptor despliega bragi y morocota. El receptor de midgard ya no
+  recibe nada de fuera. Su reconciliador (ADR-0011 de `despliegue-continuo`, modo `desplegar`, con token
+  de solo lectura) consulta cada 300 s el último run correcto de `build` de cada app y encola lo que
+  falte. Un webhook de yggdrasil que llegue a nidavellir se ignora: «no esta en el inventario». El
+  contenedor parado en midgard es la vuelta atrás (ADR-0012, revisión del 2026-11-03).
 - **Dos regímenes de red** (ADR-0003): las sondas y `sync-host` en host-mode, ligadas a la IP de
   docker0; el resto en `yggdrasil_heimdall`, con solo 3000, 1880 y 1883 publicados en la IP LAN.
 - **Lo que no despliega el receptor**: `deploy/host/` (router: balanceador y guardián) se instala
@@ -126,7 +133,7 @@ flowchart TD
         E2 --> RD
         RD -- sí --> RD1["gh workflow run build-and-push.yml --ref main: segundo despliegue"]
     end
-    W --> H["Webhook firmado HMAC → Cloudflare Tunnel → cd-receiver 127.0.0.1:9000"]
+    W --> H["Reconciliador del cd-receiver de midgard: cada 300 s consulta el último run correcto de build y encola su SHA (el webhook va a nidavellir desde el 2026-11-03)"]
     subgraph MIDGARD["cd-receiver en midgard (apps.yml: compose_file deploy/docker-compose.cd.yml, rollback: true)"]
         H --> P["docker compose pull con IMAGE_TAG=sha-7"]
         P --> U["docker compose up -d (con el Compose del checkout ANTERIOR)"]
@@ -147,6 +154,9 @@ Lo que conviene saber del dibujo:
 - **Qué bloquea y qué no.** Cuatro jobs del CI bloquean el PR; `imagenes` (Trivy) es informe con
   `--exit-code 0` y es el único que corre también el lunes a las 06:17 UTC. `gitflow-guard` es el
   status check obligatorio del ruleset de `main`.
+- **Hasta 7 minutos de espera.** Sin webhook, el despliegue empieza en el siguiente ciclo del
+  reconciliador que pase después de `RECONCILE_GRACE` (120 s) desde que acabó `build`: entre 2 y 7
+  minutos tras el merge en `main`. Antes era inmediato.
 - **Desfase del Compose.** El receptor levanta el stack con el `docker-compose*.yml` del checkout
   anterior, porque `sync-host` actualiza el clon durante ese mismo despliegue
   (`deploy/cd/README.md:69-73`). El job `redespliegue` lo compensa relanzando `build` si el commit
@@ -185,11 +195,12 @@ Tres caminos, del más limpio al de contingencia:
 1. **Automático.** `rollback: true` en `apps.yml` (`deploy/cd/apps.yggdrasil.yml:15`): si Odín no
    responde `200` en 300 s, el receptor vuelve a `previous_tag`. No hay que hacer nada; comprobar
    con §3.1 que `current_tag` es el anterior y que `sync-host` hizo checkout de ese commit.
-2. **Relanzar el build del commit bueno.** En GitHub, la ejecución del workflow `build` de la
-   release anterior; desde tu equipo: `gh run list --workflow build --limit 10` y
-   `gh run rerun <id>`. Su `workflow_run` vuelve a llegar al receptor, que despliega ese SHA (es lo
-   que se hizo en TA-01, `docs/04-testing/test-plan.md:222-223`). Como `build` no reconstruye una
-   imagen ya publicada, el redespliegue es rápido y recrea solo lo que cambia.
+2. ~~**Relanzar el build del commit bueno**~~ (`gh run rerun <id>`, lo que se hizo en TA-01,
+   `docs/04-testing/test-plan.md:222-223`). **Desde el 2026-11-03 ya no sirve en midgard.** El
+   webhook del rerun va a nidavellir, que lo ignora. El reconciliador tampoco lo recoge: elige el run
+   correcto **creado** más reciente, y un rerun conserva la fecha de creación del run original, que es
+   anterior al de la release mala. Además, un commit que ya se intentó no se repite (regla 3 de la
+   ADR-0011 de `despliegue-continuo`). Para volver atrás sin GitFlow, usa la contingencia de abajo.
 3. **Por GitFlow.** Si lo que hay que deshacer es el cambio y no solo el despliegue:
    `hotfix/X.Y.Z` desde `main` con el `git revert`, PR hacia `main`, tag y back-merge a `develop`.
    Es el camino que deja CHANGELOG y tags coherentes.
@@ -347,9 +358,13 @@ para cerrar Gate 4 es de Jeremi y queda en la checklist.
 - **Unidades del host fuera del CD**: un cambio en `deploy/cd/*.sh` o `deploy/host/` que se fusione
   en `main` no llega a midgard hasta que alguien ejecute el bootstrap o `install-host.sh`; nada
   avisa de esa deriva.
-- **Dependencia de servicios externos en el camino de despliegue**: GitHub Actions, GHCR (paquetes
-  públicos, pull anónimo) y Cloudflare Tunnel. Si alguno cae, no se despliega; el stack sigue
-  funcionando y `deploy.sh` es la vía manual.
+- **Dependencia de servicios externos en el camino de despliegue**: GitHub Actions, la API de GitHub
+  (el reconciliador, con token de solo lectura en `receiver.env`) y GHCR (paquetes públicos, pull
+  anónimo). Si alguno cae, no se despliega; el stack sigue funcionando y `deploy.sh` es la vía manual.
+  Desde el 2026-11-03 Cloudflare Tunnel y nidavellir ya no están en el camino de midgard.
+- **Sin forma de forzar un redespliegue en midgard por el receptor.** Con el webhook fuera, el
+  receptor no tiene entrada para encolar un SHA a mano (`/status` y `/reload` no despliegan). Queda
+  `deploy.sh` (§3.2). Deuda de `despliegue-continuo`: un endpoint local y autenticado para encolar.
 - **Hardware**: HDD con sectores pendientes al alza, SSD de datos que se cayó del bus el 2026-10-19,
   adaptador USB de `wan2` que puede colgarse al arrancar, sin UPS. Thor y sus alertas los vigilan;
   no los arreglan. Desde el 2026-10-30 fallan **los dos** adaptadores de las WAN, en tres puertos de la

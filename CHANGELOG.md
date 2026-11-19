@@ -9,6 +9,57 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.27] - 2026-11-19
+
+**Heimdall vigila la seguridad de Hive.** Mimir lee los contadores de eventos de seguridad que Hive deja en nidavellir,
+ocho alertas avisan por Nornas y Odín estrena el dashboard «Hive · seguridad». El guardián deja `sudo` por `setpriv`
+para seguir funcionando en Ubuntu 26.04.
+
+### Añadido
+
+- **Alertas y dashboard de los eventos de seguridad de Hive** (HIG-140, Gate 5 de Hive). Hive cuenta cada minuto en
+  sus logs nueve eventos de seguridad y deja los contadores en `hive_seguridad.prom`, que Thor sirve en nidavellir:
+  - **El scrape:** el job `hive_seguridad`, cada 60 s.
+  - **Ocho alertas** en el grupo `hive-seguridad` de `rules/hive-alertas.yml`, que avisan por Nornas:
+    - rechazos repetidos de `/oauth/token`, su límite frenando a alguien y rutas denegadas a un rol;
+    - avisos al webhook que no son de Meta y bots que pasan a ERR;
+    - Andvari, Bifröst o MongoDB que Hive no puede usar durante 6 min;
+    - el contador sin métricas o sin poder leer un contenedor.
+
+    Los umbrales salen de 48 h de producción, y cada uno tiene su prueba de promtool por debajo y por encima.
+  - **El dashboard «Hive · seguridad»** de Odín, en la carpeta Hive (`grafana/dashboards-hive/`).
+
+  Está descrito en `deploy/cd/README.md`.
+
+### Cambiado
+
+- **El túnel de despliegue pasa a nidavellir, y midgard despliega con el reconciliador** (ADR-0012,
+  revisión del 2026-11-03; ADR-0005). Los webhooks de bragi y morocota llegaban a midgard, que los
+  ignoraba: morocota no se desplegaba. El conector de `deploy.higerotech.com` corre ahora en nidavellir
+  (`/srv/apps/deploy-tunnel`). El receptor de midgard consulta cada 300 s el último `build` correcto,
+  así que un despliegue tarda hasta unos 7 min tras el merge y `gh run rerun` deja de servir como
+  rollback (`deployment.md` §3.2). Antes de moverlo hubo que arreglar el reconciliador
+  (`despliegue-continuo` #16: no veía las 6 apps de ves) e igualar el `WEBHOOK_SECRET` de nidavellir con
+  el de midgard (`deploy/cd/README.md` §3).
+- **Thor vigila `yggdrasil-saga-rele` en nidavellir.** Si el relé cae, las trazas de Hive dejan de llegar a Saga sin
+  que nada avise. Ahora está en `THOR_CONTENEDORES`, y `ServicioDeHostCaido` lo nombra. La lista de nidavellir del
+  README de `deploy/cd` se pone al día con la que corre allí desde la fase 2.
+
+### Corregido
+
+- **El guardián ejecuta el render de las sondas con `setpriv`, no con `sudo -u`.** `wan-watchdog.service` tiene
+  `NoNewPrivileges`, y la sudo de Ubuntu 26.04 se niega a correr con esa marca aunque ya sea root. Lo vio la prueba del
+  sandbox el 2026-11-17, cuando el runner `ubuntu-latest` pasó a 26.04. midgard sigue en 24.04 y no fallaba, pero lo
+  haría al actualizarse. `setpriv --reuid --regid --init-groups --reset-env` solo deja privilegios, así que funciona
+  en las dos. Probado en midgard con `systemd-run` y el sandbox de la unidad: el render corre como `deploy`, con su
+  HOME, igual que antes.
+- **El control negativo de esa prueba exige el motivo correcto.** Con el runner nuevo, fallaba porque sudo no arrancaba,
+  y el control daba por bueno ese fallo. Ahora el render sin `ReadWritePaths` tiene que fallar con
+  `Read-only file system`.
+- **La ruta del relé de Saga.** El README de `deploy/cd` y la cabecera de `deploy/nidavellir/saga-rele.yml` decían
+  que nidavellir tenía un clon del repo en `/srv/apps/yggdrasil`. No lo tiene: el fichero llega por `scp` y vive en
+  `/srv/apps/yggdrasil-saga/`, que es como se instaló el 2026-11-02.
+
 ## [0.5.26] - 2026-11-02
 
 **Hive sale directo hacia Atlas y Meta.** El túnel de PIA aprende excepciones por equipo: nidavellir sigue en PIA,
@@ -970,7 +1021,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...HEAD
+[0.5.27]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...v0.5.27
 [0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
 [0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25
 [0.5.24]: https://github.com/higerotech/yggdrasil/compare/v0.5.23...v0.5.24

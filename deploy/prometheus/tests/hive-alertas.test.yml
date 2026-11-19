@@ -177,3 +177,201 @@ tests:
       - eval_time: 35m
         alertname: ZitadelRespaldoSinMetricas
         exp_alerts: []
+
+  # --- Eventos de seguridad de Hive ------------------------------------------------------------------
+  # Los contadores, como los escribe hive-seguridad.sh una vez por minuto: solo crecen.
+
+  - name: nueve rechazos de token en 10 min no avisan; diez sí, y se resuelve cuando paran
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="token_rechazado", contenedor="hive-api"}'
+        # 9 de golpe al minuto 5; después, 2 por minuto hasta llegar a 19 (diez más en 5 min), y paran
+        values: '0x4 9x10 11 13 15 17 19x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HiveTokenRechazosRepetidos
+        exp_alerts: []
+      - eval_time: 21m
+        alertname: HiveTokenRechazosRepetidos
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive}
+            exp_annotations:
+              resumen: "Hive rechaza muchas peticiones de token en /oauth/token"
+              descripcion: "Diez o más rechazos en 10 min. Cada línea dice el motivo: en nidavellir, `docker logs hive-api --since 15m 2>&1 | grep -E 'Rejected (a request|an exchange) for an access token'`. Si es siempre el mismo cliente, revisar su clave; si son muchos orígenes, es un intento de entrar."
+      - eval_time: 30m
+        alertname: HiveTokenRechazosRepetidos
+        exp_alerts: []
+
+  - name: un solo freno de /oauth/token avisa, y se resuelve a los ~10 min
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="token_frenado", contenedor="hive-api"}'
+        values: '0x5 1x20'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: HiveTokenFrenado
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: HiveTokenFrenado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive}
+            exp_annotations:
+              resumen: "El límite de /oauth/token frenó peticiones"
+              descripcion: "Un origen o una persona pasó su límite de tokens: fuerza bruta o un cliente en bucle. En nidavellir, `docker logs hive-api --since 15m 2>&1 | grep 'Turned away'` dice cuál."
+      - eval_time: 16m
+        alertname: HiveTokenFrenado
+        exp_alerts: []
+
+  - name: tres rutas denegadas no avisan; seis sí
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="ruta_denegada", contenedor="hive-api"}'
+        values: '0x5 3 6x20'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HiveRutasDenegadas
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: HiveRutasDenegadas
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive}
+            exp_annotations:
+              resumen: "Hive deniega rutas a un rol que no las tiene"
+              descripcion: "Cinco o más en 10 min: un analista, el motor o un cliente pide lo que su rol no le deja. En nidavellir, `docker logs hive-api --since 15m 2>&1 | grep 'was denied'` dice el rol y el cliente."
+
+  - name: una firma mala del webhook avisa con su evento; la verificación a cero, no
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="firma_webhook", contenedor="hive-webhook"}'
+        values: '0x5 1x20'
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="verificacion_webhook", contenedor="hive-webhook"}'
+        values: '0x25'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HiveWebhookRechazado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive, evento: firma_webhook}
+            exp_annotations:
+              resumen: "El webhook de Hive rechazó avisos que no son de Meta (firma_webhook)"
+              descripcion: "Alguien que no es Meta llama al webhook: sin firma o con una firma mala, o con un verifyToken equivocado. En nidavellir, `docker logs hive-webhook --since 15m 2>&1 | grep 'Rejected webhook'` dice el chatbot. Si son muchos o siguen, el secreto de la app o el verifyToken pueden estar filtrados."
+
+  - name: un bot en ERR avisa, en cualquier contenedor del gateway
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="bot_err", contenedor="hive-ingest"}'
+        values: '0x25'
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="bot_err", contenedor="hive-api"}'
+        values: '0x5 1x20'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HiveBotEnError
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: hive}
+            exp_annotations:
+              resumen: "Meta rechazó el token de un bot de Hive, que pasa a ERR"
+              descripcion: "El bot no responde hasta que su cliente le pone un token nuevo. En nidavellir, `docker logs hive-ingest --since 15m 2>&1 | grep 'is now ERR'` (o hive-api, hive-webhook) dice el bot, el cliente y el código de Meta. Un token revocado sin que el cliente lo pidiera puede ser una filtración."
+
+  - name: Bifröst fallando cada minuto avisa a los ~6 min, sumando gateway y motor
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="bifrost", contenedor="hive-ingest"}'
+        values: '0x5 1+1x10 11x10'
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="bifrost", contenedor="hive-coordinator"}'
+        values: '0x5 2+2x10 22x10'
+    alert_rule_test:
+      - eval_time: 11m
+        alertname: HiveDependenciaFallando
+        exp_alerts: []
+      - eval_time: 13m
+        alertname: HiveDependenciaFallando
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: hive, evento: bifrost}
+            exp_annotations:
+              resumen: "Hive no puede usar bifrost desde hace más de 6 min"
+              descripcion: "Las rutas que lo necesitan dan 503 y los mensajes no avanzan. En nidavellir, `docker ps` y los logs de hive-api, hive-webhook, hive-ingest y del motor. Andvari: `bao status`; Bifröst: `docker logs bifrost-nats`; MongoDB: el estado de Atlas."
+      - eval_time: 25m
+        alertname: HiveDependenciaFallando
+        exp_alerts: []
+
+  - name: un fallo suelto de Andvari no avisa
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_eventos_total{job="hive_seguridad", instance="i", host="nidavellir", evento="andvari", contenedor="hive-api"}'
+        values: '0x5 1x30'
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: HiveDependenciaFallando
+        exp_alerts: []
+      - eval_time: 14m
+        alertname: HiveDependenciaFallando
+        exp_alerts: []
+
+  - name: sin el fichero de seguridad avisa a los 10 min
+    interval: 1m
+    input_series:
+      - series: 'up{job="hive_seguridad", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1x5 0x30'
+      - series: 'hive_seguridad_ultima_pasada_segundos{job="hive_seguridad", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0+60x5'
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1x35'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: HiveSeguridadSinMetricas
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: HiveSeguridadSinMetricas
+        exp_alerts: &seguridad_sin_metricas
+          - exp_labels: {severity: warning, servicio: hive, job: hive_seguridad, instance: "192.168.10.2:9471", host: nidavellir}
+            exp_annotations:
+              resumen: "Mimir no recibe los eventos de seguridad de Hive"
+              descripcion: "Sin ellos no avisa ninguna alerta de seguridad de Hive. En nidavellir: `systemctl list-timers hive-seguridad.timer`, `journalctl -u hive-seguridad` y que exista `/var/lib/yggdrasil-thor/hive_seguridad.prom`."
+
+  - name: con el contador parado, Thor sirve el fichero viejo y también avisa
+    interval: 1m
+    input_series:
+      - series: 'up{job="hive_seguridad", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1x30'
+      - series: 'hive_seguridad_ultima_pasada_segundos{job="hive_seguridad", instance="192.168.10.2:9471", host="nidavellir"}'
+        # avanza con el reloj hasta el minuto 3 y se queda ahí
+        values: '0+60x3 180x27'
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 17m
+        alertname: HiveSeguridadSinMetricas
+        exp_alerts: []
+      - eval_time: 19m
+        alertname: HiveSeguridadSinMetricas
+        exp_alerts: *seguridad_sin_metricas
+
+  - name: con nidavellir caído, el fichero de seguridad no avisa por su cuenta
+    interval: 1m
+    input_series:
+      - series: 'up{job="hive_seguridad", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x30'
+      - series: 'up{job="thor", instance="192.168.10.2:9471", host="nidavellir"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HiveSeguridadSinMetricas
+        exp_alerts: []
+
+  - name: un contenedor que no se puede leer avisa a los 15 min
+    interval: 1m
+    input_series:
+      - series: 'hive_seguridad_contenedor_leido{job="hive_seguridad", instance="i", host="nidavellir", contenedor="hive-webhook"}'
+        values: '1x5 0x25'
+      - series: 'hive_seguridad_contenedor_leido{job="hive_seguridad", instance="i", host="nidavellir", contenedor="hive-api"}'
+        values: '1x30'
+    alert_rule_test:
+      - eval_time: 19m
+        alertname: HiveSeguridadContenedorSinLeer
+        exp_alerts: []
+      - eval_time: 22m
+        alertname: HiveSeguridadContenedorSinLeer
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive, job: hive_seguridad, instance: i, host: nidavellir, contenedor: hive-webhook}
+            exp_annotations:
+              resumen: "El contador de seguridad de Hive no puede leer hive-webhook"
+              descripcion: "Lo que escribe ese contenedor no se cuenta. En nidavellir: `docker logs --tail 1 hive-webhook` y `journalctl -u hive-seguridad`."
