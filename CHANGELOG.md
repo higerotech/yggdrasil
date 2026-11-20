@@ -9,6 +9,30 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.29] - 2026-11-20
+
+**Mimir mide a Hive desde fuera.** hive-api y hive-webhook tienen un SLO del 99,5 % en 30 días, con sondas por
+Cloudflare, alertas de quema del presupuesto y el tablero «Hive · SLO».
+
+### Añadido
+
+- **El SLO de Hive: hive-api y hive-webhook, disponibles el 99,5 % en 30 días** (HIG-140 de Hive, punto 4; decisión de
+  Jeremi del 2026-11-20). Hasta ahora Mimir no medía la disponibilidad ni la latencia de Hive, y su tráfico real (unas
+  60 peticiones por semana) no basta para medirlas.
+  - **Sondas desde fuera** (job `hive_externo`, módulo `https_hive_salud`): el `/health` de los dos por Cloudflare, el
+    camino de los clientes y de Meta, cada 15 s. Exigen el cuerpo de Hive, no solo el 200. Cuando midgard no tiene
+    ruta, no cuentan.
+  - **Reglas** (`rules/hive-slo.yml`): disponibilidad y presupuesto de 30 días, y latencia (el 99 % de las respuestas
+    en menos de 1 s). Avisan por quema del presupuesto, de ventana doble: `HiveSLOQuemaRapida` (critical),
+    `HiveSLOQuemaLenta`, `HiveSLOPresupuestoAgotado`, `HiveLatenciaFueraDeSLO` y `HiveSLOSinSondas`, con 7 pruebas
+    de promtool.
+  - **Tablero «Hive · SLO»** en Odín, carpeta Hive. El de seguridad deja de contar las alertas del SLO.
+
+### Corregido
+
+- **`deploy/cd/README.md`, «Loki desde nidavellir»: falta reiniciar Odín.** Grafana solo lee el provisioning al
+  arrancar, y el despliegue de la 0.5.28 no lo recreó: el datasource «Loki» no apareció hasta un `restart odin` a mano.
+
 ## [0.5.28] - 2026-11-20
 
 **Los logs de Hive salen de nidavellir.** Loki los guarda 90 días en el SSD de midgard, sin borrado por API, y Odín
@@ -1048,7 +1072,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.29...HEAD
+[0.5.29]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...v0.5.29
 [0.5.28]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...v0.5.28
 [0.5.27]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...v0.5.27
 [0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26

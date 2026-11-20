@@ -30,7 +30,7 @@
         },
         "enable": true,
         "iconColor": "red",
-        "expr": "ALERTS{alertstate=\"firing\", servicio=\"hive\", alertname=~\"Hive.+\"}",
+        "expr": "ALERTS{alertstate=\"firing\", servicio=\"hive\", alertname=~\"Hive.+\", alertname!~\"HiveSLO.+|HiveLatenciaFueraDeSLO\"}",
         "titleFormat": "{{alertname}} {{evento}}{{contenedor}}"
       }
     ]
@@ -202,7 +202,7 @@
             "type": "prometheus",
             "uid": "mimir"
           },
-          "expr": "count(ALERTS{alertstate=\"firing\", servicio=\"hive\", alertname=~\"Hive.+\"}) or vector(0)",
+          "expr": "count(ALERTS{alertstate=\"firing\", servicio=\"hive\", alertname=~\"Hive.+\", alertname!~\"HiveSLO.+|HiveLatenciaFueraDeSLO\"}) or vector(0)",
           "legendFormat": "activas",
           "refId": "A",
           "format": "time_series",

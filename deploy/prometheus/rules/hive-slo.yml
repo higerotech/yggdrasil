@@ -1,0 +1,122 @@
+# SLO de Hive (HIG-140 de Hive, Gate 5; docs/06-monitoring/slo.md de Hive).
+#
+# Decisión de Jeremi del 2026-11-20: hive-api y hive-webhook, disponibles el 99,5 % de 30 días, medidos desde
+# fuera con las sondas del job hive_externo (Cloudflare, el camino de los clientes y de Meta). El tráfico real
+# no basta: unas 60 peticiones por semana. Por el mismo camino, la sonda de Zitadel dio el 99,87 % en 7 días y
+# el 99,37 % en 30, que incluyen el apagón del 2026-10-30 y la mudanza a nidavellir.
+#
+# Latencia: el 99 % de las respuestas buenas en menos de 1 s. La sonda de Zitadel lo cumplió en 30 días
+# (99,34 %); el /health de Hive tardó 0,30 s de mediana desde midgard el 2026-11-20.
+#
+# Cuando midgard no tiene ruta (hogar:ruta_up == 0), las sondas no miden a Hive: ese rato no se escribe y no
+# cuenta ni a favor ni en contra. De eso ya avisa HogarSinRuta.
+#
+# Alertas de quema del presupuesto, de ventana doble (Google SRE workbook, cap. 5). El presupuesto es el 0,5 %:
+#   - rápida: a 14,4 veces se gasta el 2 % del presupuesto en 1 h (una caída total avisa en unos 6 min);
+#   - lenta: a 6 veces se gasta el 5 % en 6 h (un fallo intermitente).
+groups:
+  - name: hive_slo_sli
+    interval: 15s
+    rules:
+      - record: hive:sonda_ok
+        expr: probe_success{job="hive_externo"} and on () (hogar:ruta_up == 1)
+      # Solo de las respuestas buenas: una caída la cuenta la disponibilidad, no la latencia.
+      - record: hive:sonda_rapida
+        expr: >-
+          (probe_duration_seconds{job="hive_externo"} < bool 1)
+          and (probe_success{job="hive_externo"} == 1)
+          and on () (hogar:ruta_up == 1)
+
+  - name: hive_slo_ventanas
+    interval: 15s
+    rules:
+      - record: hive:sonda_error:ratio_5m
+        expr: 1 - avg by (componente) (avg_over_time(hive:sonda_ok[5m]))
+      - record: hive:sonda_error:ratio_30m
+        expr: 1 - avg by (componente) (avg_over_time(hive:sonda_ok[30m]))
+      - record: hive:sonda_error:ratio_1h
+        expr: 1 - avg by (componente) (avg_over_time(hive:sonda_ok[1h]))
+      - record: hive:sonda_error:ratio_6h
+        expr: 1 - avg by (componente) (avg_over_time(hive:sonda_ok[6h]))
+
+  # Cada minuto: 30 días de muestras cada 15 s son caros de recorrer cada 15 s.
+  - name: hive_slo_30d
+    interval: 1m
+    rules:
+      - record: hive:disponibilidad:30d
+        expr: avg by (componente) (avg_over_time(hive:sonda_ok[30d]))
+      - record: hive:latencia_ok:30d
+        expr: avg by (componente) (avg_over_time(hive:sonda_rapida[30d]))
+      # 1 con el presupuesto entero, 0 agotado, negativo si se pasó.
+      - record: hive:presupuesto_restante:30d
+        expr: 1 - (1 - hive:disponibilidad:30d) / 0.005
+
+  - name: hive_slo_alertas
+    rules:
+      - alert: HiveSLOQuemaRapida
+        expr: >-
+          hive:sonda_error:ratio_1h > (14.4 * 0.005)
+          and hive:sonda_error:ratio_5m > (14.4 * 0.005)
+        for: 2m
+        labels:
+          severity: critical
+          servicio: hive
+        annotations:
+          resumen: "{{ $labels.componente }} no responde desde fuera: se gasta el presupuesto del SLO"
+          descripcion: >-
+            Más del 7,2 % de las sondas de {{ $labels.componente }}.higerotech.com/health fallan en la última
+            hora y en los últimos 5 min. A este ritmo, el presupuesto de 30 días se acaba en dos días. En
+            nidavellir: `docker ps --filter name=hive-` y `docker logs hive-tunel`. Si nidavellir no responde,
+            salta también ThorSinMetricas. Runbook: docs/06-monitoring/runbook-incidentes.md de Hive.
+
+      - alert: HiveSLOQuemaLenta
+        expr: >-
+          hive:sonda_error:ratio_6h > (6 * 0.005)
+          and hive:sonda_error:ratio_30m > (6 * 0.005)
+        for: 15m
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "{{ $labels.componente }} falla a ratos desde fuera"
+          descripcion: >-
+            Más del 3 % de las sondas de {{ $labels.componente }} fallan en las últimas 6 h y en la última media
+            hora: un fallo intermitente, no una caída. Mirar en Odín el tablero «Hive · SLO» y, en Loki,
+            `{host="nidavellir", contenedor="hive-tunel"}`.
+
+      - alert: HiveSLOPresupuestoAgotado
+        expr: hive:disponibilidad:30d < 0.995
+        for: 1h
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "{{ $labels.componente }} está por debajo del 99,5 % en 30 días"
+          descripcion: >-
+            Se agotó el presupuesto de errores del SLO. Según la política de docs/06-monitoring/slo.md de Hive,
+            las releases que no corrigen fiabilidad esperan hasta que vuelva a haber presupuesto.
+
+      - alert: HiveLatenciaFueraDeSLO
+        expr: hive:latencia_ok:30d < 0.99
+        for: 1h
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "{{ $labels.componente }} responde lento: menos del 99 % en menos de 1 s en 30 días"
+          descripcion: >-
+            La latencia del /health de {{ $labels.componente }} desde fuera está fuera del SLO. En Odín, el
+            tablero «Hive · SLO»: si es todo a la vez, mirar las WAN de midgard (tablero de Heimdall).
+
+      # Sin sondas no hay SLO: una sonda rota no debe parecer un mes perfecto.
+      - alert: HiveSLOSinSondas
+        expr: count(probe_success{job="hive_externo"}) < 2 or absent(probe_success{job="hive_externo"})
+        for: 10m
+        labels:
+          severity: warning
+          servicio: hive
+        annotations:
+          resumen: "Mimir no recibe las sondas del SLO de Hive"
+          descripcion: >-
+            El job hive_externo no da las dos series de probe_success. Revisar el módulo https_hive_salud en
+            el blackbox.yml de midgard (lo genera render.sh) y `docker logs yggdrasil-blackbox-exporter`.
