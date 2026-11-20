@@ -9,6 +9,33 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.28] - 2026-11-20
+
+**Los logs de Hive salen de nidavellir.** Loki los guarda 90 días en el SSD de midgard, sin borrado por API, y Odín
+los consulta junto a las métricas y las trazas. Gná los lleva desde nidavellir, leyendo Docker por un proxy que solo
+le deja leer.
+
+### Añadido
+
+- **Loki y Gná: los logs de Hive y de su plataforma, 90 días en midgard** (ADR-0013; HIG-140 de Hive, punto 3).
+  Hasta ahora los logs se quedaban en los `json-file` de nidavellir: unos tres días de historia para el audit de
+  Andvari, sin consulta conjunta y borrables desde el host que se investiga.
+  - **Loki** (Grafana Loki 3.7.9) en midgard, con almacén en el SSD (`/srv/rapido/loki`), 90 días de retención y sin
+    borrado por API. Se consulta desde Odín, con el datasource «Loki».
+  - **Gná** (Grafana Alloy v1.21.3) en nidavellir (`deploy/nidavellir/gna.yml`), que se instala a mano. Lleva los
+    contenedores `hive-*` (también Zitadel), Bifröst, Hermod y Andvari con su audit log. Nada más.
+  - **Gná no tiene el socket de Docker:** lo lee a través de un proxy (wollomatic/socket-proxy 1.13.2) que solo le deja
+    listar contenedores, inspeccionarlos y leer sus logs. Nada de `/archive`, `/export` ni `POST`.
+  - **La puerta de Loki**, como la de Saga: el 3100 publicado solo en la LAN de midgard, y solo para nidavellir.
+  - **Tres alertas** en `rules/loki-alertas.yml`: `LokiCaido`, `LokiSinLogs` (2 h sin una línea) y `LokiDescartaLogs`.
+  - **`prueba-gna.sh`** levanta en el CI el `gna.yml` real con un Loki de prueba. Comprueba que solo llegan los logs de
+    Hive y que el proxy no deja más que leer, y solo a Gná. Tiene controles negativos.
+
+  Los pasos de instalación están en `deploy/cd/README.md`, «Loki desde nidavellir». Lo que hay que hacer a mano:
+  - el directorio del SSD en midgard;
+  - un `up -d` de Loki tras la release, porque el receptor aplica el compose en el despliegue siguiente;
+  - Gná y su lista de Thor en nidavellir.
+
 ## [0.5.27] - 2026-11-19
 
 **Heimdall vigila la seguridad de Hive.** Mimir lee los contadores de eventos de seguridad que Hive deja en nidavellir,
@@ -1021,7 +1048,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...HEAD
+[0.5.28]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...v0.5.28
 [0.5.27]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...v0.5.27
 [0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
 [0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25

@@ -1,0 +1,48 @@
+# Alertas de Loki, los logs de Hive y de su plataforma, y de Gná, que los manda desde nidavellir (ADR-0013). Como con
+# Saga, una caída no pierde métricas ni alertas: solo los logs de ese rato que ya no estén en los json-file de
+# nidavellir. Si Gná para, Thor de nidavellir avisa con ServicioDeHostCaido; si sigue en marcha pero no entrega,
+# avisa LokiSinLogs.
+groups:
+  - name: loki_alertas
+    rules:
+      - alert: LokiCaido
+        expr: up{job="loki"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          servicio: loki
+        annotations:
+          resumen: "Loki no responde: los logs de Hive de este rato no se guardan"
+          descripcion: >-
+            Mimir no lee loki:3100 desde hace 5 minutos. Revisar `docker logs yggdrasil-loki` y que el SSD esté
+            montado en /srv/rapido (sin él, Loki no arranca). Gná reintenta, y lo que siga en los json-file de
+            nidavellir se vuelve a leer.
+
+      # Andvari escribe en su audit log al menos una vez por hora (la renovación de los leases de AppRole), así que
+      # dos horas sin líneas son Gná que no entrega o una puerta cerrada. Sin LokiCaido: ese ya avisa.
+      - alert: LokiSinLogs
+        expr: >-
+          sum(increase(loki_distributor_lines_received_total[2h])) == 0
+          unless on () (up{job="loki"} == 0)
+        for: 15m
+        labels:
+          severity: warning
+          servicio: loki
+        annotations:
+          resumen: "Loki lleva 2 h sin recibir logs de nidavellir"
+          descripcion: >-
+            Gná no entrega. En nidavellir: `docker logs yggdrasil-gna` y `docker logs yggdrasil-gna-docker`. En
+            midgard, que la puerta (`yggdrasil-loki-puerta`) esté en marcha y acepte a 192.168.10.2.
+
+      # Una línea descartada es un log de seguridad que no se guardó: límite de ingesta, línea demasiado larga o
+      # demasiado antigua.
+      - alert: LokiDescartaLogs
+        expr: sum by (reason) (increase(loki_discarded_samples_total[10m])) > 0
+        labels:
+          severity: warning
+          servicio: loki
+        annotations:
+          resumen: "Loki descarta logs ({{ $labels.reason }})"
+          descripcion: >-
+            Algunas líneas no se guardaron. El motivo está en la etiqueta reason; los límites, en
+            deploy/loki/loki.yaml (limits_config).

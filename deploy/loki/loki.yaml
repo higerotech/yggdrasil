@@ -1,0 +1,80 @@
+# Loki — Grafana Loki 3.7 en modo monolítico (-target=all): los logs de Hive y de su plataforma, que manda Gná desde
+# nidavellir (ADR-0013). En la mitología, Loki cambia de forma y anda entre todos los mundos: aquí recibe lo que cada
+# servicio escribe, y se consulta desde Odín.
+#
+# - Recibe en el 3100, sin puertos publicados: Odín y Mimir entran por heimdall, y Gná llega desde nidavellir por la
+#   puerta de Loki (yggdrasil-loki-puerta), que solo la acepta a ella.
+# - Almacén local en /loki, que es /srv/rapido/loki, en el SSD, como Saga.
+# - 90 días de retención (decisión de Jeremi del 2026-11-20). Los logs de Zitadel pueden llevar un correo o una IP:
+#   la retención es también el plazo de conservación de esos datos (data-classification.md).
+# - Sin borrado por API: el 3100 lo alcanza nidavellir, y un log de seguridad no se borra desde el host que lo
+#   escribe. Los datos solo salen por la retención.
+# Validar: docker run --rm -v "$PWD/deploy/loki:/etc/loki:ro" grafana/loki:3.7.9 -config.file=/etc/loki/loki.yaml -verify-config
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    - from: "2026-11-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 2160h          # 90 días
+  deletion_mode: disabled          # ni borrado por API ni por consulta
+  # Gná reenvía lo que haya en los json-file al arrancar sin posiciones: hasta una semana atrás se acepta.
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  # El audit de Andvari son unos 10 MB al día, con líneas de hasta 30 KB: holgado.
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  allow_structured_metadata: true
+  volume_enabled: true
+
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+# Caché de resultados en memoria, acotada para que quepa en el mem_limit del contenedor.
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 64
+
+ruler:
+  storage:
+    type: local
+    local:
+      directory: /loki/rules
+
+pattern_ingester:
+  enabled: false
+
+analytics:
+  reporting_enabled: false

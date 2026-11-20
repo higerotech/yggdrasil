@@ -1,0 +1,49 @@
+// Gná — Grafana Alloy en nidavellir: lleva a Loki, en midgard, los logs de Hive y de su plataforma (ADR-0013).
+// En la mitología, Gná es la mensajera de Frigg, que cabalga por cielo y mar llevando recados entre los mundos.
+//
+// - Ve Docker solo a través de gna-docker (wollomatic/socket-proxy), que solo deja listar contenedores, inspeccionarlos
+//   y leer sus logs. Gná no tiene el socket de Docker.
+// - Lleva los contenedores de Hive (hive-*, también los de Zitadel, hive-idp*) y los de su plataforma: Bifröst,
+//   Hermod y Andvari, con su audit log. Nada más de nidavellir: morocota y bragi tienen su propio stack.
+// - Etiquetas: host y contenedor. Pocas y fijas, para que Loki no multiplique los streams.
+// - Las posiciones viven en el volumen gna-datos: tras un reinicio, Gná sigue donde lo dejó.
+// Validar: docker run --rm -v "$PWD/deploy/nidavellir/gna:/etc/alloy:ro" grafana/alloy:v1.21.3 fmt --test /etc/alloy/config.alloy
+
+discovery.docker "contenedores" {
+	host             = "tcp://gna-docker:2375"
+	refresh_interval = "30s"
+}
+
+discovery.relabel "hive" {
+	targets = discovery.docker.contenedores.targets
+
+	// Docker antepone una barra al nombre del contenedor. La expresión va anclada entera.
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(hive-.+|bifrost-nats|hermod-rabbitmq|andvari-openbao)"
+		action        = "keep"
+	}
+
+	rule {
+		source_labels = ["__meta_docker_container_name"]
+		regex         = "/(.+)"
+		target_label  = "contenedor"
+	}
+}
+
+loki.source.docker "hive" {
+	host             = "tcp://gna-docker:2375"
+	targets          = discovery.relabel.hive.output
+	labels           = {host = "nidavellir"}
+	relabel_rules    = discovery.relabel.hive.rules
+	refresh_interval = "30s"
+	forward_to       = [loki.write.midgard.receiver]
+}
+
+// La puerta de Loki en midgard. Si midgard no responde, Alloy reintenta con espera creciente y guarda lo pendiente
+// en memoria; lo que siga en los json-file se vuelve a leer desde la posición guardada.
+loki.write "midgard" {
+	endpoint {
+		url = sys.env("GNA_LOKI_URL")
+	}
+}

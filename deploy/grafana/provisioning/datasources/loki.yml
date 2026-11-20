@@ -1,0 +1,14 @@
+# Odín (Grafana): datasource provisionado hacia Loki (ADR-0013) por la red interna de Compose. Los logs de Hive siguen
+# su RS19 (solo identificadores, rutas y recuentos); los de Zitadel y el audit de Andvari, no: pueden llevar un correo,
+# una IP o valores con HMAC. Quien entra en Odín los ve, igual que quien entra por ssh a nidavellir.
+apiVersion: 1
+datasources:
+  - name: Loki
+    uid: loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000

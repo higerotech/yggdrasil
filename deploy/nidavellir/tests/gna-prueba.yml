@@ -1,0 +1,49 @@
+# Escenario de prueba-gna.sh: se superpone a gna.yml, que se usa tal cual salvo el -allowfrom del proxy (el script
+# añade a «cliente»). Un Loki local en la red de salida de Gná, con la configuración real, y contenedores que escriben
+# una línea cada pocos segundos: dos que Gná debe llevar y uno que no.
+services:
+  loki:
+    image: grafana/loki:3.7.9
+    container_name: prueba-gna-loki
+    user: "10001:10001"
+    read_only: true
+    command: ["-config.file=/etc/loki/loki.yaml", "-target=all"]
+    tmpfs:
+      - /tmp
+      - /loki:uid=10001,gid=10001
+    volumes:
+      - ../loki:/etc/loki:ro
+    ports:
+      - "127.0.0.1:13100:3100"
+    networks:
+      gna-salida:
+        aliases: [loki]
+
+  # Hace las peticiones al proxy: lo que Gná necesita y lo que no debe poder hacer nadie.
+  cliente:
+    image: alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+    container_name: prueba-gna-cliente
+    command: ["sleep", "600"]
+    networks: [gna-interna]
+
+  # En la misma red, pero sin permiso: el proxy lo rechaza aunque pida lo mismo que Gná.
+  intruso:
+    image: alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+    container_name: prueba-gna-intruso
+    command: ["sleep", "600"]
+    networks: [gna-interna]
+
+  hive-prueba:
+    image: alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+    container_name: hive-prueba
+    command: ["sh", "-c", "i=0; while true; do i=$$((i+1)); echo \"WARNING [hive] linea $$i\"; sleep 2; done"]
+
+  andvari-openbao:
+    image: alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+    container_name: andvari-openbao
+    command: ["sh", "-c", "while true; do echo '{\"type\":\"request\"}'; sleep 3; done"]
+
+  otro-prueba:
+    image: alpine:3.22@sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce
+    container_name: otro-prueba
+    command: ["sh", "-c", "while true; do echo 'esta linea no debe llegar a Loki'; sleep 2; done"]
