@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.1.2
+* **Versión:** 0.2.0
 * **Owner de datos (DPO):** Jeremi
 * **Regulación aplicable:** Ninguna formal (uso doméstico); criterio de privacidad del hogar
 
@@ -23,6 +23,7 @@
 | Métricas del host (Thor: discos, espacio, servicios, respaldos) | Interno | — | No | Red interna de Compose | 30 días |
 | Credenciales de PIA (`PIA_USER`, `PIA_PASS`) | Restringido | — | Sí (`/etc/yggdrasil-pia.env`, root 600; las escribe Jeremi) | HTTPS hacia la API de PIA | Hasta rotación |
 | Token de PIA y clave privada del túnel `pia0` | Restringido | — | No se escriben: solo en memoria de `pia-tunel.sh` | HTTPS (token) / no sale del host (clave) | Token 24 h; clave hasta el siguiente arranque del túnel |
+| Logs de Hive y de su plataforma en Loki (ADR-0013): los de Hive solo llevan identificadores, rutas y recuentos (RS19 de Hive); los de Zitadel pueden llevar un correo o una IP; el audit de Andvari, valores con HMAC | Confidencial | RGPD por los datos de Zitadel | No (`/srv/rapido/loki`, dueño 10001, 0750) | En claro por la LAN, de Gná a la puerta de Loki, como las trazas de Saga | 90 días (decisión de Jeremi del 2026-11-20); sin borrado por API |
 | Metadatos del tráfico del PC que sale por PIA (destinos, volumen, horario) | Confidencial | — | Fuera de nuestro control (PIA) | WireGuard hasta PIA | La que aplique PIA. Riesgo aceptado por Jeremi (T12, ADR-0009) |
 
 Niveles: Público < Interno < Confidencial < Restringido.

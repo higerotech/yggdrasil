@@ -4,7 +4,7 @@
 * **Fecha:** 2026-09-01
 * **Decisores:** Jeremi
 * **Fase AI-DLC:** 00-project
-* **Versión:** 0.4.0
+* **Versión:** 0.5.0
 * **Tema:** Mitología nórdica (sucesor espiritual de Centinela)
 
 ## Regla
@@ -35,6 +35,8 @@ Cada servicio recibe un nombre del universo nórdico cuya función mitológica r
 | **Fáfnir** | Catálogo del almacenamiento (script de Python + SQLite, en midgard y nidavellir) | El dragón que guarda el tesoro y sabe cada pieza que hay en él → inventaría el NAS y los discos, cuenta las copias de cada colección y avisa de lo que solo vive en un disco que falla (ADR-0010, 2026-10-25) |
 | **Baldr** | Protocolo tras el arranque (script + unidad de systemd, en midgard y nidavellir) | El dios que vuelve del reino de los muertos → tras un apagón espera al NAS, reintenta lo que no volvió, relanza los jobs perdidos y da el parte (ADR-0011, 2026-10-28) |
 | **Saga** | Grafana Tempo (trazas) | La diosa de la historia, que cada día bebe con Odín en Sökkvabekkr → guarda la historia de cada mensaje y se consulta desde Odín (ADR-0008, 2026-10-19) |
+| **Loki** | Grafana Loki (logs) | El dios que cambia de forma y anda por todos los mundos → recibe lo que escribe cada servicio de Hive y se consulta desde Odín (ADR-0013, 2026-11-20) |
+| **Gná** | Grafana Alloy (agente de logs, en nidavellir) | La mensajera de Frigg, que cabalga por cielo y mar llevando recados entre los mundos → lleva a Loki, en midgard, los logs de nidavellir (ADR-0013, 2026-11-20) |
 
 ## Otros servicios de midgard (fuera de Yggdrasil)
 Proyectos hermanos que corren en el mismo appliance; Yggdrasil vigila su arranque y su respaldo
@@ -54,7 +56,6 @@ Prefijo por mundo: `midgard/...` para lo generado en el edge (p. ej. `midgard/wa
 | Nombre | Candidato para |
 |---|---|
 | **Fenrir** | Frigate NVR (el lobo vigilante); proyecto independiente `higerotech/fenrir`. Se integró en la 0.5.1 y salió de midgard en la 0.5.3 (ADR-0004); el nombre queda reservado |
-| **Loki** | Agregación de logs (coincide con Grafana Loki) |
 | **Freyja** | Sensores IoT / Home Assistant si llegara |
 | **Valhalla** | Archivo frío / respaldos de largo plazo (los respaldos diarios actuales van al NAS y se nombran por proyecto) |
 
@@ -75,3 +76,6 @@ Nota feliz: el ecosistema Grafana ya usa nombres nórdicos (Loki, Mimir), así q
 
 > **Revisión 2026-10-25 (0.4.0).** Nuevo servicio **Fáfnir**, el catálogo del almacenamiento (decisión de Jeremi;
 > alternativas descartadas: Brokkr y Mímisbrunnr, este último por parecerse a Mimir).
+
+> **Revisión 2026-11-20 (0.5.0).** Loki pasa de reservado a integrado, y entra **Gná**, su agente en nidavellir
+> (ADR-0013; decisión de Jeremi; alternativas descartadas: Hjúki y Bil, los niños que acarrean el agua de la luna).

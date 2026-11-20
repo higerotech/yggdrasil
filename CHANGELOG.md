@@ -9,6 +9,27 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+
+- **Loki y Gná: los logs de Hive y de su plataforma, 90 días en midgard** (ADR-0013; HIG-140 de Hive, punto 3).
+  Hasta ahora los logs se quedaban en los `json-file` de nidavellir: unos tres días de historia para el audit de
+  Andvari, sin consulta conjunta y borrables desde el host que se investiga.
+  - **Loki** (Grafana Loki 3.7.9) en midgard, con almacén en el SSD (`/srv/rapido/loki`), 90 días de retención y sin
+    borrado por API. Se consulta desde Odín, con el datasource «Loki».
+  - **Gná** (Grafana Alloy v1.21.3) en nidavellir (`deploy/nidavellir/gna.yml`), que se instala a mano. Lleva los
+    contenedores `hive-*` (también Zitadel), Bifröst, Hermod y Andvari con su audit log. Nada más.
+  - **Gná no tiene el socket de Docker:** lo lee a través de un proxy (wollomatic/socket-proxy 1.13.2) que solo le deja
+    listar contenedores, inspeccionarlos y leer sus logs. Nada de `/archive`, `/export` ni `POST`.
+  - **La puerta de Loki**, como la de Saga: el 3100 publicado solo en la LAN de midgard, y solo para nidavellir.
+  - **Tres alertas** en `rules/loki-alertas.yml`: `LokiCaido`, `LokiSinLogs` (2 h sin una línea) y `LokiDescartaLogs`.
+  - **`prueba-gna.sh`** levanta en el CI el `gna.yml` real con un Loki de prueba. Comprueba que solo llegan los logs de
+    Hive y que el proxy no deja más que leer, y solo a Gná. Tiene controles negativos.
+
+  Los pasos de instalación están en `deploy/cd/README.md`, «Loki desde nidavellir». Lo que hay que hacer a mano:
+  - el directorio del SSD en midgard;
+  - un `up -d` de Loki tras la release, porque el receptor aplica el compose en el despliegue siguiente;
+  - Gná y su lista de Thor en nidavellir.
+
 ## [0.5.27] - 2026-11-19
 
 **Heimdall vigila la seguridad de Hive.** Mimir lee los contadores de eventos de seguridad que Hive deja en nidavellir,

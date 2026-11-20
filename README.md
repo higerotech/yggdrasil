@@ -88,6 +88,8 @@ los nombres reservados están en `docs/00-project/naming.md`.
 | Thor | Recolector en el host + httpd | Métricas del host: disco, NAS, ruta, servicios y respaldo |
 | Hlidskjalf | Página en Nornas + app Android kiosco | Tablero de pared con el estado de midgard (ADR-0007) |
 | Saga | Grafana Tempo | Trazas de los servicios de la plataforma, 15 días en el SSD (ADR-0008) |
+| Loki | Grafana Loki | Logs de Hive y de su plataforma, 90 días en el SSD (ADR-0013) |
+| Gná | Grafana Alloy, en nidavellir | Lleva a Loki los logs de Hive, leyendo Docker por un proxy de solo lectura (ADR-0013) |
 | Baldr | Script + unidad de systemd | Protocolo tras un apagón: espera al NAS, reintenta, relanza jobs perdidos y da el parte (ADR-0011) |
 
 ## Anonimización

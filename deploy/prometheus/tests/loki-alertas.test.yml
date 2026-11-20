@@ -1,0 +1,97 @@
+# Pruebas de las alertas de Loki. Ejecutar:
+#   promtool test rules deploy/prometheus/tests/loki-alertas.test.yml
+rule_files:
+  - ../rules/loki-alertas.yml
+
+evaluation_interval: 15s
+
+tests:
+  - name: Loki deja de responder
+    interval: 1m
+    input_series:
+      - series: 'up{job="loki", instance="loki:3100"}'
+        values: '1x3 0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: LokiCaido
+        exp_alerts: []          # caído hace 3 min: aún dentro del for
+      - eval_time: 10m
+        alertname: LokiCaido
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: loki, job: loki, instance: "loki:3100"}
+            exp_annotations:
+              resumen: "Loki no responde: los logs de Hive de este rato no se guardan"
+              descripcion: "Mimir no lee loki:3100 desde hace 5 minutos. Revisar `docker logs yggdrasil-loki` y que el SSD esté montado en /srv/rapido (sin él, Loki no arranca). Gná reintenta, y lo que siga en los json-file de nidavellir se vuelve a leer."
+
+  - name: Loki sano no avisa
+    interval: 1m
+    input_series:
+      - series: 'up{job="loki", instance="loki:3100"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: LokiCaido
+        exp_alerts: []
+
+  # Una línea por hora, como el audit de Andvari: la ventana de 2 h siempre ve alguna.
+  - name: Una línea por hora no avisa de LokiSinLogs
+    interval: 1m
+    input_series:
+      - series: 'up{job="loki", instance="loki:3100"}'
+        values: '1x400'
+      - series: 'loki_distributor_lines_received_total{job="loki", tenant="fake"}'
+        values: '0x59 1x59 2x59 3x59 4x59 5x59 6x40'
+    alert_rule_test:
+      - eval_time: 390m
+        alertname: LokiSinLogs
+        exp_alerts: []
+
+  - name: Gná deja de entregar
+    interval: 1m
+    input_series:
+      - series: 'up{job="loki", instance="loki:3100"}'
+        values: '1x400'
+      # 10 líneas por minuto durante una hora, y luego nada
+      - series: 'loki_distributor_lines_received_total{job="loki", tenant="fake"}'
+        values: '0+10x60 600x300'
+    alert_rule_test:
+      - eval_time: 175m
+        alertname: LokiSinLogs
+        exp_alerts: []          # la última línea llegó hace menos de 2 h y el for
+      - eval_time: 200m
+        alertname: LokiSinLogs
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: loki}
+            exp_annotations:
+              resumen: "Loki lleva 2 h sin recibir logs de nidavellir"
+              descripcion: "Gná no entrega. En nidavellir: `docker logs yggdrasil-gna` y `docker logs yggdrasil-gna-docker`. En midgard, que la puerta (`yggdrasil-loki-puerta`) esté en marcha y acepte a 192.168.10.2."
+
+  - name: Con Loki caído avisa LokiCaido, no LokiSinLogs
+    interval: 1m
+    input_series:
+      - series: 'up{job="loki", instance="loki:3100"}'
+        values: '1x60 0x300'
+      # El contador sigue ahí, sin crecer: sin el unless, LokiSinLogs saltaría
+      - series: 'loki_distributor_lines_received_total{job="loki", tenant="fake"}'
+        values: '0+10x60 600x300'
+    alert_rule_test:
+      - eval_time: 250m
+        alertname: LokiSinLogs
+        exp_alerts: []
+
+  - name: Loki descarta líneas demasiado largas
+    interval: 1m
+    input_series:
+      - series: 'loki_discarded_samples_total{job="loki", tenant="fake", reason="line_too_long"}'
+        values: '0x10 3x10'
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: LokiDescartaLogs
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: LokiDescartaLogs
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: loki, reason: line_too_long}
+            exp_annotations:
+              resumen: "Loki descarta logs (line_too_long)"
+              descripcion: "Algunas líneas no se guardaron. El motivo está en la etiqueta reason; los límites, en deploy/loki/loki.yaml (limits_config)."

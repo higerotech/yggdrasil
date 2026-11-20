@@ -416,6 +416,52 @@ Para cambiar la imagen se repiten los tres pasos. `yggdrasil-saga-rele` está en
 Comprobar desde nidavellir: `nc -zv 192.168.10.1 4318` conecta, y los logs de hive dejan de decir `saga`. Desde
 otra máquina de la LAN, el mismo `nc` conecta pero socat cierra en el acto.
 
+### Loki desde nidavellir (ADR-0013)
+
+Loki guarda 90 días de logs de Hive y de su plataforma, y se consulta desde Odín (datasource «Loki»). Los manda Gná
+(Grafana Alloy) desde nidavellir a la puerta de Loki en midgard (`yggdrasil-loki-puerta`, que solo acepta a
+nidavellir). Gná no monta el socket de Docker: lo lee a través de `yggdrasil-gna-docker`, un proxy que solo deja
+listar contenedores, inspeccionarlos y leer sus logs.
+
+**En midgard, una vez.** Loki escribe en el SSD, en un directorio que hay que crear antes de que arranque. Lo hace
+`bootstrap-midgard.sh` (paso 5f2); a mano:
+
+```bash
+sudo install -d -o 10001 -g 10001 -m 0750 /srv/rapido/loki
+```
+
+El receptor aplica los cambios del compose en el despliegue *siguiente* al que los trae. Tras la release que añade
+Loki, hay que levantarlo a mano, o el vigía de servicios avisará de que falta. El job y las alertas de Mimir sí
+llegan con la release, porque `sync-net` lo recarga:
+
+```bash
+cd /srv/apps/yggdrasil/deploy
+sudo env IMAGE_TAG=sha-<7> docker compose -f docker-compose.cd.yml -p yggdrasil up -d --no-deps loki loki-puerta
+```
+
+**En nidavellir, una vez.** No tiene un clon del repo: los ficheros llegan por `scp` y viven en
+`/srv/apps/yggdrasil-gna/`.
+
+```bash
+# desde el equipo con el clon
+scp -i ~/.ssh/id_ed25519_hgtech001 deploy/nidavellir/gna.yml deploy/nidavellir/gna/config.alloy jalcala@192.168.10.2:/tmp/
+# en nidavellir
+sudo install -D -m 0644 /tmp/gna.yml /srv/apps/yggdrasil-gna/gna.yml
+sudo install -D -m 0644 /tmp/config.alloy /srv/apps/yggdrasil-gna/gna/config.alloy
+rm /tmp/gna.yml /tmp/config.alloy
+sudo docker compose -f /srv/apps/yggdrasil-gna/gna.yml -p yggdrasil-gna up -d
+```
+
+Para cambiar la configuración o la imagen se repiten los pasos. `yggdrasil-gna` y `yggdrasil-gna-docker` van en
+`THOR_CONTENEDORES` de nidavellir («Thor en otro host», abajo): si caen, `ServicioDeHostCaido` los nombra. Si Gná sigue
+en marcha pero no entrega, avisa `LokiSinLogs` en 2 h.
+
+Comprobar:
+- En nidavellir, `docker logs yggdrasil-gna` sin errores, y `docker logs yggdrasil-gna-docker` sin `blocked request`.
+- En Odín, Explore con el datasource Loki: `{host="nidavellir"}` muestra los contenedores de Hive, de Andvari, de
+  Bifröst y de Hermod, y ninguno más.
+- En Mimir, `up{job="loki"}` vale 1 y `loki_distributor_lines_received_total` crece.
+
 ### Thor en otro host (nidavellir)
 
 Thor corre igual en un host sin el Compose de Yggdrasil (ADR-0007 1.1.0). Allí no hay contenedor `thor` ni
@@ -441,13 +487,14 @@ THOR_DISCOS="/dev/disk/by-id/ata-ADATA_SU650_<serie> /dev/disk/by-id/ata-WDC_WD1
 THOR_PUNTOS="/ /srv/medios/wd"
 THOR_WANS=""
 THOR_UNIDADES="docker.service cd-receiver.service smartmontools.service yggdrasil-thor.timer hive-idp-vigia.timer hive-idp-respaldo.timer"
-THOR_CONTENEDORES="cd-socket-proxy deploy-service-tunnel bragi bragi-tunel hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel andvari-openbao bifrost-nats hermod-rabbitmq hive-api hive-webhook hive-ingest hive-docs hive-tunel hive-portal hive-classifier hive-coordinator hive-responder hive-evaluator hive-notifier yggdrasil-saga-rele"
+THOR_CONTENEDORES="cd-socket-proxy deploy-service-tunnel bragi bragi-tunel hive-idp hive-idp-db hive-idp-login hive-idp-proxy hive-idp-tunel andvari-openbao bifrost-nats hermod-rabbitmq hive-api hive-webhook hive-ingest hive-docs hive-tunel hive-portal hive-classifier hive-coordinator hive-responder hive-evaluator hive-notifier yggdrasil-saga-rele yggdrasil-gna yggdrasil-gna-docker"
 ```
 
 - Los `hive-idp*` son Zitadel (Hive, `deploy/idp`). Con ellos en la lista, `ServicioDeHostCaido` avisa del
   contenedor concreto que cae; `ZitadelExternoCaido` solo dice que no se llega desde fuera.
 - Desde la fase 2 de ADR-0012 (2026-11-02), Hive, Andvari, Bifröst y Hermod corren aquí, con la misma lista que
-  tenían en midgard. `yggdrasil-saga-rele` entra el 2026-11-03. Los `morocota-*` no están: morocota tiene su propia
+  tenían en midgard. `yggdrasil-saga-rele` entra el 2026-11-03, y
+  `yggdrasil-gna` y `yggdrasil-gna-docker` con Loki (ADR-0013). Los `morocota-*` no están: morocota tiene su propia
   vigilancia.
 - `deploy-service-tunnel` (túnel de `deploy.higerotech.com`, `/srv/apps/deploy-tunnel`) entra en la lista
   el 2026-11-03, cuando pasa a nidavellir. En midgard no se vigilaba.
