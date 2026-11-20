@@ -167,6 +167,19 @@ scrape_configs:
         labels: {host: nidavellir}
     relabel_configs: *sonda_relabel
 
+  # Hive desde fuera: los SLI de disponibilidad y latencia de su SLO (rules/hive-slo.yml, HIG-140). El tráfico
+  # real (unas 60 peticiones por semana) no basta para medirlo; la sonda da una muestra cada 15 s.
+  - job_name: hive_externo
+    metrics_path: /probe
+    params:
+      module: [https_hive_salud]
+    static_configs:
+      - targets: ["https://hive-api.higerotech.com/health"]
+        labels: {host: nidavellir, componente: hive-api}
+      - targets: ["https://hive-webhook.higerotech.com/health"]
+        labels: {host: nidavellir, componente: hive-webhook}
+    relabel_configs: *sonda_relabel
+
   # Respaldo nocturno de Zitadel (hive, deploy/idp/respaldo): el script escribe hive_idp_respaldo.prom en
   # el directorio que sirve yggdrasil-thor-http.service en nidavellir, como bragi.prom.
   - job_name: hive_idp_respaldo

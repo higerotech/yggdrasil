@@ -1,0 +1,166 @@
+# Pruebas del SLO de Hive. Ejecutar:
+#   promtool test rules deploy/prometheus/tests/hive-slo.test.yml
+# hogar:ruta_up entra como serie de entrada: su regla está en heimdall-recording.yml y la prueban wan-up y
+# perdida. Las sondas van a 1 por minuto (en midgard, cada 15 s): las ventanas cuentan igual.
+rule_files:
+  - ../rules/hive-slo.yml
+
+evaluation_interval: 1m
+
+tests:
+  - name: Hive sano no avisa, y el presupuesto está entero
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x120'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x120'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x120'
+      - series: 'probe_duration_seconds{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '0.3x120'
+      - series: 'probe_duration_seconds{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '0.3x120'
+    alert_rule_test:
+      - {eval_time: 120m, alertname: HiveSLOQuemaRapida, exp_alerts: []}
+      - {eval_time: 120m, alertname: HiveSLOQuemaLenta, exp_alerts: []}
+      - {eval_time: 120m, alertname: HiveSLOPresupuestoAgotado, exp_alerts: []}
+      - {eval_time: 120m, alertname: HiveLatenciaFueraDeSLO, exp_alerts: []}
+      - {eval_time: 120m, alertname: HiveSLOSinSondas, exp_alerts: []}
+    promql_expr_test:
+      - expr: hive:presupuesto_restante:30d
+        eval_time: 120m
+        exp_samples:
+          - {labels: 'hive:presupuesto_restante:30d{componente="hive-api"}', value: 1}
+          - {labels: 'hive:presupuesto_restante:30d{componente="hive-webhook"}', value: 1}
+      - expr: hive:latencia_ok:30d
+        eval_time: 120m
+        exp_samples:
+          - {labels: 'hive:latencia_ok:30d{componente="hive-api"}', value: 1}
+          - {labels: 'hive:latencia_ok:30d{componente="hive-webhook"}', value: 1}
+
+  # Cae hive-api del todo a los 61 min; hive-webhook sigue bien. La ventana de 1 h pasa del 7,2 % con el
+  # quinto fallo (65 min), y el for de 2 min la dispara a los 67.
+  - name: Una caída total de hive-api avisa a los pocos minutos, y solo de hive-api
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x90'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x60 0x30'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x90'
+    alert_rule_test:
+      - {eval_time: 63m, alertname: HiveSLOQuemaRapida, exp_alerts: []}
+      - eval_time: 70m
+        alertname: HiveSLOQuemaRapida
+        exp_alerts:
+          - exp_labels: {severity: critical, servicio: hive, componente: hive-api}
+            exp_annotations:
+              resumen: "hive-api no responde desde fuera: se gasta el presupuesto del SLO"
+              descripcion: "Más del 7,2 % de las sondas de hive-api.higerotech.com/health fallan en la última hora y en los últimos 5 min. A este ritmo, el presupuesto de 30 días se acaba en dos días. En nidavellir: `docker ps --filter name=hive-` y `docker logs hive-tunel`. Si nidavellir no responde, salta también ThorSinMetricas. Runbook: docs/06-monitoring/runbook-incidentes.md de Hive."
+
+  # La misma caída, pero midgard sin ruta: las sondas no miden a Hive y no cuentan.
+  - name: Sin ruta en midgard, las sondas fallidas no gastan presupuesto
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x60 0x30'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x60 0x30'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x60 0x30'
+    alert_rule_test:
+      - {eval_time: 90m, alertname: HiveSLOQuemaRapida, exp_alerts: []}
+      - {eval_time: 90m, alertname: HiveSLOQuemaLenta, exp_alerts: []}
+    promql_expr_test:
+      - expr: hive:sonda_error:ratio_1h
+        eval_time: 90m
+        exp_samples:
+          - {labels: 'hive:sonda_error:ratio_1h{componente="hive-api"}', value: 0}
+          - {labels: 'hive:sonda_error:ratio_1h{componente="hive-webhook"}', value: 0}
+
+  # Una sonda de cada 20 falla (5 %): por encima del 3 % de la quema lenta, por debajo del 7,2 % de la
+  # rápida en la ventana de 1 h.
+  - name: Un fallo intermitente avisa por la quema lenta y no por la rápida
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x480'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x480'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0 1x18 0'
+    alert_rule_test:
+      - {eval_time: 300m, alertname: HiveSLOQuemaRapida, exp_alerts: []}
+      - eval_time: 300m
+        alertname: HiveSLOQuemaLenta
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive, componente: hive-webhook}
+            exp_annotations:
+              resumen: "hive-webhook falla a ratos desde fuera"
+              descripcion: "Más del 3 % de las sondas de hive-webhook fallan en las últimas 6 h y en la última media hora: un fallo intermitente, no una caída. Mirar en Odín el tablero «Hive · SLO» y, en Loki, `{host=\"nidavellir\", contenedor=\"hive-tunel\"}`."
+
+  # 40 min caído en un día: el 97,4 % de disponibilidad, bajo el 99,5 %. Lo que hay en Mimir cuenta como los
+  # 30 días mientras no los haya.
+  - name: Con el presupuesto gastado avisa HiveSLOPresupuestoAgotado
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x1540'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x1400 0x40 1x100'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x1540'
+    alert_rule_test:
+      - eval_time: 1540m
+        alertname: HiveSLOPresupuestoAgotado
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive, componente: hive-api}
+            exp_annotations:
+              resumen: "hive-api está por debajo del 99,5 % en 30 días"
+              descripcion: "Se agotó el presupuesto de errores del SLO. Según la política de docs/06-monitoring/slo.md de Hive, las releases que no corrigen fiabilidad esperan hasta que vuelva a haber presupuesto."
+    promql_expr_test:
+      - expr: hive:presupuesto_restante:30d < bool 0
+        eval_time: 1540m
+        exp_samples:
+          - {labels: '{componente="hive-api"}', value: 1}
+          - {labels: '{componente="hive-webhook"}', value: 0}
+
+  # Las respuestas lentas cuentan contra la latencia; las caídas no (ya cuentan contra la disponibilidad).
+  - name: Más del 1 % de respuestas lentas avisa de la latencia, y una caída no
+    interval: 1m
+    input_series:
+      - series: 'hogar:ruta_up'
+        values: '1x200'
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x200'
+      - series: 'probe_duration_seconds{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '0.3x100 1.5x5 0.3x95'
+      - series: 'probe_success{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '1x100 0x10 1x90'
+      - series: 'probe_duration_seconds{job="hive_externo", componente="hive-webhook", target="https://hive-webhook.higerotech.com/health"}'
+        values: '0.3x100 10x10 0.3x90'
+    alert_rule_test:
+      - eval_time: 200m
+        alertname: HiveLatenciaFueraDeSLO
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive, componente: hive-api}
+            exp_annotations:
+              resumen: "hive-api responde lento: menos del 99 % en menos de 1 s en 30 días"
+              descripcion: "La latencia del /health de hive-api desde fuera está fuera del SLO. En Odín, el tablero «Hive · SLO»: si es todo a la vez, mirar las WAN de midgard (tablero de Heimdall)."
+
+  - name: Si falta una sonda avisa HiveSLOSinSondas
+    interval: 1m
+    input_series:
+      - series: 'probe_success{job="hive_externo", componente="hive-api", target="https://hive-api.higerotech.com/health"}'
+        values: '1x30'
+    alert_rule_test:
+      - {eval_time: 5m, alertname: HiveSLOSinSondas, exp_alerts: []}
+      - eval_time: 20m
+        alertname: HiveSLOSinSondas
+        exp_alerts:
+          - exp_labels: {severity: warning, servicio: hive}
+            exp_annotations:
+              resumen: "Mimir no recibe las sondas del SLO de Hive"
+              descripcion: "El job hive_externo no da las dos series de probe_success. Revisar el módulo https_hive_salud en el blackbox.yml de midgard (lo genera render.sh) y `docker logs yggdrasil-blackbox-exporter`."
