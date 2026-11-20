@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.29] - 2026-11-20
+
+**Mimir mide a Hive desde fuera.** hive-api y hive-webhook tienen un SLO del 99,5 % en 30 días, con sondas por
+Cloudflare, alertas de quema del presupuesto y el tablero «Hive · SLO».
+
 ### Añadido
 
 - **El SLO de Hive: hive-api y hive-webhook, disponibles el 99,5 % en 30 días** (HIG-140 de Hive, punto 4; decisión de
@@ -1067,7 +1072,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.29...HEAD
+[0.5.29]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...v0.5.29
 [0.5.28]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...v0.5.28
 [0.5.27]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...v0.5.27
 [0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
