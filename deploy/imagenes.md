@@ -16,6 +16,9 @@ política de aceptación están en `docs/03-implementation/cadena-suministro.md`
 | `nodered/node-red` | `4.1.14-22` | `sha256:427c7dce93108c57cca613e5c9fbfbda0e46fd69328f76735d9537915d0ce396` | `sha256:55e5cfe31b28a791b632913e1f8a280eacb8d7f14448300be5e10cb8ce3da922` | 2026-09-01 | Nornas y nornas-init (ADR-0006); línea 4.x sobre Node 22 |
 | `grafana/tempo` | `3.1.0` | `sha256:3076b8dcdfb32fd6bc5ccef85e7b7313e6199b9cb84366257fc17ecb696db5fd` | `sha256:19dca9c0b1801209424a757cd5970d6ffd7cfc9a7f4966c2a6795fbe29b495a8` | 2026-09-29 | Saga (ADR-0008); distroless, usuario 10001 |
 | `alpine/socat` | `1.8.1.3` | `sha256:466c8a0383e16463fabdb7df01008292fb78d07da60224a46cb5d3142ce122ed` | `sha256:f99efbac7d08cb97dc98c5b336fac195c58da9b2804eeec2d4a841365411eeba` | 2026-10-31 | Puerta de Saga en midgard y relé `saga` en nidavellir (ADR-0008 1.1.0). Pineada también por digest en el Compose: es una excepción a las dos semanas |
+| `grafana/loki` | `3.7.9` | `sha256:0db216b630ae1f348a1584c67f3cead8b4c1fc839169a39501db664744158e28` | `sha256:569e5cab050b7705eb82080335ff9a8bd329650b358bb0d42131e3ced8d9492e` | 2026-10-20 | Loki (ADR-0013); usuario 10001 |
+| `grafana/alloy` | `v1.21.3` | `sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4` | `sha256:5ed61e8ab102bdf590ea3d67c5e29dfb5837f5b4660a1d2a0db4b8160553e9e7` | 2026-10-28 | Gná en nidavellir (ADR-0013); corre como `alloy` (473). Pineada también por digest en `gna.yml` |
+| `wollomatic/socket-proxy` | `1.13.2` | `sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848` | `sha256:94e6021c1248305cbb477a819d8a57b4820be1cb0b2473898ea4472d1ce9f130` | 2026-10-24 | Proxy de solo lectura del socket de Docker para Gná (ADR-0013); `nobody`. Pineada también por digest en `gna.yml` |
 | `alpine` | `3.22` | `sha256:14358309a308569c32bdc37e2e0e9694be33a9d99e68afb0f5ff33cc1f695dce` | `sha256:7c8cb692ae09657cbc4a3f3cbd0e8d5a2690ba38386aaaf252dbb060bf5eb2e6` | 2026-06-22 | Base de Sleipnir `0.2.0` (pineada por digest; `apk upgrade` en el build) |
 
 Sleipnir `0.2.1` mide con la CLI oficial de Ookla `1.2.0` (`ookla-speedtest-1.2.0-linux-x86_64.tgz`, sha256 `5690596c54ff9bed63fa3732f818a05dbc2db19ad36ed68f21ca5f64d5cfeeb7`), descargada de `install.speedtest.net` en el build y verificada por hash antes de extraerla. Es un binario estático de código cerrado: Trivy no lo inspecciona, así que la garantía es el origen oficial, la versión y el hash pineados; para subirla, cambiar `OOKLA_VERSION` y `OOKLA_SHA256` en el `Dockerfile` con el hash calculado sobre la descarga. `speedtest-cli==2.1.3` (PyPI) sigue instalada como modo alternativo.
@@ -25,6 +28,7 @@ Imágenes propias publicadas por `build-and-push.yml` en cada push a `main` (ADR
 ## Historial de pines
 | Fecha | Cambio | Motivo |
 |---|---|---|
+| 2026-11-20 | Añadidos `grafana/loki:3.7.9`, `grafana/alloy:v1.21.3` y `wollomatic/socket-proxy:1.13.2` | ADR-0013. Las últimas con dos semanas: Loki 3.7.10 (2026-11-13) y Alloy 1.22.0 (2026-11-13) no las tenían |
 | 2026-11-02 | Añadido `alpine/socat:1.8.1.3` (puerta y relé de Saga), por digest | ADR-0008 1.1.0: hive emite desde nidavellir. **Excepción a las dos semanas, decisión de Jeremi:** la 1.8.1.1, la última con dos semanas, trae socat con CVE-2026-56123 (CRÍTICA, desbordamiento de heap; arreglada en socat 1.8.1.2) y libcrypto3 con CVE-2026-14456 (HIGH). La 1.8.1.3 es la primera imagen con el arreglo |
 | 2026-10-19 | Añadido `grafana/tempo:3.1.0` (Saga) | ADR-0008. La 3.0.4, del 2026-10-16, no tenía dos semanas |
 | 2026-09-05 | Pines iniciales: prometheus `v3.5.0`, blackbox `v0.27.0`, alertmanager `v0.28.1`, grafana `12.1.1` | Gate 2, PR #7 |
@@ -43,6 +47,9 @@ Trivy 0.66.0, CRITICAL/HIGH, `--ignore-unfixed`, en cada PR que toque `deploy/` 
 | `prom/blackbox-exporter:v0.28.0` | 40 | 3 | Última release (2025-12); Go `stdlib`, `x/crypto`, `grpc`, `x/net`; mitigado por red |
 | `grafana/grafana:12.4.10` | 6 | 0 | OpenSSL pendiente de paquete Alpine; tempo/thrift no usados |
 | `grafana/tempo:3.1.0` | 4 (2026-10-19) | 0 | Go `stdlib` 1.27.1 y `x/net` 0.58.0: denegaciones de servicio en `net/http`, HTTP/2 y `crypto/tls`, corregidas en Go 1.27.2 y `x/net` 0.60.0. Mitigado por red: sin puertos publicados, solo la alcanzan servicios propios por `heimdall` y `yggdrasil_saga`, y no usa TLS. Revisar con la próxima release de Tempo |
+| `grafana/loki:3.7.9` | 1 (2026-11-20) | 0 | Go `golang.org/x/net` 0.61.0, corregido en 0.62.0. Mitigado por red: sin puertos publicados; a la API solo llegan Odín y Mimir por `heimdall`, y nidavellir por la puerta. Revisar con la próxima release de Loki |
+| `grafana/alloy:v1.21.3` | 3 (2026-11-20) | 0 | `apt` y `libapt-pkg` 2.8.3 de la base Ubuntu (Alloy no los usa en marcha) y `golang.org/x/net` 0.61.0. Gná no escucha en ningún puerto: solo sale hacia su proxy y hacia la puerta de Loki. Revisar con la próxima release de Alloy |
+| `wollomatic/socket-proxy:1.13.2` | 0 (2026-11-20) | 0 | — |
 | `yggdrasil/sleipnir:0.1.1` | 2 | 0 | OpenSSL pendiente de paquete Alpine |
 
 El residual, su exposición real y la política de aceptación están en `docs/03-implementation/cadena-suministro.md`.

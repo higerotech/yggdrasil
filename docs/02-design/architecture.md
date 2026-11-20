@@ -26,6 +26,7 @@ C4Container
     System_Ext(ntfy, "ntfy", "Servicio de push", "Avisos al movil por un tema privado")
     System_Ext(bragi, "Bragi", "Jellyfin, repo higerotech/bragi", "En nidavellir; sus metricas las sirve el Thor de alli en :9471")
     System_Ext(gateway, "Gateway de mensajeria", "jeremialcala/hive", "Emite sus trazas por OTLP")
+    System_Ext(gna, "Gna", "Grafana Alloy en nidavellir", "Lleva los logs de Hive y de su plataforma; lee Docker por un proxy de solo lectura (ADR-0013)")
     System_Ext(host, "Host midgard", "Ubuntu 24.04, systemd", "yggdrasil-thor.sh escribe host.prom: SMART, montajes, ruta, servicios, respaldos")
     System_Boundary(yggdrasil, "Yggdrasil — Docker Compose") {
         Container_Boundary(heimdall, "Heimdall — Monitor SLA") {
@@ -37,6 +38,7 @@ C4Container
             Container(grafana, "Odín", "Grafana", "Dashboards SLI/SLO comparativos", $tags="owasp-a01")
         }
         ContainerDb(saga, "Saga", "Grafana Tempo 3.1, servicio de plataforma", "Trazas OTLP, 15 dias en el SSD (ADR-0008)")
+        ContainerDb(loki, "Loki", "Grafana Loki 3.7, servicio de plataforma", "Logs de Hive, 90 dias en el SSD, sin borrado por API (ADR-0013)")
         Container(nodered, "Nornas", "Node-RED 4, servicio de plataforma", "Puente de alertas a MQTT y push; editor autenticado en la LAN", $tags="owasp-a01")
         ContainerQueue(mqtt, "Ratatosk", "Mosquitto 2, servicio de plataforma", "Bus de eventos con auth por cliente y ACL por topico")
     }
@@ -54,6 +56,9 @@ C4Container
     Rel(grafana, saga, "Consulta trazas", "HTTP 3200, red heimdall")
     Rel(prom, saga, "Scrapea", "HTTP 3200")
     Rel(gateway, saga, "Envia trazas", "OTLP/HTTP 4318, red yggdrasil_saga")
+    Rel(grafana, loki, "Consulta logs", "HTTP 3100, red heimdall")
+    Rel(prom, loki, "Scrapea", "HTTP 3100")
+    Rel(gna, loki, "Envia logs", "HTTP 3100 por la LAN, puerta que solo acepta a nidavellir")
     Rel(am, nodered, "Notifica por webhook", "HTTP JSON + Bearer, red interna")
     Rel(nodered, mqtt, "Publica estado en", "MQTT 1883 auth, retained")
     Rel(jeremi, grafana, "Consulta", "HTTPS LAN / WireGuard")

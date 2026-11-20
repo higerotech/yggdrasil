@@ -1,0 +1,89 @@
+# Gná en nidavellir (ADR-0013): lleva a Loki, en midgard, los logs de Hive y de su plataforma. Loki se consulta desde
+# Odín.
+#
+#   sudo install -D -m 0644 gna.yml /srv/apps/yggdrasil-gna/gna.yml
+#   sudo install -D -m 0644 gna/config.alloy /srv/apps/yggdrasil-gna/gna/config.alloy
+#   sudo docker compose -f /srv/apps/yggdrasil-gna/gna.yml -p yggdrasil-gna up -d
+#
+# nidavellir no tiene un clon de este repo: los ficheros llegan por scp, como el relé de Saga (deploy/cd/README.md,
+# «Loki desde nidavellir»). Thor vigila los dos contenedores con el resto (THOR_CONTENEDORES en
+# /etc/default/yggdrasil-thor).
+#
+# Dos contenedores en una red interna propia, sin salida:
+# - gna-docker (wollomatic/socket-proxy) es el único que monta el socket de Docker, en solo lectura. Solo responde a
+#   gna, y solo a GET y HEAD de la lista de contenedores, la inspección de uno y sus logs. Nada de /archive ni
+#   /export, que sacarían ficheros de los contenedores, ni de POST.
+# - gna (Grafana Alloy) habla con gna-docker y con la puerta de Loki en midgard. No toca el socket.
+services:
+  gna-docker:
+    image: wollomatic/socket-proxy:1.13.2@sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
+    container_name: yggdrasil-gna-docker
+    restart: unless-stopped            # RNF02: vuelve solo tras un corte de energía
+    security_opt:
+      - no-new-privileges:true
+    # nobody, con el grupo docker de nidavellir (983) para leer el socket
+    user: "65534:${DOCKER_GID:-983}"
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 32m
+    pids_limit: 64
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - "-loglevel=warn"
+      - "-listenip=0.0.0.0"
+      - "-allowfrom=gna"
+      # Las expresiones van ancladas al principio y al final (las ancla el proxy). La ruta no incluye la consulta.
+      # /networks es la lista de redes, que discovery.docker pide para sus etiquetas.
+      - "-allowGET=(/v[0-9.]+)?/(_ping|version|networks|containers/json|containers/[a-zA-Z0-9_.-]+/(json|logs))"
+      - "-allowHEAD=(/v[0-9.]+)?/_ping"
+      - "-allowhealthcheck"
+      - "-watchdoginterval=600"
+      - "-stoponwatchdog"
+      - "-shutdowngracetime=5"
+    healthcheck:
+      test: ["CMD", "./healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [gna-interna]
+
+  gna:
+    image: grafana/alloy:v1.21.3@sha256:8ab871206bd2d8f89277f53abffee5f452a293980788d52f85fa183a87a505a4
+    container_name: yggdrasil-gna
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "473:473"                    # alloy, el usuario de la imagen
+    cap_drop: [ALL]
+    read_only: true
+    mem_limit: 256m
+    pids_limit: 128
+    logging: *logging
+    environment:
+      GNA_LOKI_URL: "http://${LOKI_MIDGARD:-192.168.10.1}:3100/loki/api/v1/push"
+      GOMEMLIMIT: "200MiB"
+    # La interfaz de depuración de Alloy queda en el loopback del contenedor: no se publica.
+    command: ["run", "/etc/alloy/config.alloy", "--storage.path=/var/lib/alloy/data", "--server.http.listen-addr=127.0.0.1:12345"]
+    volumes:
+      - ./gna:/etc/alloy:ro
+      - gna-datos:/var/lib/alloy/data
+    tmpfs:
+      - /tmp
+    depends_on: [gna-docker]
+    networks: [gna-interna, gna-salida]
+
+networks:
+  # Solo gna y su proxy: sin salida, y nadie más la alcanza.
+  gna-interna:
+    internal: true
+  # Para llegar a la puerta de Loki en midgard.
+  gna-salida: {}
+
+volumes:
+  gna-datos:

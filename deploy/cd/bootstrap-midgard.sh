@@ -130,6 +130,15 @@ else
   echo "   AVISO: /srv/rapido no está montado; Saga no arrancará hasta que lo esté y se repita este paso"
 fi
 
+echo "== 5f2. Loki: los logs de Hive en el SSD (ADR-0013)"
+# Igual que Saga: solo dentro del SSD. 10001 es también el usuario de la imagen de Loki.
+if findmnt -rn /srv/rapido >/dev/null 2>&1; then
+  install -d -o 10001 -g 10001 -m 0750 /srv/rapido/loki
+  echo "   /srv/rapido/loki listo ($(stat -c '%U:%G %a' /srv/rapido/loki 2>/dev/null))"
+else
+  echo "   AVISO: /srv/rapido no está montado; Loki no arrancará hasta que lo esté y se repita este paso"
+fi
+
 echo "== 5g. Revisiones programadas de decisiones (ADR-0009: tunel PIA, 2026-11-20)"
 install -m 0755 "$APP_DIR/deploy/cd/revisar-adr-0009.sh" /usr/local/sbin/revisar-adr-0009.sh
 for u in yggdrasil-revision-adr-0009.service yggdrasil-revision-adr-0009.timer; do

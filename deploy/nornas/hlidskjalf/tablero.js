@@ -26,6 +26,9 @@
         "yggdrasil-node-red": "Nornas",
         "yggdrasil-host-metrics": "Thor",
         "yggdrasil-tempo": "Saga",
+        "yggdrasil-loki": "Loki",
+        // En nidavellir (ADR-0013): Thor los vigila con THOR_CONTENEDORES
+        "yggdrasil-gna": "Gná",
         // De /srv/infra, fuera del proyecto: Thor los vigila con THOR_CONTENEDORES
         "andvari-openbao": "Andvari",
         "bifrost-nats": "Bifröst",
