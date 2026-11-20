@@ -9,6 +9,12 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+## [0.5.28] - 2026-11-20
+
+**Los logs de Hive salen de nidavellir.** Loki los guarda 90 días en el SSD de midgard, sin borrado por API, y Odín
+los consulta junto a las métricas y las trazas. Gná los lleva desde nidavellir, leyendo Docker por un proxy que solo
+le deja leer.
+
 ### Añadido
 
 - **Loki y Gná: los logs de Hive y de su plataforma, 90 días en midgard** (ADR-0013; HIG-140 de Hive, punto 3).
@@ -1042,7 +1048,8 @@ Primer corte: Gate 0 (Requirements) aprobado. Incluye las fases 00 y 01 en `appr
 - Contratos nuevos en `architecture.md`: recording rules `wan:up`, `hogar:up`, `wan:disponibilidad:30d`, `hogar:disponibilidad:30d` y `wan:apto_llamadas`; tabla de alertas (`WanCaida`, `WanDegradada`, `WanNoAptaLlamadas`, `WanThroughputBajo`); tópicos MQTT `midgard/wan/<id>/apto_llamadas` y `midgard/hogar/internet/estado`.
 - Repositorio publicado en `higerotech/yggdrasil` con GitFlow: `README.md`, `.gitignore`, `.gitattributes` (LF) y `gitflow-guard.yml`; `main` protegida por ruleset (solo PR con merge commit desde `develop`, `release/*` o `hotfix/*`).
 
-[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...HEAD
+[Unreleased]: https://github.com/higerotech/yggdrasil/compare/v0.5.28...HEAD
+[0.5.28]: https://github.com/higerotech/yggdrasil/compare/v0.5.27...v0.5.28
 [0.5.27]: https://github.com/higerotech/yggdrasil/compare/v0.5.26...v0.5.27
 [0.5.26]: https://github.com/higerotech/yggdrasil/compare/v0.5.25...v0.5.26
 [0.5.25]: https://github.com/higerotech/yggdrasil/compare/v0.5.24...v0.5.25
