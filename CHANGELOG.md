@@ -9,6 +9,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Corregido
+
+- **`deploy/cd/README.md`, «Loki desde nidavellir»: falta reiniciar Odín.** Grafana solo lee el provisioning al
+  arrancar, y el despliegue de la 0.5.28 no lo recreó: el datasource «Loki» no apareció hasta un `restart odin` a mano.
+
 ## [0.5.28] - 2026-11-20
 
 **Los logs de Hive salen de nidavellir.** Loki los guarda 90 días en el SSD de midgard, sin borrado por API, y Odín

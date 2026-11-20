@@ -437,7 +437,13 @@ llegan con la release, porque `sync-net` lo recarga:
 ```bash
 cd /srv/apps/yggdrasil/deploy
 sudo env IMAGE_TAG=sha-<7> docker compose -f docker-compose.cd.yml -p yggdrasil up -d --no-deps loki loki-puerta
+sudo env IMAGE_TAG=sha-<7> docker compose -f docker-compose.cd.yml -p yggdrasil restart odin
 ```
+
+Odín necesita el `restart`: Grafana solo lee el provisioning al arrancar, y su compose no cambia, así que ni el
+despliegue ni el `up -d` lo recrean. Sin él, el datasource «Loki» no aparece. En el log de Odín debe salir
+`inserting datasource from configuration` con `name=Loki`. Pasa lo mismo con cualquier datasource nuevo que llegue
+por un directorio ya montado.
 
 **En nidavellir, una vez.** No tiene un clon del repo: los ficheros llegan por `scp` y viven en
 `/srv/apps/yggdrasil-gna/`.
