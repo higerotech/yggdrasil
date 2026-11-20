@@ -23,6 +23,11 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
     de promtool.
   - **Tablero «Hive · SLO»** en Odín, carpeta Hive. El de seguridad deja de contar las alertas del SLO.
 
+### Corregido
+
+- **`deploy/cd/README.md`, «Loki desde nidavellir»: falta reiniciar Odín.** Grafana solo lee el provisioning al
+  arrancar, y el despliegue de la 0.5.28 no lo recreó: el datasource «Loki» no apareció hasta un `restart odin` a mano.
+
 ## [0.5.28] - 2026-11-20
 
 **Los logs de Hive salen de nidavellir.** Loki los guarda 90 días en el SSD de midgard, sin borrado por API, y Odín
