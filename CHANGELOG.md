@@ -9,6 +9,20 @@ y este proyecto se adhiere a [Versionado Semántico](https://semver.org/lang/es/
 
 > Gate 4 (Deployment) abierto el 2026-10-19 sobre el sistema que opera en midgard desde la 0.4.0.
 
+### Añadido
+
+- **El SLO de Hive: hive-api y hive-webhook, disponibles el 99,5 % en 30 días** (HIG-140 de Hive, punto 4; decisión de
+  Jeremi del 2026-11-20). Hasta ahora Mimir no medía la disponibilidad ni la latencia de Hive, y su tráfico real (unas
+  60 peticiones por semana) no basta para medirlas.
+  - **Sondas desde fuera** (job `hive_externo`, módulo `https_hive_salud`): el `/health` de los dos por Cloudflare, el
+    camino de los clientes y de Meta, cada 15 s. Exigen el cuerpo de Hive, no solo el 200. Cuando midgard no tiene
+    ruta, no cuentan.
+  - **Reglas** (`rules/hive-slo.yml`): disponibilidad y presupuesto de 30 días, y latencia (el 99 % de las respuestas
+    en menos de 1 s). Avisan por quema del presupuesto, de ventana doble: `HiveSLOQuemaRapida` (critical),
+    `HiveSLOQuemaLenta`, `HiveSLOPresupuestoAgotado`, `HiveLatenciaFueraDeSLO` y `HiveSLOSinSondas`, con 7 pruebas
+    de promtool.
+  - **Tablero «Hive · SLO»** en Odín, carpeta Hive. El de seguridad deja de contar las alertas del SLO.
+
 ### Corregido
 
 - **`deploy/cd/README.md`, «Loki desde nidavellir»: falta reiniciar Odín.** Grafana solo lee el provisioning al

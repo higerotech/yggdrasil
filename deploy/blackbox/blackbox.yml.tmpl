@@ -93,3 +93,16 @@ modules:
       follow_redirects: false
       fail_if_not_ssl: true
       fail_if_body_not_matches_regexp: ['^ok']
+
+  # Hive desde fuera (SLO de HIG-140): el `/health` de hive-api y de hive-webhook por Cloudflare, el camino
+  # de los clientes y de Meta. Igual que la de Zitadel, exige el cuerpo de Hive y no solo el 200.
+  https_hive_salud:
+    prober: http
+    timeout: 10s
+    http:
+      preferred_ip_protocol: ip4
+      ip_protocol_fallback: false
+      valid_status_codes: [200]
+      follow_redirects: false
+      fail_if_not_ssl: true
+      fail_if_body_not_matches_regexp: ['"status": ?"ok"']

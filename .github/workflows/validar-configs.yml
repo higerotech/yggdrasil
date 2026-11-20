@@ -53,13 +53,14 @@ jobs:
       - name: promtool check config y rules
         run: |
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check config /etc/prometheus/prometheus.yml
-          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml /etc/prometheus/rules/hive-alertas.yml /etc/prometheus/rules/loki-alertas.yml /etc/prometheus/rules/recordatorios.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" check rules /etc/prometheus/rules/heimdall-recording.yml /etc/prometheus/rules/heimdall-alertas.yml /etc/prometheus/rules/bragi-alertas.yml /etc/prometheus/rules/thor-alertas.yml /etc/prometheus/rules/saga-alertas.yml /etc/prometheus/rules/fafnir-alertas.yml /etc/prometheus/rules/hive-alertas.yml /etc/prometheus/rules/hive-slo.yml /etc/prometheus/rules/loki-alertas.yml /etc/prometheus/rules/recordatorios.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/thor-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/wan-up.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/perdida.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/saga-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/fafnir-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/hive-alertas.test.yml
+          docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/hive-slo.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/loki-alertas.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/throughput.test.yml
           docker run --rm -v "$PWD/deploy/prometheus:/etc/prometheus:ro" --entrypoint promtool "$PROM" test rules /etc/prometheus/tests/recordatorios.test.yml
@@ -87,6 +88,7 @@ jobs:
         run: |
           python3 -m json.tool deploy/grafana/dashboards/heimdall-sla.json > /dev/null
           python3 -m json.tool deploy/grafana/dashboards-hive/hive-seguridad.json > /dev/null
+          python3 -m json.tool deploy/grafana/dashboards-hive/hive-slo.json > /dev/null
           python3 deploy/nornas/generar-flujo.py
           git diff --exit-code -- deploy/nornas/flows/   # el JSON committeado debe salir de src/*.js
       - name: Configs renderizadas montadas como directorio (blackbox real, con control negativo)
